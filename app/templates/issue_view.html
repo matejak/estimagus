@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>Estimate</h1>
+    <form action="" method="post" novalidate>
+        {{ form.hidden_tag() }}
+        <p>
+            {{ form.optimistic.label }}<br>
+            {{ form.optimistic(size=4) }}
+        </p>
+        <p>
+            {{ form.most_likely.label }}<br>
+            {{ form.most_likely(size=4) }}
+        </p>
+        <p>
+            {{ form.pessimistic.label }}<br>
+            {{ form.pessimistic(size=4) }}
+        </p>
+        <p>{{ form.submit() }}</p>
+    </form>
+{% endblock %}
