@@ -1,21 +1,53 @@
 {% extends "base.html" %}
 
+{% import "utils.j2" as utils %}
+
 {% block content %}
     <h1>Estimate</h1>
+    <h2>{{ task.title }}</h2>
+    <div>{{ task.description | safe }}</div>
+    <h2>Estimation</h2>
+    <h3>Authoritative values</h3>
+    <p>
+        <p>Point cost: {{ task.point_cost }}</p>
+        <p>Time cost: {{ task.time_cost }}{% if task.TIME_UNIT %} {{ task.TIME_UNIT }} -{% endif %}</p>
+    </p>
     <form action="" method="post" novalidate>
         {{ form.hidden_tag() }}
         <p>
+        <h3>User estimation</h3>
+        <p>
+        User '{{ user.get_id() }}'
+        </p>
+        <div>
             {{ form.optimistic.label }}<br>
             {{ form.optimistic(size=4) }}
-        </p>
-        <p>
+        </div>
+        <div>
             {{ form.most_likely.label }}<br>
             {{ form.most_likely(size=4) }}
-        </p>
-        <p>
+        </div>
+        <div>
             {{ form.pessimistic.label }}<br>
             {{ form.pessimistic(size=4) }}
+        </div>
         </p>
         <p>{{ form.submit() }}</p>
     </form>
+    {%- if estimate %}
+    <p>
+        <p>Point expected value: {{ "%.3g" % estimate.expected }}</p>
+        <p>Point stdev: {{ "%.3g" % estimate.sigma }}</p>
+    </p>
+    {%- if similar_sized_tasks %}
+    <h4>Tasks of similar sizes</h4>
+    <p>
+    <ul>
+    {%- for t in similar_sized_tasks %}
+    <li>{{ utils.task_link(t)}} &mdash; {{ "%.3g, 𝜎 = %.2g" % (t.point_estimate.expected, t.point_estimate.sigma) }}</li>
+    {%- endfor %}
+    </ul>
+    </p>
+    {%- endif %}
+    {%- endif %}
 {% endblock %}

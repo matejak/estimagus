@@ -15,16 +15,6 @@ def localize_event(
     return (evt - start).days
 
 
-def process_events(timeline, start, events):
-    events = sorted(events, key=lambda x: x.time, reverse=True)
-    for e in events:
-        index = localize_event(start, e.time)
-        if index >= len(timeline):
-            msg = "Event outside of the timeline"
-            raise ValueError(msg)
-        timeline[0:index + 1] = e.value
-
-
 class Event:
     time: datetime.datetime
 
@@ -46,7 +36,7 @@ class Timeline:
         period = end - start
         self._data = np.zeros(period.days + 1)
 
-    def recreate_with_value(self, value, dtype=np.float):
+    def recreate_with_value(self, value, dtype=float):
         self._data = np.empty_like(self._data, dtype=dtype)
         self._data[:] = value
 
@@ -56,12 +46,18 @@ class Timeline:
 
     def process_events(self, events):
         events = sorted(events, key=lambda x: x.time, reverse=True)
-        for e in events:
+        indices = np.empty(len(events), dtype=int)
+        for i, e in enumerate(events):
             index = localize_event(self.start, e.time)
+            indices[i] = index
             if index >= len(self._data):
                 msg = "Event outside of the timeline"
                 raise ValueError(msg)
-            self._data[0:index + 1] = e.value
+            self._data[0:index] = e.value
+
+        for i, e in enumerate(events[::-1]):
+            index = indices[-1 - i]
+            self._data[index] = e.value
 
     def set_value_at(self, time: datetime.datetime, value):
         index = localize_event(self.start, time)
@@ -159,9 +155,9 @@ class MPLPlot:
         self.aggregation = a
         empty_array = np.zeros(a.days)
         self.styles = [
-            (State.todo, empty_array.copy(), "black"),
-            (State.in_progress, empty_array.copy(), "grey"),
-            (State.review, empty_array.copy(), "yellow"),
+            (State.todo, empty_array.copy(), (0.1, 0.1, 0.5, 1)),
+            (State.in_progress, empty_array.copy(), (0.1, 0.1, 0.6, 0.8)),
+            (State.review, empty_array.copy(), (0.1, 0.2, 0.7, 0.6)),
         ]
 
     def _prepare_plots(self, up_to_date):
@@ -172,7 +168,7 @@ class MPLPlot:
     def _plot_bars(self, ax):
         width = 1.0
         days = np.arange(self.aggregation.days)
-        bottom = np.zeros_like(days, dtype=np.float)
+        bottom = np.zeros_like(days, dtype=float)
         for status, array, color in self.styles:
             ax.bar(days, array, width, bottom=bottom, label=status, color=color)
             bottom += array
@@ -182,6 +178,7 @@ class MPLPlot:
     def plot_stuff(self, up_to_date):
         import matplotlib.pyplot as plt
         fig, ax = plt.subplots()
+        ax.grid(True)
 
         self._prepare_plots(up_to_date)
         self._plot_bars(ax)

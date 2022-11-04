@@ -1,0 +1,32 @@
+{% macro render_whatever(target, model) %}
+<li>
+{% if target.dependents %}
+{{ render_epic(target, model) }}
+{% else %}
+{{ render_task(target, model) }}
+{% endif %}
+</li>
+{% endmacro %}
+
+{% macro task_link(task) -%}
+        <a href="{{ url_for("main.estimate", task_name=task.name) }}">{{ task.name }}</a>
+{%- endmacro %}
+
+{% macro epic_link(epic) -%}
+        <a href="{{ url_for("main.view", epic_name=epic.name) }}">{{ epic.name }}</a>
+{%- endmacro %}
+
+{% macro render_task(task, model) %}
+        {{ task_link(task) }} &mdash; {{ task.title }}
+        Estimates: {{ "%.3g" % model.point_estimate_of(task.name).expected }}
+{% endmacro %}
+
+{% macro render_epic(epic, model) %}
+        {{ epic_link(epic) }} &mdash; {{ epic.title }}
+        Cumulative estimates: {{ "%.3g" % model.point_estimate_of(epic.name).expected }}
+            {% for target in epic.dependents %}
+        <ul>
+            {{ render_whatever(target, model) }}
+        </ul>
+            {% endfor %}
+{% endmacro %}

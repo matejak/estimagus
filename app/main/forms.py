@@ -6,7 +6,6 @@ from wtforms.validators import DataRequired
 
 class LoginForm(FlaskForm):
     username = StringField('Username', validators=[DataRequired()])
-    password = PasswordField('Password', validators=[DataRequired()])
     remember_me = BooleanField('Remember Me')
     submit = SubmitField('Sign In')
     
@@ -18,11 +17,11 @@ class NumberEstimationForm(FlaskForm):
     optimistic = wtforms.DecimalField("Optimistic")
     most_likely = wtforms.DecimalField("Most Likely")
     pessimistic = wtforms.DecimalField("Pessimistic")
-    submit = SubmitField("Save")
+    submit = SubmitField("Save Estimate")
 
 
 class PointEstimationForm(FlaskForm):
     optimistic = wtforms.SelectField("Optimistic", choices=FIB)
     most_likely = wtforms.SelectField("Most Likely", choices=FIB)
     pessimistic = wtforms.SelectField("Pessimistic", choices=FIB)
-    submit = SubmitField("Save")
+    submit = SubmitField("Save Estimate")

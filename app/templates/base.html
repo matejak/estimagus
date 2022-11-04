@@ -2,13 +2,20 @@
 <html>
     <head>
       {% if title %}
-      <title>{{ title }}</title>
+      <title>Estimage &mdash; {{ title }}</title>
       {% else %}
-      <title>No Title</title>
+      <title>Estimage</title>
       {% endif %}
     </head>
     <body>
-        <div>Flaform: <a href="/index">Home</a></div>
+        <div>
+          Flaform: <a href="{{ url_for("main.tree_view") }}">Tree view</a>
+          {% if authenticated_user %}
+          Logged in as {{ authenticated_user.get_id() }}
+          {% else %}
+          <a href="{{ url_for("main.login") }}">Login</a>
+          {% endif %}
+        </div>
         <hr>
         {% block content %}{% endblock %}
     </body>
