@@ -67,7 +67,7 @@ def test_composition():
     assert c.point_estimate.expected == 6
     c2.mask()
     assert c.point_estimate.expected == 2
-    e1.unmask()
+    c2.unmask()
     assert c.point_estimate.expected == 6
 
 

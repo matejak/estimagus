@@ -188,22 +188,50 @@ class Estimate:
 @dataclasses.dataclass(init=False)
 class TaskModel:
     name: str
-    time_estimate: Estimate
-    point_estimate: Estimate
+    _time_estimate: Estimate
+    _point_estimate: Estimate
+    masked: bool
 
     def __init__(self, name):
         self.name = name
         self.nullify()
+        self.masked = False
+
+    def mask(self):
+        self.masked = True
+
+    def unmask(self):
+        self.masked = False
+
+    @property
+    def time_estimate(self):
+        if self.masked:
+            return Estimate(0, 0)
+        return self._time_estimate
+
+    @time_estimate.setter
+    def time_estimate(self, value: Estimate):
+        self._time_estimate = value
 
     def set_time_estimate(self, most_likely, optimistic, pessimistic):
-        self.time_estimate = Estimate.from_triple(most_likely, optimistic, pessimistic)
+        self._time_estimate = Estimate.from_triple(most_likely, optimistic, pessimistic)
+
+    @property
+    def point_estimate(self):
+        if self.masked:
+            return Estimate(0, 0)
+        return self._point_estimate
+
+    @point_estimate.setter
+    def point_estimate(self, value: Estimate):
+        self._point_estimate = value
 
     def set_point_estimate(self, most_likely, optimistic, pessimistic):
-        self.point_estimate = Estimate.from_triple(most_likely, optimistic, pessimistic)
+        self._point_estimate = Estimate.from_triple(most_likely, optimistic, pessimistic)
 
     def nullify(self):
-        self.time_estimate = Estimate(0, 0)
-        self.point_estimate = Estimate(0, 0)
+        self._time_estimate = Estimate(0, 0)
+        self._point_estimate = Estimate(0, 0)
 
     def save(self):
         raise NotImplementedError()
@@ -234,15 +262,25 @@ class Composition:
     elements: typing.List[TaskModel]
     compositions: typing.List["Composition"]
     name: str
+    masked: bool
 
     def __init__(self, name):
         self.elements = []
         self.compositions = []
         self.name = name
+        self.masked = False
+
+    def mask(self):
+        self.masked = True
+
+    def unmask(self):
+        self.masked = False
 
     @property
     def time_estimate(self):
         start = Estimate(0, 0)
+        if self.masked:
+            return start
         for e in self.elements:
             start += e.time_estimate
         for c in self.compositions:
@@ -252,6 +290,8 @@ class Composition:
     @property
     def point_estimate(self):
         start = Estimate(0, 0)
+        if self.masked:
+            return start
         for e in self.elements:
             start += e.point_estimate
         for c in self.compositions:
