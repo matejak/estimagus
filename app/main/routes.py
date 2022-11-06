@@ -1,11 +1,18 @@
+import io
+
 import flask
 import flask_login
+import matplotlib
 
 from . import bp
 from .forms import LoginForm, PointEstimationForm, NumberEstimationForm
 from .. import data
 from .. import simpledata
 from ..users import User
+
+
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 
 
 def render_template(template_basename, title, **kwargs):
@@ -34,22 +41,25 @@ def tell_pollster_about_obtained_data(pollster, task_id, form_data):
     pollster.tell_points(task_id, est)
 
 
-def ask_pollster_of_existing_data(pollster, task_id, form_data):
+def ask_pollster_of_existing_data(pollster, task_id):
     task_estimates = pollster.ask_points(task_id)
-    estimation_arg = dict()
-    if task_estimates:
-        form_data.optimistic.data = task_estimates.optimistic
-        form_data.most_likely.data = task_estimates.most_likely
-        form_data.pessimistic.data = task_estimates.pessimistic
+    if not task_estimates:
+        return None
 
-        est = data.Estimate.from_triple(
-            float(task_estimates.most_likely),
-            float(task_estimates.optimistic),
-            float(task_estimates.pessimistic))
+    est = data.Estimate.from_triple(
+        float(task_estimates.most_likely),
+        float(task_estimates.optimistic),
+        float(task_estimates.pessimistic))
 
-        estimation_arg["estimate"] = est
+    return est
 
-    return estimation_arg
+
+def feed_estimation_to_form_and_arg_dict(estimation, form_data, arg_dict):
+    form_data.optimistic.data = estimation.source.optimistic
+    form_data.most_likely.data = estimation.source.most_likely
+    form_data.pessimistic.data = estimation.source.pessimistic
+
+    arg_dict["estimate"] = estimation
 
 
 def retreive_task(task_id):
@@ -76,7 +86,11 @@ def estimate(task_name):
         return flask.redirect(flask.url_for("main.estimate", task_name=task_name))
 
     t = retreive_task(task_name)
-    estimation_args = ask_pollster_of_existing_data(pollster, task_name, form)
+    estimation_args = dict()
+    estimation = ask_pollster_of_existing_data(pollster, task_name)
+    if estimation:
+        feed_estimation_to_form_and_arg_dict(estimation, form, estimation_args)
+
     if estimation_args:
         supply_similar_tasks(user_id, task_name, estimation_args)
     return render_template(
@@ -95,6 +109,46 @@ def view(epic_name):
 
     return render_template(
         'epic_view.html', title='View epic', epic=t, estimate=model.point_estimate_of(epic_name))
+
+
+def send_figure_as_png(figure, filename):
+    bytesio = io.BytesIO()
+    figure.savefig(bytesio, format="png")
+    bytesio.seek(0)
+
+    return flask.send_file(bytesio, download_name=filename, mimetype="image/png")
+
+
+def get_pert_in_figure(estimation, task_name):
+    pert = estimation.get_pert()
+
+    fig, ax = plt.subplots(1, 1)
+    ax.plot(pert[0], pert[1], 'b-', lw=2, label=f'task {task_name}')
+    ax.axvline(estimation.expected, color="orange", label="expected value")
+    ax.set_xlabel("points")
+    ax.set_ylabel("probability density")
+    ax.set_yticklabels([])
+    ax.grid()
+    ax.legend()
+
+    return fig
+
+
+@flask_login.login_required
+@bp.route('/vis/<task_name>-pert.png')
+def visualize_task(task_name):
+    user = flask_login.current_user
+
+    user_id = user.get_id()
+    model = get_custom_model(user_id)
+    if task_name == ".":
+        estimation = model.main_composition.point_estimate
+    else:
+        estimation = model.point_estimate_of(task_name)
+
+    fig = get_pert_in_figure(estimation, task_name)
+
+    return send_figure_as_png(fig, f'{task_name}.png')
 
 
 def get_reduced_targets():

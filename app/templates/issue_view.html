@@ -39,6 +39,7 @@
         <p>Point expected value: {{ "%.3g" % estimate.expected }}</p>
         <p>Point stdev: {{ "%.3g" % estimate.sigma }}</p>
     </p>
+    <img src="{{ url_for('main.visualize_task', task_name=task.name) }}" alt="PERT prob density function for {{ task.name }}"/>
     {%- if similar_sized_tasks %}
     <h4>Tasks of similar sizes</h4>
     <p>

@@ -1,6 +1,7 @@
 import math
 
 import pytest
+import numpy as np
 
 import app.data as tm
 
@@ -22,6 +23,7 @@ def test_storage():
     assert el.format_time_cost(8.2) == "8 pw"
 
 
+@pytest.mark.dependency
 def test_estimate():
     est = tm.Estimate.from_triple(4, 3, 6)
     assert est.expected > 4
@@ -37,6 +39,66 @@ def test_estimate():
     est_broad = tm.Estimate.from_triple(4, 2, 6)
     assert est_centered.rank_distance(est) > est_broad.rank_distance(est)
     assert est_centered.rank_distance(est) == est.rank_distance(est_centered)
+
+
+def index_of_value_in_array_closest_to(arr, value):
+    difference = np.abs(arr - value)
+    return np.argmin(difference)
+
+
+def pert_test_estimate(est):
+    pert = est.get_pert(100)
+    assert pert.shape == (2, 100)
+    assert pert[0][0] < est.source.optimistic
+    assert pert[0][-1] > est.source.pessimistic
+    assert pytest.approx(pert[1].sum() * (pert[0][1] - pert[0][0])) == 1
+    index_of_most_likely = np.argmax(pert[1])
+    assert est.source.most_likely == pytest.approx(pert[0][index_of_most_likely], 0.05)
+    assert est.expected == pytest.approx(tm.pert_compute_expected_value(pert[0], pert[1]), 0.05)
+
+
+@pytest.mark.dependency(depends=["test_estimate"])
+def test_pert():
+    zero = tm.Estimate(0, 0)
+    one = tm.Estimate(1, 0)
+    zero_pert = zero.get_pert()
+    index_of_max = np.argmax(zero_pert[1])
+    assert zero_pert[0][index_of_max] == pytest.approx(0, abs=0.01)
+
+    optimistic = 3
+    most_likely = 4
+    pessimistic = 6
+    est = tm.Estimate.from_triple(most_likely, optimistic, pessimistic)
+    with pytest.raises(ValueError, match="size"):
+        est.get_pert(0)
+
+    pert = est.get_pert(1)
+    assert pert.shape == (2, 1)
+    assert est.source.pessimistic > pert[0][0] > est.source.optimistic
+    assert pert[1][0] == 1
+
+    pert_test_estimate(est)
+    est3 = tm.Estimate.from_triple(4, 3, 13)
+    pert_test_estimate(est3)
+
+    pert = est.get_pert(100)
+    est2 = tm.Estimate.from_pert(pert[0], pert[1])
+    assert est.expected == pytest.approx(est2.expected, 0.05)
+    assert est.sigma == pytest.approx(est2.sigma, 0.05)
+
+    assert pert[1].sum() == est.get_pert(201)[1].sum() * 0.5
+
+    est_identical = est.compose_with(zero)
+    assert est_identical.expected == est.expected
+    assert est_identical.sigma == est.sigma
+
+    est_shifted = est.compose_with(one)
+    assert est_shifted.expected == est.expected + 1
+    assert est_shifted.sigma == est.sigma
+
+    est_composite = est.compose_with(est3)
+    assert est3.expected + est.expected == pytest.approx(est_composite.expected, 0.05)
+    assert math.sqrt(est3.sigma ** 2 + est.sigma ** 2) == pytest.approx(est_composite.sigma, 0.05)
 
 
 def test_composition():

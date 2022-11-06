@@ -2,7 +2,6 @@ import scipy as sp
 import numpy as np
 
 import matplotlib.pyplot as plt
-fig, ax = plt.subplots(1, 1)
 
 
 class Pert:
@@ -68,7 +67,34 @@ def find_arg_quantile(values, quantile):
     return index
 
 
-pert = Pert(2, 4, 10)
+def plot_composed_perts():
+    fig, ax = plt.subplots(1, 1)
+    pert = Pert(2, 4, 10)
+
+    basesize = 500
+    dom = np.linspace(0, 12, basesize)
+    values = sp.stats.beta.pdf(dom, pert.beta_a, pert.beta_b, scale=pert.width, loc=pert.opt)
+    plot_beta(ax, dom, values, pert.expected)
+
+    double_pert = np.convolve(values, values)
+    dom_double_pert = np.linspace(0, 24, basesize * 2 - 1)
+    norm_prob_function(dom_double_pert, double_pert)
+    plot_beta(ax, dom_double_pert, double_pert, pert.expected * 2)
+
+    triple_pert = np.convolve(double_pert, values)
+    dom_triple_pert = np.linspace(0, 36, basesize * 3 - 2)
+    norm_prob_function(dom_triple_pert, triple_pert)
+    plot_beta(ax, dom_triple_pert, triple_pert, pert.expected * 3)
+
+    quad_pert = np.convolve(double_pert, double_pert)
+    dom_quad_pert = np.linspace(0, 48, basesize * 4 - 3)
+    norm_prob_function(dom_quad_pert, quad_pert)
+    plot_beta(ax, dom_quad_pert, quad_pert, pert.expected * 4)
+
+    ax.grid()
+    ax.legend()
+
+    plt.show()
 
 
 def plot_beta(ax, dom, values, expected):
@@ -80,28 +106,3 @@ def plot_beta(ax, dom, values, expected):
     print(f"diff of estimates: {expected - stats_expected}")
     get_quantile_boundaries(dom, values)
 
-
-basesize = 500
-dom = np.linspace(0, 12, basesize)
-values = sp.stats.beta.pdf(dom, pert.beta_a, pert.beta_b, scale=pert.width, loc=pert.opt)
-plot_beta(ax, dom, values, pert.expected)
-
-double_pert = np.convolve(values, values)
-dom_double_pert = np.linspace(0, 24, basesize * 2 - 1)
-norm_prob_function(dom_double_pert, double_pert)
-plot_beta(ax, dom_double_pert, double_pert, pert.expected * 2)
-
-triple_pert = np.convolve(double_pert, values)
-dom_triple_pert = np.linspace(0, 36, basesize * 3 - 2)
-norm_prob_function(dom_triple_pert, triple_pert)
-plot_beta(ax, dom_triple_pert, triple_pert, pert.expected * 3)
-
-quad_pert = np.convolve(double_pert, double_pert)
-dom_quad_pert = np.linspace(0, 48, basesize * 4 - 3)
-norm_prob_function(dom_quad_pert, quad_pert)
-plot_beta(ax, dom_quad_pert, quad_pert, pert.expected * 4)
-
-ax.grid()
-ax.legend()
-
-plt.show()
