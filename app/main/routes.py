@@ -7,6 +7,7 @@ import matplotlib
 from . import bp
 from .forms import LoginForm, PointEstimationForm, NumberEstimationForm
 from .. import data
+from .. import utilities
 from .. import simpledata
 from ..users import User
 
@@ -94,7 +95,8 @@ def estimate(task_name):
     if estimation_args:
         supply_similar_tasks(user_id, task_name, estimation_args)
     return render_template(
-        'issue_view.html', title='Estimate Issue', user=user, form=form, task=t, ** estimation_args)
+        'issue_view.html', title='Estimate Issue',
+        user=user, form=form, task=t, ** estimation_args)
 
 
 @flask_login.login_required
@@ -153,7 +155,7 @@ def visualize_task(task_name):
 
 def get_reduced_targets():
     all_targets = simpledata.Target.load_all_targets()
-    reduced_targets = data.reduce_subsets_from_sets(all_targets)
+    reduced_targets = utilities.reduce_subsets_from_sets(all_targets)
     return reduced_targets
 
 

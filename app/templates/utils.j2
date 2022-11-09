@@ -18,12 +18,12 @@
 
 {% macro render_task(task, model) %}
         {{ task_link(task) }} &mdash; {{ task.title }}
-        Estimates: {{ "%.3g" % model.point_estimate_of(task.name).expected }}
+        Estimates: {{ "%.3g" % model.point_estimate_of(task.name).expected }} sigma = {{ "%.3g" % model.point_estimate_of(task.name).sigma }}
 {% endmacro %}
 
 {% macro render_epic(epic, model) %}
         {{ epic_link(epic) }} &mdash; {{ epic.title }}
-        Cumulative estimates: {{ "%.3g" % model.point_estimate_of(epic.name).expected }}
+        Cumulative estimates: {{ "%.3g" % model.point_estimate_of(epic.name).expected }} sigma = {{ "%.3g" % model.point_estimate_of(epic.name).sigma }}
             {% for target in epic.dependents %}
         <ul>
             {{ render_whatever(target, model) }}

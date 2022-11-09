@@ -82,7 +82,7 @@ def test_pert():
     pert_test_estimate(est3)
 
     pert = est.get_pert(100)
-    est2 = tm.Estimate.from_pert(pert[0], pert[1])
+    est2 = tm.Estimate.from_input(tm.EstimInput.from_pert_only(pert[0], pert[1]))
     assert est.expected == pytest.approx(est2.expected, 0.05)
     assert est.sigma == pytest.approx(est2.sigma, 0.05)
 
@@ -99,6 +99,36 @@ def test_pert():
     est_composite = est.compose_with(est3)
     assert est3.expected + est.expected == pytest.approx(est_composite.expected, 0.05)
     assert math.sqrt(est3.sigma ** 2 + est.sigma ** 2) == pytest.approx(est_composite.sigma, 0.05)
+
+
+def _test_triple(o, m, p):
+    inp = tm.EstimInput(m)
+    inp.optimistic = o
+    inp.pessimistic = p
+
+    norm = tm.EstimInput(0).distance_from(inp)
+
+    estimate = tm.Estimate.from_input(inp)
+    pert = estimate.get_pert(800)
+    calculated_input = tm.EstimInput.from_pert_and_data(pert[0], pert[1], estimate.expected, estimate.sigma)
+    calculated_estimate = tm.Estimate.from_input(calculated_input)
+
+    assert pytest.approx(calculated_estimate.expected) == estimate.expected
+    assert pytest.approx(calculated_estimate.sigma) == estimate.sigma
+
+    assert pytest.approx(inp.distance_from(calculated_input), abs=norm * 2e-2) == 0
+
+
+@pytest.mark.dependency(depends=["test_pert"])
+def test_pert_inverse():
+    _test_triple(0, 0, 0)
+    _test_triple(1, 1, 1)
+    _test_triple(1, 2, 3)
+    _test_triple(2, 5, 5)
+    _test_triple(1, 2, 8)
+    _test_triple(2, 3, 20)
+    _test_triple(3, 8, 13)
+    _test_triple(5, 13, 21)
 
 
 def test_composition():
@@ -131,6 +161,19 @@ def test_composition():
     assert c.point_estimate.expected == 2
     c2.unmask()
     assert c.point_estimate.expected == 6
+
+
+def test_input():
+    estinp = tm.EstimInput(0)
+    estinp2 = tm.EstimInput(0.1)
+    estinp3 = tm.EstimInput(0.25)
+
+    assert estinp.distance_from(estinp) == 0
+    assert estinp2.distance_from(estinp2) == 0
+    assert estinp.distance_from(estinp2) > 0
+    assert estinp.distance_from(estinp2) == estinp2.distance_from(estinp)
+    assert (estinp.distance_from(estinp3)
+            < estinp.distance_from(estinp2) + estinp2.distance_from(estinp3))
 
 
 def test_supply():
@@ -319,17 +362,6 @@ def test_target():
     assert target.name == composition.compositions[0].elements[0].name
 
 
-@pytest.mark.dependency
-def test_set_reduction():
-    assert tm.reduce_subsets_from_sets([]) == []
-    assert tm.reduce_subsets_from_sets(["a"]) == ["a"]
-    assert tm.reduce_subsets_from_sets(["a", "a"]) == ["a"]
-    assert tm.reduce_subsets_from_sets(["a", "b"]) == ["a", "b"]
-    assert tm.reduce_subsets_from_sets(["a", "b", "axe"]) == ["b", "axe"]
-    assert tm.reduce_subsets_from_sets(["a", "axe", "b"]) == ["axe", "b"]
-
-
-@pytest.mark.dependency(depends=["test_set_reduction"])
 def test_targets_to_tree():
     null_tree = tm.BaseTarget.to_tree([])
     assert null_tree == tm.Composition("")
