@@ -17,9 +17,11 @@ def localize_event(
 
 class Event:
     time: datetime.datetime
+    task_name: str
 
-    def __init__(self, time):
+    def __init__(self, task_name, time):
         self.time = time
+        self.task_name = task_name
         self.value = None
 
     def __str__(self):
@@ -115,7 +117,7 @@ class Repre:
         return self.points_timeline.get_masked_values(mask)
 
     def fill_history_from(self, when):
-        init_event = Event(when)
+        init_event = Event("", when)
 
         init_event.value = self.points_timeline.value_at(when)
         self.points_timeline.process_events([init_event])
@@ -183,6 +185,8 @@ class MPLPlot:
         self._prepare_plots(up_to_date)
         self._plot_bars(ax)
         ax.legend()
+        ax.set_xlabel("time / days")
+        ax.set_ylabel("points")
 
         plt.show()
 

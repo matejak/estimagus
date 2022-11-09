@@ -1,4 +1,5 @@
 import datetime
+import collections
 
 import jinja2
 
@@ -62,12 +63,14 @@ def get_events(task, cutoff=None):
             former_value = event.fromString
 
             if field_name == "status":
-                evt = hist.Event(date)
+                evt = hist.Event(task.key, date)
                 evt.value = JIRA_STATUS_TO_STATE[former_value]
+                evt.msg = f"Status changed from '{former_value}' to '{event.toString}'"
                 result["status"].append(evt)
             elif field_name == STORY_POINTS:
-                evt = hist.Event(date)
+                evt = hist.Event(task.key, date)
                 evt.value = float(former_value or 0)
+                evt.msg = f"Points changed from {former_value} to {event.toString}"
                 result["points"].append(evt)
 
     return result
@@ -90,9 +93,9 @@ def our_plot(tasks):
         task_repre.update(today, points=points, status=status)
         task_repre.fill_history_from(today)
 
-        events = get_events(task, start)
-        task_repre.status_timeline.process_events(events["status"])
-        task_repre.points_timeline.process_events(events["points"])
+        events_lists = get_events(task, start)
+        task_repre.status_timeline.process_events(events_lists["status"])
+        task_repre.points_timeline.process_events(events_lists["points"])
         if points:
             print(f"{points} {task.key} - {task.get_field('summary')}")
 
@@ -110,7 +113,35 @@ class Task:
         self.status = str(task_obj.get_field("status"))
 
 
-TEMPLATE_HTML = """
+EVENTS_TEMPLATE_HTML = """
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Events</title>
+  </head>
+  <body>
+    <h1>Events summary</h1>
+    <ul>
+    {% for date in sorted_dates %}
+    <li>
+    {{ date }}
+    <ul>
+    {% for e in events_by_date[date] %}
+    <li>
+    <a href="https://issues.redhat.com/browse/{{ e.task_name }}">{{ e.task_name }}</a> &mdash; {{ e.msg }}
+    </li>
+    {% endfor %}
+    </ul>
+    </li>
+    {% endfor %}
+    </ul>
+  </body>
+</html>
+"""
+
+
+TASKS_TEMPLATE_HTML = """
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -132,7 +163,7 @@ TEMPLATE_HTML = """
 """
 
 
-def generate_html(tasks):
+def generate_tasks_html(tasks_by_name):
     start = datetime.datetime(2022, 10, 1)
     end = datetime.datetime(2022, 12, 1)
 
@@ -140,7 +171,7 @@ def generate_html(tasks):
 
     aggregation = hist.Aggregation()
 
-    sorted_tasks = [tasks[key] for key in sorted(tasks.keys())]
+    sorted_tasks = [tasks_by_name[key] for key in sorted(tasks_by_name.keys())]
 
 
     tasks_with_points = []
@@ -157,8 +188,39 @@ def generate_html(tasks):
     )
 
     environment = jinja2.Environment()
-    template = environment.from_string(TEMPLATE_HTML)
+    template = environment.from_string(TASKS_TEMPLATE_HTML)
     content = template.render(data=data)
+    with open("index.html", "w") as f:
+        f.write(content)
+
+
+def get_linear_events(task, cutoff=None):
+    events_lists = get_events(task, cutoff)
+    ret = []
+    for e_list in events_lists.values():
+        ret.extend(e_list)
+    return ret
+
+
+def generate_events_html(tasks_by_name):
+    start = datetime.datetime(2022, 10, 1)
+    end = datetime.datetime(2022, 12, 1)
+
+    today = datetime.datetime.today()
+
+    aggregation = hist.Aggregation()
+
+    events = []
+    for t in tasks_by_name.values():
+        events.extend(get_linear_events(t, start))
+
+    events_by_date = collections.defaultdict(list)
+    for e in events:
+        events_by_date[str(e.time.date().isoformat())].append(e)
+
+    environment = jinja2.Environment()
+    template = environment.from_string(EVENTS_TEMPLATE_HTML)
+    content = template.render(events_by_date=events_by_date, sorted_dates=sorted(events_by_date.keys()))
     with open("index.html", "w") as f:
         f.write(content)
 
