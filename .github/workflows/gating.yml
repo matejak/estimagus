@@ -1,0 +1,37 @@
+name: Gating
+on:
+  push:
+    branches: [ 'main' ]
+  pull_request:
+    branches: [ 'main' ]
+jobs:
+  validate-ubuntu:
+    name: Build, Test on Ubuntu 22.04
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Install Deps
+        uses: mstksg/get-package@master
+        with:
+          apt-get: python3 \
+            python3-flask python3-flaskext.wtf \
+            python3-scipy python3-matplotlib \
+            python3-jira \
+            python3-pytest-dependency python3-pytest
+
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Test
+        run: python -m pytest --cov-report xml --cov app/
+        working-directory: ./build
+
+      - name: "Set git safe directory, ref: https://github.com/actions/checkout/issues/760"
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Upload coverage to Code Climate  # Requires: git package
+        if: ${{ github.repository == 'matejak/estimage' }}
+        uses: paambaati/codeclimate-action@v3.0.0
+        env:
+          CC_TEST_REPORTER_ID: 57a98db83a3e5456b34353aaafbf74f2af7fdf1d90d99a2874e52dc93d8e4752
+        with:
+          coverageLocations: coverage.xml:coverage.py
