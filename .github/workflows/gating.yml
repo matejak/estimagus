@@ -24,12 +24,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
-      - name: Test
-        run: python -m pytest --cov-report xml --cov app/
-        working-directory: ./build
-
       - name: "Set git safe directory, ref: https://github.com/actions/checkout/issues/760"
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Test
+        run: python3 -m pytest --cov-report xml --cov app/
 
       - name: Upload coverage to Code Climate  # Requires: git package
         if: ${{ github.repository == 'matejak/estimage' }}
