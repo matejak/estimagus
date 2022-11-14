@@ -12,10 +12,10 @@ jobs:
       - name: Install Deps
         uses: mstksg/get-package@master
         with:
-          apt-get: python3 \
-            python3-flask python3-flaskext.wtf \
-            python3-scipy python3-matplotlib \
-            python3-jira \
+          apt-get: python3
+            python3-flask python3-flaskext.wtf
+            python3-scipy python3-matplotlib
+            python3-jira
             python3-pytest-dependency python3-pytest
 
       - name: Checkout
