@@ -16,7 +16,10 @@ jobs:
             python3-flask python3-flaskext.wtf
             python3-scipy python3-matplotlib
             python3-jira
-            python3-pytest-dependency python3-pytest
+            python3-pytest python3-pip
+
+      - name: Install deps python
+        run: pip3 install pytest-dependency pytest-cov
 
       - name: Checkout
         uses: actions/checkout@v2
