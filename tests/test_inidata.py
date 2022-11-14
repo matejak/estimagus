@@ -26,14 +26,6 @@ def target_inifile(temp_filename):
     yield TmpIniTarget
 
 
-@pytest.fixture
-def pollster_inifile(temp_filename):
-    class TmpIniPollster(tm.IniPollster):
-        CONFIG_FILENAME = temp_filename
-
-    yield TmpIniPollster
-
-
 def test_require_name_for_saving(target_inifile):
     data = target_inifile()
     with pytest.raises(RuntimeError, match="blank"):
@@ -64,6 +56,7 @@ def test_save_something_load_same(target_inifile):
     data = target_inifile()
     data.name = "name"
     data.title = "title"
+    data.description = """A really\nnasty 'description' or "desc" %%boom!."""
     data.save_metadata()
 
     data2 = target_inifile.load_metadata("name")
@@ -97,15 +90,3 @@ def test_save_something2_load_same(target_inifile):
 
     assert data.name == data2.name
     assert data.title == data2.title
-
-
-def test_pollster_save_load(pollster_inifile):
-    data = pollster_inifile()
-    points = tm.data.EstimInput()
-    points.most_likely = 1
-    data.tell_points("first", points)
-
-    data2 = pollster_inifile()
-    points2 = data2.ask_points("first")
-
-    assert points.most_likely == points2.most_likely

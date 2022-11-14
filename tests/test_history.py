@@ -28,19 +28,19 @@ def test_events():
     index_late = 14
     assert tm.localize_event(start, evt_late) == index_late
 
-    event_early = tm.Event(evt_early)
+    event_early = tm.Event("", evt_early)
     event_early.value = 15
 
-    event_less_early = tm.Event(evt_less_early)
+    event_less_early = tm.Event("", evt_less_early)
     event_less_early.value = 17
 
-    event_late = tm.Event(evt_late)
+    event_late = tm.Event("", evt_late)
     event_late.value = 10
 
     timeline = tm.Timeline(start, end)
 
     with pytest.raises(ValueError):
-        timeline.process_events([tm.Event(evtx)])
+        timeline.process_events([tm.Event("", evtx)])
 
     timeline.process_events([event_early, event_late])
     assert timeline.value_at(end) == 0

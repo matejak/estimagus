@@ -6,39 +6,104 @@ import numpy as np
 import app.data as tm
 
 
-def test_storage():
-    el = tm.BaseTarget()
-    cost = el.point_cost
+@pytest.fixture
+def pw_target():
+    ret = tm.BaseTarget()
+    ret.TIME_UNIT = "pw"
+    return ret
+
+
+@pytest.mark.dependency(name="basic_target")
+def test_basic_target_properties(pw_target):
+    subject = pw_target
+    cost = subject.point_cost
     assert cost >= 0
 
-    cost2 = el.time_cost
+    cost2 = subject.time_cost
     assert cost2 >= 0
 
-    assert el.parse_point_cost("5") == 5
 
-    el.TIME_UNIT = "pw"
-    assert el.parse_time_cost("5pw") == 5
-    assert el.parse_time_cost("5 pw") == 5
+@pytest.mark.dependency(depends=["basic_target"])
+def test_target_value_parsing(pw_target):
+    subject = pw_target
+    assert subject.parse_point_cost("5") == 5
 
-    assert el.format_time_cost(8.2) == "8 pw"
+    subject.TIME_UNIT = "pw"
+    assert subject.parse_time_cost("5pw") == 5
+    assert subject.parse_time_cost("5 pw") == 5
+
+    assert subject.format_time_cost(8.2) == "8 pw"
+
+    subject.TIME_UNIT = "x"
+    with pytest.raises(ValueError):
+        subject.parse_time_cost("5pw")
+
+
+@pytest.fixture
+def estiminput_1():
+    return tm.EstimInput(1)
+
+@pytest.fixture
+def precise_estimate_1(estiminput_1):
+    return tm.Estimate.from_input(estiminput_1)
+
+
+@pytest.fixture
+def estiminput_2():
+    return tm.EstimInput(2)
+
+
+@pytest.fixture
+def precise_estimate_2(estiminput_2):
+    return tm.Estimate.from_input(estiminput_2)
+
+
+@pytest.fixture
+def centered_estimate_345():
+    return tm.Estimate.from_triple(4, 3, 5)
+
+
+@pytest.fixture
+def medium_estimate_346():
+    return tm.Estimate.from_triple(4, 3, 6)
+
+
+@pytest.fixture
+def broad_estimate_246():
+    return tm.Estimate.from_triple(4, 2, 6)
 
 
 @pytest.mark.dependency
-def test_estimate():
-    est = tm.Estimate.from_triple(4, 3, 6)
-    assert est.expected > 4
+def test_estimates(precise_estimate_1, centered_estimate_345, medium_estimate_346):
+    assert 6 > medium_estimate_346.expected > 4
+    assert precise_estimate_1.expected == 1
+    assert centered_estimate_345.expected == 4
 
-    assert est.rank_distance(est) == 0
 
-    certain_est = tm.Estimate.from_triple(1, 1, 1)
-    different_certain_est = tm.Estimate.from_triple(2, 2, 2)
-    assert certain_est.rank_distance(different_certain_est) == float("inf")
-    assert different_certain_est.rank_distance(certain_est) == float("inf")
+@pytest.mark.dependency(depends=["test_estimates"])
+def test_estimation_ranking_identity(medium_estimate_346):
+    assert medium_estimate_346.rank_distance(medium_estimate_346) == 0
 
-    est_centered = tm.Estimate.from_triple(4, 3, 5)
-    est_broad = tm.Estimate.from_triple(4, 2, 6)
-    assert est_centered.rank_distance(est) > est_broad.rank_distance(est)
-    assert est_centered.rank_distance(est) == est.rank_distance(est_centered)
+
+@pytest.mark.dependency(depends=["test_estimates"])
+def test_estimation_ranking_reflexivity(centered_estimate_345, broad_estimate_246):
+    assert (
+        centered_estimate_345.rank_distance(broad_estimate_246)
+        == broad_estimate_246.rank_distance(centered_estimate_345)
+    )
+
+
+@pytest.mark.dependency(depends=["test_estimates"])
+def test_estimation_ranking_distance_of_precise_estimates(precise_estimate_1, precise_estimate_2):
+    assert precise_estimate_1.rank_distance(precise_estimate_2) == float("inf")
+    assert precise_estimate_2.rank_distance(precise_estimate_1) == float("inf")
+
+
+@pytest.mark.dependency(depends=["test_estimates"])
+def test_estimation_ranking_overlap(centered_estimate_345, medium_estimate_346, broad_estimate_246):
+    distance_of_not_overlaping = centered_estimate_345.rank_distance(medium_estimate_346)
+    distance_of_overlaping = broad_estimate_246.rank_distance(medium_estimate_346)
+    assert distance_of_not_overlaping > distance_of_overlaping
 
 
 def index_of_value_in_array_closest_to(arr, value):
@@ -49,15 +114,23 @@ def index_of_value_in_array_closest_to(arr, value):
 def pert_test_estimate(est):
     pert = est.get_pert(100)
     assert pert.shape == (2, 100)
-    assert pert[0][0] < est.source.optimistic
-    assert pert[0][-1] > est.source.pessimistic
-    assert pytest.approx(pert[1].sum() * (pert[0][1] - pert[0][0])) == 1
+
+    pert_low_domain_boundary = pert[0][0]
+    assert pert_low_domain_boundary < est.source.optimistic
+    pert_great_domain_boundary = pert[0][-1]
+    assert pert_great_domain_boundary > est.source.pessimistic
+
+    surface_under_curve = pert[1].sum() * (pert[0][1] - pert[0][0])
+    assert pytest.approx(surface_under_curve) == 1
+
     index_of_most_likely = np.argmax(pert[1])
     assert est.source.most_likely == pytest.approx(pert[0][index_of_most_likely], 0.05)
-    assert est.expected == pytest.approx(tm.pert_compute_expected_value(pert[0], pert[1]), 0.05)
+
+    deduced_expected_value = tm.pert_compute_expected_value(pert[0], pert[1])
+    assert pytest.approx(deduced_expected_value, 0.05) == est.expected
 
 
-@pytest.mark.dependency(depends=["test_estimate"])
+@pytest.mark.dependency(depends=["test_estimates"])
 def test_pert():
     zero = tm.Estimate(0, 0)
     one = tm.Estimate(1, 0)
@@ -106,7 +179,7 @@ def _test_triple(o, m, p):
     inp.optimistic = o
     inp.pessimistic = p
 
-    norm = tm.EstimInput(0).distance_from(inp)
+    norm_of_input = tm.EstimInput(0).distance_from(inp)
 
     estimate = tm.Estimate.from_input(inp)
     pert = estimate.get_pert(800)
@@ -116,11 +189,11 @@ def _test_triple(o, m, p):
     assert pytest.approx(calculated_estimate.expected) == estimate.expected
     assert pytest.approx(calculated_estimate.sigma) == estimate.sigma
 
-    assert pytest.approx(inp.distance_from(calculated_input), abs=norm * 2e-2) == 0
+    assert pytest.approx(inp.distance_from(calculated_input), abs=norm_of_input * 2e-2) == 0
 
 
 @pytest.mark.dependency(depends=["test_pert"])
-def test_pert_inverse():
+def test_ability_to_deduce_source_triple_from_pert():
     _test_triple(0, 0, 0)
     _test_triple(1, 1, 1)
     _test_triple(1, 2, 3)
@@ -224,73 +297,6 @@ def test_supply():
     assert model2.point_estimate_of("baz").expected == 3
     assert model2.point_estimate_of("2").expected == 2
     assert model2.point_estimate.expected == 5
-
-
-def test_poll():
-    pollster = tm.MemoryPollster()
-
-    point_input = pollster.ask_points("foo")
-    assert point_input.most_likely == 0
-
-    hint = tm.EstimInput(1)
-
-    assert not pollster.knows_points("foo")
-    pollster.tell_points("foo", hint)
-    assert pollster.knows_points("foo")
-    point_input = pollster.ask_points("foo")
-
-    assert point_input.most_likely == 1
-
-
-def test_pollster_fills_in():
-    result = tm.TaskModel("esti")
-    pollster = tm.MemoryPollster()
-    pollster.tell_points("esti", tm.EstimInput(2))
-    pollster.inform_results([result])
-    assert result.point_estimate.expected == 2
-
-    estimodel = tm.EstiModel()
-    estimodel.new_element("esti")
-
-    all_results = estimodel.get_all_task_models()
-    pollster.inform_results(all_results)
-    assert estimodel.point_estimate.expected == 2
-
-    estimodel.new_element("xsti")
-    pollster.tell_points("xsti", tm.EstimInput(3))
-
-    all_results = estimodel.get_all_task_models()
-    pollster.inform_results(all_results)
-    assert estimodel.point_estimate.expected == 5
-
-
-def test_integrate():
-    pollster = tm.MemoryPollster()
-    est = tm.EstiModel()
-
-    name1 = "foo"
-    e1 = tm.TaskModel(name1)
-    est.add_element(e1)
-
-    pollster.tell_points(name1, tm.EstimInput(3))
-    user_point_input = pollster.ask_points(name1)
-    est.estimate_points_of(name1, user_point_input)
-
-    name2 = "bar"
-    e2 = tm.TaskModel(name2)
-    est.add_element(e2)
-
-    pollster.tell_points(name2, tm.EstimInput(5))
-    user_point_input = pollster.ask_points(name2)
-
-    est.estimate_points_of(name2, user_point_input)
-
-    assert e1.point_estimate.expected == 3
-    assert e1.point_estimate.variance == 0
-    assert e2.point_estimate.expected == 5
-
-    assert est.main_composition.point_estimate.expected == 8
-    assert est.main_composition.point_estimate.variance == 0
 
 
 def test_memory_types():

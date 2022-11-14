@@ -9,7 +9,7 @@ class IniStorage:
 
     @classmethod
     def _load_existing_config(cls):
-        config = configparser.ConfigParser()
+        config = configparser.ConfigParser(interpolation=None)
         try:
             config.read(cls.CONFIG_FILENAME)
         except configparser.MissingSectionHeaderError:
@@ -87,26 +87,36 @@ class IniTarget(data.BaseTarget, IniStorage):
 
 
 class IniPollster(data.Pollster, IniStorage):
-    def ask_points(self, name):
+    def _keyname(self, ns, name):
+        keyname = f"{ns}-{name}"
+        return keyname
+
+    def _ask_points(self, ns, name):
+        keyname = self._keyname(ns, name)
+
         config = self._load_existing_config()
-        if name in config:
+        if keyname in config:
             ret = data.EstimInput()
-            ret.most_likely = float(config[name]["most_likely"])
-            ret.optimistic = float(config[name]["optimistic"])
-            ret.pessimistic = float(config[name]["pessimistic"])
+            ret.most_likely = float(config[keyname]["most_likely"])
+            ret.optimistic = float(config[keyname]["optimistic"])
+            ret.pessimistic = float(config[keyname]["pessimistic"])
         else:
             ret = data.EstimInput()
         return ret
 
-    def knows_points(self, name):
+    def _knows_points(self, ns, name):
+        keyname = self._keyname(ns, name)
+
         config = self._load_existing_config()
-        if name in config:
+        if keyname in config:
             return True
         return False
 
-    def tell_points(self, name, points: data.EstimInput):
+    def _tell_points(self, ns, name, points: data.EstimInput):
+        keyname = self._keyname(ns, name)
+
         with self._manipulate_existing_config() as config:
-            config[name] = dict(
+            config[keyname] = dict(
                 most_likely=points.most_likely,
                 optimistic=points.optimistic,
                 pessimistic=points.pessimistic,

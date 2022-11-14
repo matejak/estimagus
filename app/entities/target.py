@@ -57,8 +57,8 @@ class BaseTarget:
         if not self.TIME_UNIT:
             raise RuntimeError("No time estimates are expected.")
         match = re.match(rf"([0-9.]+)\s*{self.TIME_UNIT}", cost)
-        if len(match.groups()) == 0:
-            raise RuntimeError(f"Couldn't parse cost {cost} in units {self.TIME_UNIT}")
+        if match is None:
+            raise ValueError(f"Couldn't parse cost {cost} in units {self.TIME_UNIT}")
 
         return float(match.groups()[0])
 

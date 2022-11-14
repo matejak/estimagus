@@ -3,7 +3,9 @@ import collections
 
 import jinja2
 
-import history as hist
+import app.history as hist
+import app.inidata as inidata
+from app.entities import target
 
 
 import con
@@ -28,20 +30,50 @@ def ours(task):
 
 
 STORY_POINTS = "customfield_12310243"
+EPIC_LINK = "customfield_12311140"
+
+
 def get_tasks():
     from jira import JIRA
     TOKEN = con.token
 
     jira = JIRA(con.server_url, token_auth=TOKEN)
     issues = jira.search_issues(con.query)
+    all_epics = dict()
     all_subtasks = dict()
     for i in issues:
+        all_epics[i.key] = i
         subtasks = jira.search_issues(f'"Epic Link" = {i.id}', expand="changelog")
         for t in subtasks:
             if not ours(t):
                 continue
             all_subtasks[t.key] = t
-    return all_subtasks
+    return all_epics, all_subtasks
+
+
+class HybridTarget(inidata.IniTarget):
+    CONFIG_FILENAME = "jira-export.ini"
+
+
+def export_jira_tasks_to_targets(epics, tasks, target_class: target.BaseTarget):
+    targets_by_id = dict()
+    for e in epics:
+        target = target_class()
+        target.name = e.key
+        target.title = e.get_field("summary")
+        targets_by_id[e.key] = target
+
+    for t in tasks:
+        target = target_class()
+        target.name = t.key
+        target.title = t.get_field("summary")
+        targets_by_id[t.key] = target
+        target.point_cost = float(t.get_field(STORY_POINTS) or 0)
+
+        epic_id = t.get_field(EPIC_LINK)
+        targets_by_id[epic_id].add_element(target)
+
+    return targets_by_id
 
 
 def get_events(task, cutoff=None):

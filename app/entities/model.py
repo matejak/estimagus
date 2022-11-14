@@ -19,13 +19,13 @@ class EstiModel:
 
         self.name_result_map = dict()
         self.name_composition_map = dict()
-        self._remap_entities(self.main_composition)
+        self._reconstruct_entities_map(self.main_composition)
 
-    def _remap_entities(self, current_composition):
+    def _reconstruct_entities_map(self, current_composition):
         for t in current_composition.elements:
             self.name_result_map[t.name] = t
         for c in current_composition.compositions:
-            self._remap_entities(c)
+            self._reconstruct_entities_map(c)
             self.name_composition_map[c.name] = c
 
     def get_all_task_models(self):
