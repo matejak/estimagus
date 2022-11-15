@@ -3,6 +3,7 @@ import math
 
 import numpy as np
 import scipy as sp
+import scipy.stats
 
 from .. import utilities
 
