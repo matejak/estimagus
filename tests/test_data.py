@@ -159,7 +159,7 @@ def test_pert():
     assert est.expected == pytest.approx(est2.expected, 0.05)
     assert est.sigma == pytest.approx(est2.sigma, 0.05)
 
-    assert pert[1].sum() == est.get_pert(201)[1].sum() * 0.5
+    assert pytest.approx(pert[1].sum()) == est.get_pert(201)[1].sum() * 0.5
 
     est_identical = est.compose_with(zero)
     assert est_identical.expected == est.expected
