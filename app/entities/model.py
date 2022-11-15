@@ -1,11 +1,13 @@
+import typing
+
 from .task import TaskModel
 from .composition import Composition
 from .target import BaseTarget
 
 
 class EstiModel:
-    name_result_map: dict[str: TaskModel]
-    name_composition_map: dict[str: Composition]
+    name_result_map: typing.Mapping[str, TaskModel]
+    name_composition_map: typing.Mapping[str, Composition]
     main_composition: Composition
 
     def __init__(self):
