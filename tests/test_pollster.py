@@ -5,6 +5,7 @@ from test_inidata import temp_filename
 
 import estimage.data as tm
 import estimage.inidata as tm_ini
+import estimage.simpledata as tm_simple
 
 
 def test_poll():
@@ -53,13 +54,43 @@ def pollster_inifile(temp_filename):
     yield TmpIniPollster
 
 
-def test_pollster_save_load(pollster_inifile):
-    data = pollster_inifile()
+@pytest.fixture
+def pollster_iniuser(temp_filename):
+    class TmpIniPollster(tm_ini.IniPollster, tm_simple.UserPollster):
+        CONFIG_FILENAME = temp_filename
+
+        def __init__(self, * args, ** kwargs):
+            super().__init__(username="user", *args, ** kwargs)
+
+    yield TmpIniPollster
+
+
+@pytest.fixture
+def pollster_iniauthoritative(temp_filename):
+    class TmpIniPollster(tm_ini.IniPollster, tm_simple.AuthoritativePollster):
+        CONFIG_FILENAME = temp_filename
+
+    yield TmpIniPollster
+
+
+@pytest.fixture(params=["memory", "ini", "ini_user", "ini_authoritative"])
+def pollster_class(request, pollster_inifile, pollster_iniuser, pollster_iniauthoritative):
+    pollsters = dict(
+        memory=tm.MemoryPollster,
+        ini=pollster_inifile,
+        ini_user=pollster_iniuser,
+        ini_authoritative=pollster_iniauthoritative,
+    )
+    return pollsters[request.param]
+
+
+def test_pollster_save_load(pollster_class):
+    data = pollster_class()
     points = tm.EstimInput()
     points.most_likely = 1
     data.tell_points("first", points)
 
-    data2 = pollster_inifile()
+    data2 = pollster_class()
     points2 = data2.ask_points("first")
 
     assert points.most_likely == points2.most_likely

@@ -42,11 +42,7 @@ class Pollster:
 
 
 class MemoryPollster(Pollster):
-    _memory: typing.Dict[str, EstimInput]
-
-    def __init__(self):
-        self._memory = dict()
-        super().__init__()
+    _memory: typing.Dict[str, EstimInput] = dict()
 
     def _prefix(self, ns, name):
         prefix = f"{ns}-{name}"
@@ -54,15 +50,15 @@ class MemoryPollster(Pollster):
 
     def _knows_points(self, ns, name):
         prefix = self._prefix(ns, name)
-        return f"{prefix}points" in self._memory
+        return f"{prefix}points" in MemoryPollster._memory
 
     def _ask_points(self, ns, name):
         prefix = self._prefix(ns, name)
         key = f"{prefix}points"
-        ret = self._memory.get(key, EstimInput())
+        ret = MemoryPollster._memory.get(key, EstimInput())
         return ret
 
     def _tell_points(self, ns, name, points):
         prefix = self._prefix(ns, name)
         key = f"{prefix}points"
-        self._memory[key] = points
+        MemoryPollster._memory[key] = points
