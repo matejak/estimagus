@@ -1,10 +1,9 @@
-import app.inidata as tm
-
-import configparser
 import tempfile
 import os
 
 import pytest
+
+import estimage.inidata as tm
 
 
 @pytest.fixture

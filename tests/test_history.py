@@ -3,7 +3,7 @@ import datetime
 import pytest
 import numpy as np
 
-import app.history as tm
+import estimage.history as tm
 
 
 ONE_DAY = datetime.timedelta(days=1)

@@ -1,10 +1,10 @@
 import pytest
 
-import app.data as tm
-import app.inidata as tm_ini
-
 from test_data import estiminput_1, estiminput_2
 from test_inidata import temp_filename
+
+import estimage.data as tm
+import estimage.inidata as tm_ini
 
 
 def test_poll():

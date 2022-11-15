@@ -1,6 +1,6 @@
 import flask_login
 
-from app import login
+from . import login
 
 class User(flask_login.UserMixin):
     def __init__(self, uid):

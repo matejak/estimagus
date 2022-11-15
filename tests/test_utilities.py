@@ -1,6 +1,6 @@
 import pytest
 
-import app.utilities as tm
+import estimage.utilities as tm
 
 
 @pytest.mark.dependency(name="test_set_reduction")

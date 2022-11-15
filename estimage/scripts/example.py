@@ -1,4 +1,4 @@
-import data
+from estimage import data
 
 
 AUTHORITATIVE_STORAGE = dict(
@@ -42,7 +42,7 @@ class MemoryPollster(data.Pollster):
         OUR_INPUT[name] = [points.optimistic, points.most_likely, points.pessimistic]
 
 
-class SimpleEstimator(data.Estimator):
+class SimpleModel(data.EstiModel):
     def __init__(self, target_list):
         super().__init__()
         for t in target_list:
@@ -60,14 +60,14 @@ def demo():
     # estimate them
     pollster = MemoryPollster()
 
-    estimator = SimpleEstimator(targets.values())
+    estimator = SimpleModel(targets.values())
 
     for name in names:
         estimate = pollster.ask_points(name)
         estimator.estimate_points_of(name, estimate)
         expected = estimator.point_estimate_of(name).expected
         print(f"{name}: Most likely: {estimate.most_likely}, expected: {expected}")
-        targets[name].save_point_cost(expected)
+        targets[name].save_point_cost()
 
     for name, t in targets.items():
         t.load()

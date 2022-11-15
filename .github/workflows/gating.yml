@@ -27,8 +27,11 @@ jobs:
       - name: "Set git safe directory, ref: https://github.com/actions/checkout/issues/760"
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
-      - name: Test
-        run: python3 -m pytest --cov-report xml --cov app/
+      - name: Test and collect coverage
+        run: coverage run --source estimage -m pytest
+
+      - name: Produce coverage report of relevant files
+        run: coverage xml --omit '*/webapp/*'
 
       - name: Upload coverage to Code Climate  # Requires: git package
         if: ${{ github.repository == 'matejak/estimage' }}

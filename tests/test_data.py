@@ -3,7 +3,7 @@ import math
 import pytest
 import numpy as np
 
-import app.data as tm
+import estimage.data as tm
 
 
 @pytest.fixture

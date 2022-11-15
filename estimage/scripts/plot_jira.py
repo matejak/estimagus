@@ -3,9 +3,9 @@ import collections
 
 import jinja2
 
-import app.history as hist
-import app.inidata as inidata
-from app.entities import target
+import estimage.history as hist
+import estimage.inidata as inidata
+from estimage.entities import target
 
 
 import con

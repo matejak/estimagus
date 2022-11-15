@@ -6,9 +6,9 @@ import matplotlib
 
 from . import bp
 from .forms import LoginForm, PointEstimationForm, NumberEstimationForm
-from .. import data
-from .. import utilities
-from .. import simpledata
+from ... import data
+from ... import utilities
+from ... import simpledata
 from ..users import User
 
 
