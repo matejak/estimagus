@@ -6,17 +6,25 @@ class Target(inidata.IniTarget):
     CONFIG_FILENAME = "targets.ini"
 
 
-class UserPollster(data.Pollster):
+class UserPollsterBase(data.Pollster):
     def __init__(self, username, * args, ** kwargs):
         super().__init__(* args, ** kwargs)
         self.username = username
         self.set_namespace(f"user-{username}-")
 
 
-class AuthoritativePollster(data.Pollster):
+class UserPollster(UserPollsterBase, inidata.IniPollster):
+    CONFIG_FILENAME = "pollsters.ini"
+
+
+class AuthoritativePollsterBase(data.Pollster):
     def __init__(self, * args, ** kwargs):
         super().__init__(* args, ** kwargs)
         self.set_namespace("***-")
+
+
+class AuthoritativePollster(AuthoritativePollsterBase, inidata.IniPollster):
+    CONFIG_FILENAME = "pollsters.ini"
 
 
 class Pollster(inidata.IniPollster):

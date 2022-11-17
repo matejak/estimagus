@@ -12,6 +12,11 @@
         <p>Point cost: {{ task.point_cost }}</p>
         <p>Time cost: {{ task.time_cost }}{% if task.TIME_UNIT %} {{ task.TIME_UNIT }} -{% endif %}</p>
     </p>
+    <h3>Concensus values</h3>
+    <p>
+        <p>Point cost: {{ task.point_cost }}</p>
+        <p>Time cost: {{ task.time_cost }}{% if task.TIME_UNIT %} {{ task.TIME_UNIT }} -{% endif %}</p>
+    </p>
     <form action="" method="post" novalidate>
         {{ form.hidden_tag() }}
         <p>

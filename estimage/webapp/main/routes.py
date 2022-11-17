@@ -2,10 +2,11 @@ import io
 
 import flask
 import flask_login
+import werkzeug.urls
 import matplotlib
 
 from . import bp
-from .forms import LoginForm, PointEstimationForm, NumberEstimationForm
+from .forms import LoginForm, NumberEstimationForm
 from ... import data
 from ... import utilities
 from ... import simpledata
@@ -24,13 +25,23 @@ def render_template(template_basename, title, **kwargs):
         template_basename, title=title, authenticated_user=authenticated_user, ** kwargs)
 
 
+@bp.route('/logout', methods=['GET'])
+def logout():
+    flask_login.logout_user()
+    return flask.redirect("/login")
+
+
 @bp.route('/login', methods=['GET', 'POST'])
 def login():
     form = LoginForm()
     if form.validate_on_submit():
         user = User(form.username.data)
         flask_login.login_user(user, remember=form.remember_me.data)
-        return flask.redirect("/")
+
+        next_page = flask.request.args.get('next')
+        if not next_page or werkzeug.urls.url_parse(next_page).netloc != '':
+            next_page = flask.url_for('index')
+        return flask.redirect(next_page)
     return render_template(
         'login.html', title='Sign In', form=form)
 
@@ -74,8 +85,8 @@ def retreive_task(task_id):
     return ret
 
 
-@flask_login.login_required
 @bp.route('/estimate/<task_name>', methods=['GET', 'POST'])
+@flask_login.login_required
 def estimate(task_name):
     user = flask_login.current_user
 
@@ -99,13 +110,13 @@ def estimate(task_name):
         user=user, form=form, task=t, ** estimation_args)
 
 
-@flask_login.login_required
 @bp.route('/view/<epic_name>')
+@flask_login.login_required
 def view(epic_name):
     user = flask_login.current_user
 
     user_id = user.get_id()
-    model = get_custom_model(user_id)
+    model = get_user_model(user_id)
 
     t = retreive_task(epic_name)
 
@@ -136,13 +147,13 @@ def get_pert_in_figure(estimation, task_name):
     return fig
 
 
-@flask_login.login_required
 @bp.route('/vis/<task_name>-pert.png')
+@flask_login.login_required
 def visualize_task(task_name):
     user = flask_login.current_user
 
     user_id = user.get_id()
-    model = get_custom_model(user_id)
+    model = get_user_model(user_id)
     if task_name == ".":
         estimation = model.main_composition.point_estimate
     else:
@@ -153,24 +164,31 @@ def visualize_task(task_name):
     return send_figure_as_png(fig, f'{task_name}.png')
 
 
-def get_reduced_targets():
+def get_target_tree_with_no_double_occurence():
     all_targets = simpledata.Target.load_all_targets()
-    reduced_targets = utilities.reduce_subsets_from_sets(all_targets)
-    return reduced_targets
+    targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(all_targets)
+    return targets_tree_without_duplicates
 
 
-def get_model(reduced_targets=None):
-    if not reduced_targets:
-        reduced_targets = get_reduced_targets()
-    main_composition = simpledata.Target.to_tree(reduced_targets)
+def get_model(targets_tree_without_duplicates=None):
+    if not targets_tree_without_duplicates:
+        targets_tree_without_duplicates = get_target_tree_with_no_double_occurence()
+    main_composition = simpledata.Target.to_tree(targets_tree_without_duplicates)
     model = data.EstiModel()
     model.use_composition(main_composition)
     return model
 
 
-def get_custom_model(user_id, reduced_targets=None):
-    pollster = simpledata.Pollster(user_id)
-    model = get_model(reduced_targets)
+def get_authoritative_model(targets_tree_without_duplicates=None):
+    pollster = simpledata.AuthoritativePollster()
+    model = get_model(targets_tree_without_duplicates)
+    pollster.inform_results(model.get_all_task_models())
+    return model
+
+
+def get_user_model(user_id, targets_tree_without_duplicates=None):
+    pollster = simpledata.UserPollster(user_id)
+    model = get_model(targets_tree_without_duplicates)
     pollster.inform_results(model.get_all_task_models())
     return model
 
@@ -192,19 +210,20 @@ def order_nearby_tasks(reference_task, all_tasks, distance_threshold, rank_thres
 
 
 def supply_similar_tasks(user_id, task_name, estimation_data):
-    model = get_custom_model(user_id)
+    model = get_user_model(user_id)
     all_tasks = model.get_all_task_models()
     ordered_tasks = order_nearby_tasks(model.get_element(task_name), all_tasks, 0.5, 2)
     estimation_data["similar_sized_tasks"] = ordered_tasks
 
 
-@flask_login.login_required
 @bp.route('/')
+@flask_login.login_required
 def tree_view():
     user = flask_login.current_user
     user_id = user.get_id()
 
-    reduced_targets = get_reduced_targets()
-    model = get_custom_model(user_id, reduced_targets)
+    targets_tree_without_duplicates = get_target_tree_with_no_double_occurence()
+    model = get_user_model(user_id, targets_tree_without_duplicates)
     return render_template(
-        "tree_view.html", title="Tasks tree view", targets=reduced_targets, model=model)
+        "tree_view.html", title="Tasks tree view",
+        targets=targets_tree_without_duplicates, model=model)

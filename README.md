@@ -11,8 +11,9 @@
   - nominate a set of estimations as globally authoritative, so I have access to working versions of 3-point estimates at any time.
   - keep track of history of the authoritative estimation, so reestimates are easily identifiable, and not hidden.
   - work with my estimation and the authoritative estimation if it exists, or at least with a marked estimation as its fallback.
+  - express interest on working on an issue or epic, and to review this information, so that I can manage my focus, and I can help others to plan in a way that can consider my contribution preferences.
 - As a stakeholder, I want to
   - see the team's burndown charts and velocity charts, so that I know whether the team is in control of things.
   - have projection of the state of things readily available, so that I can correlate it with the team's version and focus on potential differences.
   - identify tasks or epics that are in danger of slipping, so that I can realocate resources in time.
-  
+

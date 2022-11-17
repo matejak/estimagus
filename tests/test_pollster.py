@@ -56,7 +56,7 @@ def pollster_inifile(temp_filename):
 
 @pytest.fixture
 def pollster_iniuser(temp_filename):
-    class TmpIniPollster(tm_ini.IniPollster, tm_simple.UserPollster):
+    class TmpIniPollster(tm_ini.IniPollster, tm_simple.UserPollsterBase):
         CONFIG_FILENAME = temp_filename
 
         def __init__(self, * args, ** kwargs):
@@ -67,7 +67,7 @@ def pollster_iniuser(temp_filename):
 
 @pytest.fixture
 def pollster_iniauthoritative(temp_filename):
-    class TmpIniPollster(tm_ini.IniPollster, tm_simple.AuthoritativePollster):
+    class TmpIniPollster(tm_ini.IniPollster, tm_simple.AuthoritativePollsterBase):
         CONFIG_FILENAME = temp_filename
 
     yield TmpIniPollster

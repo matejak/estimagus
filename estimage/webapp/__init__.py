@@ -16,6 +16,7 @@ def create_app(config_class=Config):
     app.register_blueprint(main_bp)
 
     login.init_app(app)
+    login.login_view = "main.login"
 
     if not app.debug and not app.testing:
         pass
