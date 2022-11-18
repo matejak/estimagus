@@ -8,7 +8,12 @@ class LoginForm(FlaskForm):
     username = StringField('Username', validators=[DataRequired()])
     remember_me = BooleanField('Remember Me')
     submit = SubmitField('Sign In')
-    
+
+
+class ConsensusForm(FlaskForm):
+    i_kid_you_not = BooleanField("Own Estimate Represents the Consensus")
+    submit = SubmitField("Approve")
+
 
 FIB = [0, 1, 2, 3, 5, 8, 13, 21, 34]
 

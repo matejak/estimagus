@@ -9,11 +9,11 @@
 {% endmacro %}
 
 {% macro task_link(task) -%}
-        <a href="{{ url_for("main.estimate", task_name=task.name) }}">{{ task.name }}</a>
+        <a href="{{ url_for("main.view_task", task_name=task.name) }}">{{ task.name }}</a>
 {%- endmacro %}
 
 {% macro epic_link(epic) -%}
-        <a href="{{ url_for("main.view", epic_name=epic.name) }}">{{ epic.name }}</a>
+        <a href="{{ url_for("main.view_epic", epic_name=epic.name) }}">{{ epic.name }}</a>
 {%- endmacro %}
 
 {% macro render_task(task, model) %}

@@ -1,5 +1,6 @@
 from flask import Flask
 from flask_login import LoginManager
+from flask_bootstrap import Bootstrap5
 
 login = LoginManager()
 
@@ -14,6 +15,7 @@ def create_app(config_class=Config):
 
     from .main import bp as main_bp
     app.register_blueprint(main_bp)
+    Bootstrap5(app)
 
     login.init_app(app)
     login.login_view = "main.login"

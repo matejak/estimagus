@@ -6,7 +6,7 @@ import werkzeug.urls
 import matplotlib
 
 from . import bp
-from .forms import LoginForm, NumberEstimationForm
+from . import forms
 from ... import data
 from ... import utilities
 from ... import simpledata
@@ -33,7 +33,7 @@ def logout():
 
 @bp.route('/login', methods=['GET', 'POST'])
 def login():
-    form = LoginForm()
+    form = forms.LoginForm()
     if form.validate_on_submit():
         user = User(form.username.data)
         flask_login.login_user(user, remember=form.remember_me.data)
@@ -85,34 +85,75 @@ def retreive_task(task_id):
     return ret
 
 
-@bp.route('/estimate/<task_name>', methods=['GET', 'POST'])
+@bp.route('/consensus/<task_name>', methods=['POST'])
+@flask_login.login_required
+def move_issue_estimate_to_consensus(task_name):
+    user = flask_login.current_user
+    user_id = user.get_id()
+    form = forms.ConsensusForm()
+    if form.validate_on_submit() and form.i_kid_you_not.data:
+        pollster_user = simpledata.UserPollster(user_id)
+        pollster_cons = simpledata.AuthoritativePollster()
+
+        user_point = pollster_user.ask_points(task_name)
+        pollster_cons.tell_points(task_name, user_point)
+    else:
+        flask.flash("Consensus not updated, request was not serious")
+
+    return flask.redirect(
+        flask.url_for("main.view_task", task_name=task_name))
+
+
+@bp.route('/estimate/<task_name>', methods=['POST'])
 @flask_login.login_required
 def estimate(task_name):
     user = flask_login.current_user
 
     user_id = user.get_id()
-    pollster = simpledata.Pollster(user_id)
-    form = NumberEstimationForm()
+
+    form = forms.NumberEstimationForm()
+    pollster = simpledata.UserPollster(user_id)
+
     if form.validate_on_submit():
         tell_pollster_about_obtained_data(pollster, task_name, form)
-        return flask.redirect(flask.url_for("main.estimate", task_name=task_name))
+        return flask.redirect(
+            flask.url_for("main.view_task", task_name=task_name))
+
+
+@bp.route('/view_task/<task_name>')
+@flask_login.login_required
+def view_task(task_name):
+    user = flask_login.current_user
+
+    user_id = user.get_id()
+    pollster = simpledata.UserPollster(user_id)
+    request_forms = dict(
+        estimation=forms.NumberEstimationForm(),
+        consensus=forms.ConsensusForm(),
+    )
 
     t = retreive_task(task_name)
     estimation_args = dict()
     estimation = ask_pollster_of_existing_data(pollster, task_name)
     if estimation:
-        feed_estimation_to_form_and_arg_dict(estimation, form, estimation_args)
+        eform = request_forms["estimation"]
+        feed_estimation_to_form_and_arg_dict(estimation, eform, estimation_args)
 
-    if estimation_args:
+    if "estimate" in estimation_args:
         supply_similar_tasks(user_id, task_name, estimation_args)
+
+    c_pollster = simpledata.AuthoritativePollster()
+    con_input = c_pollster.ask_points(task_name)
+    estimation_args["consensus"] = data.Estimate.from_input(con_input)
+
     return render_template(
         'issue_view.html', title='Estimate Issue',
-        user=user, form=form, task=t, ** estimation_args)
+        user=user, forms=request_forms, task=t, ** estimation_args)
 
 
-@bp.route('/view/<epic_name>')
+@bp.route('/view_epic/<epic_name>')
 @flask_login.login_required
-def view(epic_name):
+def view_epic(epic_name):
     user = flask_login.current_user
 
     user_id = user.get_id()
