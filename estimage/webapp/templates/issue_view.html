@@ -15,14 +15,23 @@
     <p>
         <p>Point cost: {{ task.point_cost }}</p>
         <p>Time cost: {{ task.time_cost }}{% if task.TIME_UNIT %} {{ task.TIME_UNIT }} -{% endif %}</p>
+	{% if "authoritative" in forms %}
+        {{ render_form(forms["authoritative"], action=url_for("main.move_consensus_estimate_to_authoritative", task_name=task.name)) }}
+	{% endif %}
     </p>
     </div>
     <div class="col">
     <h3>Concensus values</h3>
     <p>
+	{% if consensus.expected %}
         <p>Point cost: {{ "%.3g" % consensus.expected }}</p>
+	{% endif %}
+	{% if task.time_cost %}
         <p>Time cost: {{ task.time_cost }}{% if task.TIME_UNIT %} {{ task.TIME_UNIT }} -{% endif %}</p>
+	{% endif %}
+	{% if "consensus" in forms %}
         {{ render_form(forms["consensus"], action=url_for("main.move_issue_estimate_to_consensus", task_name=task.name)) }}
+	{% endif %}
     </p>
     </div>
     <div class="col">

@@ -10,9 +10,28 @@ class LoginForm(FlaskForm):
     submit = SubmitField('Sign In')
 
 
-class ConsensusForm(FlaskForm):
-    i_kid_you_not = BooleanField("Own Estimate Represents the Consensus")
+class Promotion(FlaskForm):
+    def __init__(self, serious_note, button_msg, * args, ** kwargs):
+        super().__init__(* args, ** kwargs)
+        self.i_kid_you_not.label.text = serious_note
+        self.submit.label.text = button_msg
+
+    i_kid_you_not = BooleanField("I am serious")
     submit = SubmitField("Approve")
+
+
+class ConsensusForm(Promotion):
+    def __init__(self, * args, ** kwargs):
+        serious_note = "Own Estimate Represents the Consensus"
+        button_msg = "Promote Own Estimate"
+        super().__init__(* args, serious_note=serious_note, button_msg=button_msg, ** kwargs)
+
+
+class AuthoritativeForm(Promotion):
+    def __init__(self, * args, ** kwargs):
+        serious_note = "Consensus Represents should be authoritative"
+        button_msg = "Promote Consensus Estimate"
+        super().__init__(* args, serious_note=serious_note, button_msg=button_msg, ** kwargs)
 
 
 FIB = [0, 1, 2, 3, 5, 8, 13, 21, 34]

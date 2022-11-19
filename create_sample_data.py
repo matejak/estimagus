@@ -1,4 +1,4 @@
-import app.simpledata as sd
+import estimage.simpledata as sd
 
 
 def create_task(name):

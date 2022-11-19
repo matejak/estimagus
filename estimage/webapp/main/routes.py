@@ -104,6 +104,23 @@ def move_issue_estimate_to_consensus(task_name):
         flask.url_for("main.view_task", task_name=task_name))
 
 
+@bp.route('/authoritative/<task_name>', methods=['POST'])
+@flask_login.login_required
+def move_consensus_estimate_to_authoritative(task_name):
+    user = flask_login.current_user
+    user_id = user.get_id()
+    form = forms.AuthoritativeForm()
+    if form.validate_on_submit() and form.i_kid_you_not.data:
+        pollster_cons = simpledata.AuthoritativePollster()
+
+        pollster_cons.tell_points(task_name, user_point)
+    else:
+        flask.flash("Authoritative estimate not updated, request was not serious")
+
+    return flask.redirect(
+        flask.url_for("main.view_task", task_name=task_name))
+
+
 @bp.route('/estimate/<task_name>', methods=['POST'])
 @flask_login.login_required
 def estimate(task_name):
@@ -130,6 +147,7 @@ def view_task(task_name):
     request_forms = dict(
         estimation=forms.NumberEstimationForm(),
         consensus=forms.ConsensusForm(),
+        authoritative=forms.AuthoritativeForm(),
     )
 
     t = retreive_task(task_name)
@@ -142,9 +160,9 @@ def view_task(task_name):
     if "estimate" in estimation_args:
         supply_similar_tasks(user_id, task_name, estimation_args)
 
-    c_pollster = simpledata.AuthoritativePollster()
-    con_input = c_pollster.ask_points(task_name)
-    estimation_args["consensus"] = data.Estimate.from_input(con_input)
+        c_pollster = simpledata.AuthoritativePollster()
+        con_input = c_pollster.ask_points(task_name)
+        estimation_args["consensus"] = data.Estimate.from_input(con_input)
 
     return render_template(
         'issue_view.html', title='Estimate Issue',
