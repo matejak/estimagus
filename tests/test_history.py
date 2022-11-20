@@ -7,18 +7,28 @@ import estimage.history as tm
 
 
 ONE_DAY = datetime.timedelta(days=1)
+PERIOD_START = datetime.datetime(2022, 10, 1)
+LONG_PERIOD_END = datetime.datetime(2022, 10, 21)
 
 
 def test_timeline():
-    start = datetime.datetime(2022, 10, 1)
-    end = datetime.datetime(2022, 10, 21)
+    start = PERIOD_START
+    end = LONG_PERIOD_END
     timeline = tm.Timeline(start, end)
     assert timeline.days == 21
 
 
+def test_timeline_masking():
+    timeline = tm.Timeline(PERIOD_START, LONG_PERIOD_END)
+    timeline.set_value_at(PERIOD_START + ONE_DAY, 55)
+    mask = timeline.get_value_mask(55)
+    assert sum(mask) == 1
+    assert timeline.get_masked_values(mask)[0] == 55
+
+
 def test_events():
-    start = datetime.datetime(2022, 10, 1)
-    end = datetime.datetime(2022, 10, 21)
+    start = PERIOD_START
+    end = LONG_PERIOD_END
     evt_early = datetime.datetime(2022, 10, 11, 12)
     evt_less_early = datetime.datetime(2022, 10, 11, 13)
     evt_late = datetime.datetime(2022, 10, 15)
@@ -64,11 +74,43 @@ def test_events():
 
 @pytest.fixture
 def repre():
-    start = datetime.datetime(2022, 10, 1)
-    end = datetime.datetime(2022, 10, 21)
+    start = PERIOD_START
+    end = LONG_PERIOD_END
 
     representation = tm.Repre(start, end)
     return representation
+
+
+@pytest.fixture
+def oneday_repre():
+    start = PERIOD_START
+    end = PERIOD_START
+
+    representation = tm.Repre(start, end)
+    return representation
+
+
+@pytest.fixture
+def twoday_repre():
+    start = PERIOD_START
+    end = PERIOD_START + ONE_DAY
+
+    representation = tm.Repre(start, end)
+    return representation
+
+
+@pytest.fixture
+def event_in_progress():
+    ret = tm.Event("", PERIOD_START)
+    ret.value = tm.State.in_progress
+    return ret
+
+
+@pytest.fixture
+def event_review():
+    ret = tm.Event("", PERIOD_START)
+    ret.value = tm.State.review
+    return ret
 
 
 def test_repre(repre):
@@ -118,3 +160,49 @@ def test_aggregation(repre):
 
     assert aggregation.points_on(someday) == 2 * repre.get_points_at(someday)
     assert aggregation.points_on(day_after) == 2 * repre.get_points_at(day_after)
+
+
+@pytest.mark.dependency()
+def test_repre_velocity_not_done(oneday_repre):
+    oneday_repre.update(PERIOD_START, tm.State.in_progress, points=1)
+    assert oneday_repre.velocity == 0
+
+
+@pytest.mark.dependency(depends=["test_repre_velocity_not_done"])
+def test_repre_velocity_done_in_day(twoday_repre):
+    twoday_repre.update(PERIOD_START, tm.State.in_progress, points=2)
+    twoday_repre.update(PERIOD_START + ONE_DAY, tm.State.done, points=2)
+    assert twoday_repre.velocity == 2
+
+
+@pytest.mark.dependency(depends=["test_repre_velocity_not_done"])
+def test_repre_velocity_done_real_quick(twoday_repre):
+    twoday_repre.update(PERIOD_START, tm.State.done, points=2)
+    twoday_repre.update(PERIOD_START + ONE_DAY, tm.State.done, points=2)
+    assert twoday_repre.velocity == 2
+
+
+@pytest.mark.dependency(depends=["test_repre_velocity_done_in_day"])
+def test_full_repre_velocity_done_in_three_days(repre):
+    period_end = repre.status_timeline.end
+    repre.update(period_end, tm.State.done, points=9)
+    repre.fill_history_from(period_end)
+    repre.update(PERIOD_START, tm.State.todo)
+    repre.update(PERIOD_START + 1 * ONE_DAY, tm.State.in_progress)
+    repre.update(PERIOD_START + 2 * ONE_DAY, tm.State.in_progress)
+    repre.update(PERIOD_START + 3 * ONE_DAY, tm.State.in_progress)
+    repre.update(PERIOD_START + 4 * ONE_DAY, tm.State.review)
+    repre.update(PERIOD_START + 5 * ONE_DAY, tm.State.review)
+    assert repre.velocity == 3
+
+
+@pytest.mark.dependency(depends=["test_full_repre_velocity_done_in_three_days"])
+def test_unknown_repre_velocity_done_in_three_days(repre):
+    repre.update(PERIOD_START, tm.State.todo)
+    repre.update(PERIOD_START + 1 * ONE_DAY, tm.State.in_progress)
+    repre.update(PERIOD_START + 2 * ONE_DAY, tm.State.in_progress)
+    repre.update(PERIOD_START + 3 * ONE_DAY, tm.State.in_progress)
+    repre.update(PERIOD_START + 4 * ONE_DAY, tm.State.review)
+    repre.update(PERIOD_START + 5 * ONE_DAY, tm.State.review)
+    repre.update(PERIOD_START + 6 * ONE_DAY, tm.State.done, points=9)
+    assert repre.velocity == 3

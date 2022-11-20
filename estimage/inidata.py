@@ -41,6 +41,18 @@ class IniTarget(data.BaseTarget, IniStorage):
             )
 
     @classmethod
+    def get_all_target_names(cls):
+        config = cls._load_existing_config()
+        return set(config.sections())
+
+    @classmethod
+    def get_loaded_targets_by_id(cls):
+        return {
+            name: cls.load_metadata(name)
+            for name in cls.get_all_target_names()
+        }
+
+    @classmethod
     def load_all_targets(cls):
         config = cls._load_existing_config()
         return [

@@ -35,6 +35,7 @@ class Timeline:
 
     def __init__(self, start: datetime.datetime, end: datetime.datetime):
         self.start = start
+        self.end = end
         period = end - start
         self._data = np.zeros(period.days + 1)
 
@@ -124,6 +125,24 @@ class Repre:
 
         init_event.value = self.status_timeline.value_at(when)
         self.status_timeline.process_events([init_event])
+
+    def is_done(self):
+        done_mask = self.status_timeline.get_value_mask(State.done)
+        task_done = done_mask.sum() > 0
+        return task_done
+
+    def done_task_points(self):
+        if not self.is_done():
+            return 0
+        done_mask = self.status_timeline.get_value_mask(State.done)
+        task_points = self.points_timeline.get_masked_values(done_mask)[-1]
+        return task_points
+
+    @property
+    def velocity(self):
+        in_progress_mask = self.status_timeline.get_value_mask(State.in_progress)
+        time_taken = in_progress_mask.sum() or 1
+        return self.done_task_points() / time_taken
 
 
 class Aggregation:

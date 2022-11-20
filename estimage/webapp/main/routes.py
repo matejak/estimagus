@@ -107,18 +107,23 @@ def move_issue_estimate_to_consensus(task_name):
 @bp.route('/authoritative/<task_name>', methods=['POST'])
 @flask_login.login_required
 def move_consensus_estimate_to_authoritative(task_name):
-    user = flask_login.current_user
-    user_id = user.get_id()
     form = forms.AuthoritativeForm()
     if form.validate_on_submit() and form.i_kid_you_not.data:
         pollster_cons = simpledata.AuthoritativePollster()
 
-        pollster_cons.tell_points(task_name, user_point)
+        est_input = pollster_cons.ask_points(task_name)
+        propagate_estimate_to_task(task_name, est_input)
     else:
         flask.flash("Authoritative estimate not updated, request was not serious")
 
     return flask.redirect(
         flask.url_for("main.view_task", task_name=task_name))
+
+
+def propagate_estimate_to_task(task_name, est_input):
+    estimate = data.Estimate.from_input(est_input)
+    targets = simpledata.Target.load_all_targets()
+
 
 
 @bp.route('/estimate/<task_name>', methods=['POST'])

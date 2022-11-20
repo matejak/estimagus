@@ -7,41 +7,9 @@ import estimage.data as tm
 
 
 @pytest.fixture
-def pw_target():
-    ret = tm.BaseTarget()
-    ret.TIME_UNIT = "pw"
-    return ret
-
-
-@pytest.mark.dependency(name="basic_target")
-def test_basic_target_properties(pw_target):
-    subject = pw_target
-    cost = subject.point_cost
-    assert cost >= 0
-
-    cost2 = subject.time_cost
-    assert cost2 >= 0
-
-
-@pytest.mark.dependency(depends=["basic_target"])
-def test_target_value_parsing(pw_target):
-    subject = pw_target
-    assert subject.parse_point_cost("5") == 5
-
-    subject.TIME_UNIT = "pw"
-    assert subject.parse_time_cost("5pw") == 5
-    assert subject.parse_time_cost("5 pw") == 5
-
-    assert subject.format_time_cost(8.2) == "8 pw"
-
-    subject.TIME_UNIT = "x"
-    with pytest.raises(ValueError):
-        subject.parse_time_cost("5pw")
-
-
-@pytest.fixture
 def estiminput_1():
     return tm.EstimInput(1)
+
 
 @pytest.fixture
 def precise_estimate_1(estiminput_1):
@@ -330,65 +298,3 @@ def test_memory_types():
     c4 = c3.compositions[0]
     assert c4.elements[0].time_estimate.expected == r2.time_estimate.expected
 
-
-def test_target():
-    target = tm.BaseTarget()
-    target.name = "leaf"
-    target.point_cost = 4
-    target.time_cost = 3
-    result = target.get_tree()
-    assert target in target
-    assert target.name == result.name
-    assert target.point_cost == result.point_estimate.expected
-    assert target.time_cost == result.time_estimate.expected
-
-    complex_target = tm.BaseTarget()
-    assert complex_target in complex_target
-    assert target not in complex_target
-    complex_target.add_element(target)
-    assert target in complex_target
-    assert complex_target not in target
-    complex_target.name = "tree"
-    composition = complex_target.get_tree()
-    assert complex_target.name == composition.name
-    assert len(composition.elements) == 1
-    assert composition.elements[0].name == target.name
-    assert target.point_cost == composition.point_estimate.expected
-    assert target.time_cost == composition.time_estimate.expected
-
-    complexer_target = tm.BaseTarget()
-    assert target not in complexer_target
-    complexer_target.add_element(complex_target)
-    assert target in complexer_target
-    assert complexer_target not in target
-    complexer_target.name = "tree_of_trees"
-    composition = complexer_target.get_tree()
-    assert complexer_target.name == composition.name
-    assert complex_target.name == composition.compositions[0].name
-    assert target.name == composition.compositions[0].elements[0].name
-
-
-def test_targets_to_tree():
-    null_tree = tm.BaseTarget.to_tree([])
-    assert null_tree == tm.Composition("")
-
-    leaf = tm.BaseTarget()
-    leaf.name = "leaf"
-    tree = tm.BaseTarget.to_tree([leaf])
-    assert tree == leaf.get_tree()
-    assert tree == tm.BaseTarget.to_tree([leaf, leaf])
-
-    feal = tm.BaseTarget()
-    feal.name = "feal"
-    result = tm.Composition("")
-    result.add_element(feal.get_tree())
-    result.add_element(leaf.get_tree())
-    assert result == tm.BaseTarget.to_tree([feal, leaf])
-
-    lower_tree = tm.BaseTarget()
-    lower_tree.name = "lower tree"
-    lower_tree.add_element(leaf)
-    result = tm.Composition("")
-    result.add_composition(lower_tree.get_tree())
-    result.add_element(feal.get_tree())
-    assert result == tm.BaseTarget.to_tree([leaf, lower_tree, feal])
