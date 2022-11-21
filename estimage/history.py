@@ -5,6 +5,9 @@ import typing
 import numpy as np
 
 
+ONE_DAY = datetime.timedelta(days=1)
+
+
 def get_period(start: datetime.datetime, end: datetime.datetime):
     period = end - start
     return np.zeros(period.days)
@@ -88,6 +91,8 @@ class State(enum.IntEnum):
 
 
 class Repre:
+    start: datetime.datetime
+    end: datetime.datetime
     points_timeline: Timeline
     status_timeline: Timeline
     time_timeline: Timeline
@@ -97,6 +102,8 @@ class Repre:
         self.status_timeline = Timeline(start, end)
         self.status_timeline.recreate_with_value(State.unknown)
         self.time_timeline = Timeline(start, end)
+        self.start = start
+        self.end = end
 
     def update(self, when, status=None, points=None, time=None):
         if points is not None:
@@ -126,23 +133,48 @@ class Repre:
         init_event.value = self.status_timeline.value_at(when)
         self.status_timeline.process_events([init_event])
 
-    def is_done(self):
-        done_mask = self.status_timeline.get_value_mask(State.done)
+    def is_done(self, latest_at=None):
+        relevant_slice = slice(0, None)
+        if latest_at is not None:
+            if latest_at < self.start:
+                return False
+            elif latest_at < self.end:
+                deadline_index = localize_event(self.start, latest_at)
+                relevant_slice = slice(0, deadline_index + 1)
+        done_mask = self.status_timeline.get_value_mask(State.done)[relevant_slice]
         task_done = done_mask.sum() > 0
         return task_done
 
-    def done_task_points(self):
-        if not self.is_done():
+    def points_completed(self, before=None):
+        if not self.is_done(before):
             return 0
         done_mask = self.status_timeline.get_value_mask(State.done)
         task_points = self.points_timeline.get_masked_values(done_mask)[-1]
         return task_points
 
     @property
-    def velocity(self):
+    def average_daily_velocity(self):
         in_progress_mask = self.status_timeline.get_value_mask(State.in_progress)
         time_taken = in_progress_mask.sum() or 1
-        return self.done_task_points() / time_taken
+        return self.points_completed() / time_taken
+
+    def get_day_of_completion(self):
+        done_mask = self.status_timeline.get_value_mask(State.done)
+        if done_mask.sum() == 0:
+            return None
+        indices = np.arange(len(done_mask))
+        days_from_start_to_completion = indices[done_mask][0]
+        return self.start + ONE_DAY * days_from_start_to_completion
+
+    def get_velocity_array(self):
+        if not self.is_done():
+            return self.status_timeline.get_value_mask(State.done).astype(float)
+        velocity_array = self.status_timeline.get_value_mask(State.in_progress).astype(float)
+        if velocity_array.sum() == 0:
+            index_of_completion = localize_event(self.start, self.get_day_of_completion())
+            velocity_array[index_of_completion] = 1
+        velocity_array *= self.points_completed() / velocity_array.sum()
+        return velocity_array
 
 
 class Aggregation:
@@ -171,7 +203,7 @@ class Aggregation:
         return self.repres[0].points_timeline.days
 
 
-class MPLPlot:
+class MPLPointPlot:
     def __init__(self, a: Aggregation):
         self.aggregation = a
         empty_array = np.zeros(a.days)
@@ -181,7 +213,7 @@ class MPLPlot:
             (State.review, empty_array.copy(), (0.1, 0.2, 0.7, 0.6)),
         ]
 
-    def _prepare_plots(self, up_to_date):
+    def _prepare_plots(self):
         for status, dest, color in self.styles:
             for r in self.aggregation.repres:
                 dest[r.status_is(status)] += r.points_of_status(status)
@@ -196,12 +228,12 @@ class MPLPlot:
 
         ax.plot([days[0], days[-1]], [bottom[0], 0], color="blue")
 
-    def plot_stuff(self, up_to_date):
+    def plot_stuff(self):
         import matplotlib.pyplot as plt
         fig, ax = plt.subplots()
         ax.grid(True)
 
-        self._prepare_plots(up_to_date)
+        self._prepare_plots()
         self._plot_bars(ax)
         ax.legend()
         ax.set_xlabel("time / days")
@@ -210,11 +242,46 @@ class MPLPlot:
         plt.show()
 
 
+class MPLVelocityPlot:
+    def __init__(self, a: Aggregation):
+        self.aggregation = a
+        self.velocity_estimate = np.zeros(a.days)
+        self.velocity_focus = np.zeros(a.days)
+        self.days = np.arange(a.days)
+
+    def _prepare_plots(self, cutoff_date):
+        start_date = self.aggregation.repres[0].start
+        for r in self.aggregation.repres:
+            self.velocity_focus += r.get_velocity_array()
+
+            for days in range(self.aggregation.days):
+                date = start_date + ONE_DAY * days
+                self.velocity_estimate[days] += r.points_completed(date) / (days + 1)
+
+                if date == cutoff_date:
+                    break
+
+    def plot_stuff(self, cutoff_date):
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.grid(True)
+
+        self._prepare_plots(cutoff_date)
+
+        ax.plot(self.days, self.velocity_focus, label="Velocity Focus")
+        ax.plot(self.days, self.velocity_estimate, label="Velocity Estimate")
+
+        ax.legend()
+        ax.set_xlabel("time / days")
+        ax.set_ylabel("velocity")
+
+        plt.show()
+
+
 def demo_plot():
     start = datetime.datetime(2022, 10, 1)
     end = datetime.datetime(2022, 10, 21)
 
-    ONE_DAY = datetime.timedelta(days=1)
     someday = datetime.datetime(2022, 10, 10)
     day_after = someday + ONE_DAY
 

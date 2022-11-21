@@ -108,7 +108,7 @@ def get_events(task, cutoff=None):
     return result
 
 
-def our_plot(tasks):
+def aggregate_tasks(tasks):
     start = datetime.datetime(2022, 10, 1)
     end = datetime.datetime(2022, 12, 1)
 
@@ -133,7 +133,21 @@ def our_plot(tasks):
 
         aggregation.add_repre(task_repre)
 
-    plotter = hist.MPLPlot(aggregation)
+    return aggregation
+
+
+def our_plot(tasks):
+    aggregation = aggregate_tasks(tasks)
+
+    plotter = hist.MPLPointPlot(aggregation)
+    plotter.plot_stuff()
+
+
+def velocity_plot(tasks):
+    aggregation = aggregate_tasks(tasks)
+    today = datetime.datetime.today()
+
+    plotter = hist.MPLVelocityPlot(aggregation)
     plotter.plot_stuff(today)
 
 

@@ -163,46 +163,76 @@ def test_aggregation(repre):
 
 
 @pytest.mark.dependency()
+def test_repre_velocity_not_touched(oneday_repre):
+    assert oneday_repre.average_daily_velocity == 0
+    assert oneday_repre.get_day_of_completion() is None
+    assert np.all(oneday_repre.get_velocity_array() == 0)
+
+
+@pytest.mark.dependency()
 def test_repre_velocity_not_done(oneday_repre):
     oneday_repre.update(PERIOD_START, tm.State.in_progress, points=1)
-    assert oneday_repre.velocity == 0
+    assert oneday_repre.average_daily_velocity == 0
+    assert oneday_repre.get_day_of_completion() is None
+    assert np.all(oneday_repre.get_velocity_array() == 0)
 
 
 @pytest.mark.dependency(depends=["test_repre_velocity_not_done"])
 def test_repre_velocity_done_in_day(twoday_repre):
     twoday_repre.update(PERIOD_START, tm.State.in_progress, points=2)
     twoday_repre.update(PERIOD_START + ONE_DAY, tm.State.done, points=2)
-    assert twoday_repre.velocity == 2
+    assert twoday_repre.average_daily_velocity == 2
 
 
 @pytest.mark.dependency(depends=["test_repre_velocity_not_done"])
 def test_repre_velocity_done_real_quick(twoday_repre):
     twoday_repre.update(PERIOD_START, tm.State.done, points=2)
     twoday_repre.update(PERIOD_START + ONE_DAY, tm.State.done, points=2)
-    assert twoday_repre.velocity == 2
+    assert twoday_repre.average_daily_velocity == 2
+    assert twoday_repre.get_day_of_completion() == PERIOD_START
+
+
+@pytest.mark.dependency(depends=["test_repre_velocity_done_real_quick"])
+def test_repre_velocity_done_real_quick_array(twoday_repre):
+    twoday_repre.update(PERIOD_START, tm.State.done, points=2)
+    twoday_repre.update(PERIOD_START + ONE_DAY, tm.State.done, points=2)
+    velocity_array = twoday_repre.get_velocity_array()
+    assert velocity_array.sum() == 2
+    assert (velocity_array > 0).sum() == 1
+
+
+def update_repre_with_casual_task_schedule(repre, start):
+    repre.update(start, tm.State.todo)
+    repre.update(start + 1 * ONE_DAY, tm.State.in_progress)
+    repre.update(start + 2 * ONE_DAY, tm.State.in_progress)
+    repre.update(start + 3 * ONE_DAY, tm.State.in_progress)
+    repre.update(start + 4 * ONE_DAY, tm.State.review)
+    repre.update(start + 5 * ONE_DAY, tm.State.review)
 
 
 @pytest.mark.dependency(depends=["test_repre_velocity_done_in_day"])
 def test_full_repre_velocity_done_in_three_days(repre):
-    period_end = repre.status_timeline.end
+    period_end = repre.end
     repre.update(period_end, tm.State.done, points=9)
     repre.fill_history_from(period_end)
-    repre.update(PERIOD_START, tm.State.todo)
-    repre.update(PERIOD_START + 1 * ONE_DAY, tm.State.in_progress)
-    repre.update(PERIOD_START + 2 * ONE_DAY, tm.State.in_progress)
-    repre.update(PERIOD_START + 3 * ONE_DAY, tm.State.in_progress)
-    repre.update(PERIOD_START + 4 * ONE_DAY, tm.State.review)
-    repre.update(PERIOD_START + 5 * ONE_DAY, tm.State.review)
-    assert repre.velocity == 3
+    update_repre_with_casual_task_schedule(repre, PERIOD_START)
+    assert repre.average_daily_velocity == 3
+
+
+@pytest.mark.dependency(depends=["test_repre_velocity_not_done"])
+def test_task_done_retroactively(repre):
+    update_repre_with_casual_task_schedule(repre, PERIOD_START)
+    repre.update(PERIOD_START + 6 * ONE_DAY, tm.State.done, points=9)
+    for day in range(6):
+        assert not repre.is_done(PERIOD_START + day * ONE_DAY)
+    assert not repre.is_done(PERIOD_START - day * ONE_DAY)
+    assert repre.is_done(repre.end)
+    assert repre.is_done(PERIOD_START + 6 * ONE_DAY)
+    assert repre.get_day_of_completion() == PERIOD_START + 6 * ONE_DAY
 
 
 @pytest.mark.dependency(depends=["test_full_repre_velocity_done_in_three_days"])
 def test_unknown_repre_velocity_done_in_three_days(repre):
-    repre.update(PERIOD_START, tm.State.todo)
-    repre.update(PERIOD_START + 1 * ONE_DAY, tm.State.in_progress)
-    repre.update(PERIOD_START + 2 * ONE_DAY, tm.State.in_progress)
-    repre.update(PERIOD_START + 3 * ONE_DAY, tm.State.in_progress)
-    repre.update(PERIOD_START + 4 * ONE_DAY, tm.State.review)
-    repre.update(PERIOD_START + 5 * ONE_DAY, tm.State.review)
+    update_repre_with_casual_task_schedule(repre, PERIOD_START)
     repre.update(PERIOD_START + 6 * ONE_DAY, tm.State.done, points=9)
-    assert repre.velocity == 3
+    assert repre.average_daily_velocity == 3
