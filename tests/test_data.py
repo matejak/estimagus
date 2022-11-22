@@ -98,6 +98,42 @@ def pert_test_estimate(est):
     assert pytest.approx(deduced_expected_value, 0.05) == est.expected
 
 
+def _associativity_test(input_triples):
+    estimates = [
+        tm.Estimate.from_triple(* triple) for triple in input_triples
+    ]
+    onedir = estimates[0]
+    for e in estimates[1:]:
+        onedir = onedir + e
+
+    otherdir = estimates[-1]
+    for e in estimates[::-1][1:]:
+        otherdir = e + otherdir
+
+    assert onedir.expected == pytest.approx(otherdir.expected)
+    assert onedir.sigma == pytest.approx(otherdir.sigma)
+
+
+def test_estimate_associativity():
+    _associativity_test((
+        (2, 2, 2),
+        (3, 3, 3),
+        (5, 5, 5),
+    ))
+    _associativity_test((
+        (2, 1, 3),
+        (3, 1, 5),
+        (5, 2, 8),
+    ))
+    _associativity_test((
+        (1, 1, 3),
+        (5, 1, 5),
+        (5, 1, 13),
+        (8, 2, 21),
+        (2, 1, 3),
+    ))
+
+
 @pytest.mark.dependency(depends=["test_estimates"])
 def test_pert():
     zero = tm.Estimate(0, 0)
@@ -151,7 +187,8 @@ def _test_triple(o, m, p):
 
     estimate = tm.Estimate.from_input(inp)
     pert = estimate.get_pert(800)
-    calculated_input = tm.EstimInput.from_pert_and_data(pert[0], pert[1], estimate.expected, estimate.sigma)
+    calculated_input = tm.EstimInput.from_pert_and_data(
+        pert[0], pert[1], estimate.expected, estimate.sigma)
     calculated_estimate = tm.Estimate.from_input(calculated_input)
 
     assert pytest.approx(calculated_estimate.expected) == estimate.expected

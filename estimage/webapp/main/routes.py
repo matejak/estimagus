@@ -75,13 +75,8 @@ def feed_estimation_to_form_and_arg_dict(estimation, form_data, arg_dict):
 
 
 def retreive_task(task_id):
-    try:
-        ret = simpledata.Target.load_metadata(task_id)
-    except RuntimeError:
-        ret = simpledata.Target()
-        ret.name = task_id
-        ret.title = f"{task_id} - Task Title"
-        ret.description = "task <strong>description</strong>"
+    ret = simpledata.Target.load_metadata(task_id)
+    ret.load_point_cost()
     return ret
 
 
@@ -121,9 +116,13 @@ def move_consensus_estimate_to_authoritative(task_name):
 
 
 def propagate_estimate_to_task(task_name, est_input):
-    estimate = data.Estimate.from_input(est_input)
-    targets = simpledata.Target.load_all_targets()
+    targets = simpledata.Target.get_loaded_targets_by_id()
+    target = targets[task_name]
 
+    est = data.Estimate.from_input(est_input)
+    target.point_cost = est.expected
+
+    target.save_point_cost()
 
 
 @bp.route('/estimate/<task_name>', methods=['POST'])

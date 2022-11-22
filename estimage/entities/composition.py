@@ -7,6 +7,9 @@ from .estimate import Estimate
 
 @dataclasses.dataclass(init=False)
 class Composition:
+    """
+    The node element in a tree of tasks.
+    """
     elements: typing.List[TaskModel]
     compositions: typing.List["Composition"]
     name: str

@@ -25,6 +25,17 @@ class IniStorage:
             with open(self.CONFIG_FILENAME, "w") as f:
                 config.write(f)
 
+    @contextlib.contextmanager
+    def _update_key_with_dictionary(self, key):
+        with self._manipulate_existing_config() as config:
+            if key in config:
+                def callback(d):
+                    config[key].update(d)
+            else:
+                def callback(d):
+                    config[key] = d
+            yield callback
+
 
 class IniTarget(data.BaseTarget, IniStorage):
     def save_metadata(self):
@@ -33,12 +44,13 @@ class IniTarget(data.BaseTarget, IniStorage):
         if not self.name:
             msg = "Coudln't save target, because its name is blank."
             raise RuntimeError(msg)
-        with self._manipulate_existing_config() as config:
-            config[self.name] = dict(
+        with self._update_key_with_dictionary(self.name) as callback:
+            metadata = dict(
                 title=self.title,
                 description=self.description,
                 depnames=",".join([dep.name for dep in self.dependents]),
             )
+            callback(metadata)
 
     @classmethod
     def get_all_target_names(cls):
@@ -78,20 +90,22 @@ class IniTarget(data.BaseTarget, IniStorage):
         return ret
 
     def _save_point_cost(self, cost_str):
-        with self._manipulate_existing_config() as config:
-            config[self.name] = dict(
+        with self._update_key_with_dictionary(self.name) as callback:
+            new_value = dict(
                 point_cost=cost_str,
             )
+            callback(new_value)
 
     def _load_point_cost(self):
         config = self._load_existing_config()
         return config[self.name].get("point_cost", fallback=0)
 
     def _save_time_cost(self, cost_str):
-        with self._manipulate_existing_config() as config:
-            config[self.name] = dict(
+        with self._update_key_with_dictionary(self.name) as callback:
+            new_value = dict(
                 time_cost=cost_str,
             )
+            callback(new_value)
 
     def _load_time_cost(self):
         config = self._load_existing_config()

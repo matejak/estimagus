@@ -99,6 +99,13 @@ class EstimInput:
 
 @dataclasses.dataclass
 class Estimate:
+    """
+    An estimate of difficulty, represented by expected value and standard deviation.
+    Typically, the 3-point source of the estimate is known and stored as source.
+
+    Estimates can get composed, when the resulting estimate represents the estimation of
+    all its constituents.
+    """
     expected: float
     sigma: float
 
