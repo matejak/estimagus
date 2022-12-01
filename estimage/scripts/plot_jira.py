@@ -33,12 +33,12 @@ STORY_POINTS = "customfield_12310243"
 EPIC_LINK = "customfield_12311140"
 
 
-def get_tasks():
+def get_tasks(query=con.query):
     from jira import JIRA
     TOKEN = con.token
 
     jira = JIRA(con.server_url, token_auth=TOKEN)
-    issues = jira.search_issues(con.query)
+    issues = jira.search_issues(query)
     all_epics = dict()
     all_subtasks = dict()
     for i in issues:
@@ -77,10 +77,7 @@ def export_jira_tasks_to_targets(epics, tasks, target_class: target.BaseTarget):
 
 
 def get_events(task, cutoff=None):
-    result = dict(
-        points=[],
-        status=[],
-    )
+    events = []
     for history in task.changelog.histories:
         date_str = history.created
         date_str = date_str.split("+")[0]
@@ -96,46 +93,48 @@ def get_events(task, cutoff=None):
             new_value = event.toString
 
             if field_name == "status":
-                evt = hist.Event(task.key, date)
+                evt = hist.Event(task.key, "state", date)
                 evt.value_before = JIRA_STATUS_TO_STATE[former_value]
                 evt.value_after = JIRA_STATUS_TO_STATE[new_value]
                 evt.msg = f"Status changed from '{former_value}' to '{new_value}'"
-                result["status"].append(evt)
+                events.append(evt)
             elif field_name == STORY_POINTS:
-                evt = hist.Event(task.key, date)
+                evt = hist.Event(task.key, "points", date)
                 evt.value_before = float(former_value or 0)
                 evt.value_after = float(new_value or 0)
                 evt.msg = f"Points changed from {former_value} to {new_value}"
-                result["points"].append(evt)
+                events.append(evt)
 
-    return result
+    return events
 
 
 def aggregate_tasks(tasks):
     start = datetime.datetime(2022, 10, 1)
-    end = datetime.datetime(2022, 12, 1)
+    end = datetime.datetime(2022, 12, 9)
 
     today = datetime.datetime.today()
 
     aggregation = hist.Aggregation()
 
     sorted_tasks = [tasks[key] for key in sorted(tasks.keys())]
+    all_events = []
 
     for task in sorted_tasks:
         task_repre = hist.Repre(start, end)
+        task_repre.task_name = task.key
         points = float(task.get_field(STORY_POINTS) or 0)
         status = JIRA_STATUS_TO_STATE[str(task.get_field("status"))]
-        task_repre.update(today, points=points, status=status)
-        task_repre.fill_history_from(today)
 
-        events_lists = get_events(task, start)
-        task_repre.status_timeline.process_events(events_lists["status"])
-        task_repre.points_timeline.process_events(events_lists["points"])
+        all_events.append(hist.Event.last_state_measurement(task.key, today, status))
+        all_events.append(hist.Event.last_points_measurement(task.key, today, points))
+
+        all_events.extend(get_events(task, start))
         if points:
             print(f"{points} {task.key} - {task.get_field('summary')}")
 
         aggregation.add_repre(task_repre)
 
+    aggregation.process_events(all_events)
     return aggregation
 
 
@@ -243,14 +242,6 @@ def generate_tasks_html(tasks_by_name):
         f.write(content)
 
 
-def get_linear_events(task, cutoff=None):
-    events_lists = get_events(task, cutoff)
-    ret = []
-    for e_list in events_lists.values():
-        ret.extend(e_list)
-    return ret
-
-
 def generate_events_html(tasks_by_name):
     start = datetime.datetime(2022, 10, 1)
     end = datetime.datetime(2022, 12, 1)
@@ -261,7 +252,7 @@ def generate_events_html(tasks_by_name):
 
     events = []
     for t in tasks_by_name.values():
-        events.extend(get_linear_events(t, start))
+        events.extend(get_events(t, start))
 
     events_by_date = collections.defaultdict(list)
     for e in events:

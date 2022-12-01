@@ -332,6 +332,33 @@ class Aggregation:
         return self.repres[0].points_timeline.days
 
 
+def x_axis_weeks_and_months(ax, start, end):
+    ticks = dict()
+    set_week_ticks_to_mondays(ticks, start, end)
+    set_ticks_to_months(ticks, start, end)
+
+    ax.set_xticks(list(ticks.keys()))
+    ax.set_xticklabels(list(ticks.values()), rotation=60)
+
+    ax.set_xlabel("time / weeks")
+
+
+def set_week_ticks_to_mondays(ticks, start, end):
+    week_index = 0
+    if start.weekday != 0:
+        week_index = 1
+    for day in range((end - start).days):
+        if (start + day * ONE_DAY).weekday() == 0:
+            ticks[day] = str(week_index)
+            week_index += 1
+
+
+def set_ticks_to_months(ticks, start, end):
+    for day in range((end - start).days):
+        if (the_day := (start + day * ONE_DAY)).day == 1:
+            ticks[day] = datetime.date.strftime(the_day, "%b")
+
+
 class MPLPointPlot:
     def __init__(self, a: Aggregation):
         self.aggregation = a
@@ -351,11 +378,15 @@ class MPLPointPlot:
         width = 1.0
         days = np.arange(self.aggregation.days)
         bottom = np.zeros_like(days, dtype=float)
+        index_of_today = localize_event(self.aggregation.repres[0].start, datetime.datetime.today())
         for status, array, color in self.styles:
-            ax.bar(days, array, width, bottom=bottom, label=status, color=color)
+            array[index_of_today:] = array[index_of_today]
+            ax.fill_between(days, array + bottom, bottom, label=status,
+                            color=color, edgecolor="white", linewidth=0.5)
             bottom += array
 
         ax.plot([days[0], days[-1]], [bottom[0], 0], color="blue")
+        ax.axvline(index_of_today, label="today", color="grey", linewidth=2)
 
     def plot_stuff(self):
         import matplotlib.pyplot as plt
@@ -364,8 +395,10 @@ class MPLPointPlot:
 
         self._prepare_plots()
         self._plot_bars(ax)
-        ax.legend()
-        ax.set_xlabel("time / days")
+        ax.legend(loc="upper right")
+
+        r = self.aggregation.repres[0]
+        x_axis_weeks_and_months(ax, r.start, r.end)
         ax.set_ylabel("points")
 
         plt.show()
@@ -397,11 +430,15 @@ class MPLVelocityPlot:
 
         self._prepare_plots(cutoff_date)
 
-        ax.plot(self.days, self.velocity_focus, label="Velocity Focus")
-        ax.plot(self.days, self.velocity_estimate, label="Velocity Estimate")
+        ax.plot(self.days, self.velocity_focus, label="Velocity retrofit")
+        ax.plot(self.days, self.velocity_estimate, label="Rolling velocity estimate")
 
-        ax.legend()
-        ax.set_xlabel("time / days")
-        ax.set_ylabel("velocity")
+        index_of_today = localize_event(self.aggregation.repres[0].start, datetime.datetime.today())
+        ax.axvline(index_of_today, label="today", color="grey", linewidth=2)
+
+        ax.legend(loc="upper center")
+        r = self.aggregation.repres[0]
+        x_axis_weeks_and_months(ax, r.start, r.end)
+        ax.set_ylabel("team velocity / points per day")
 
         plt.show()
