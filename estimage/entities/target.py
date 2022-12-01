@@ -1,9 +1,20 @@
 import re
 import typing
+import enum
 
 from .task import TaskModel
 from .composition import Composition
 from .. import utilities
+
+
+class State(enum.IntEnum):
+    unknown = enum.auto()
+    backlog = enum.auto()
+    todo = enum.auto()
+    in_progress = enum.auto()
+    review = enum.auto()
+    done = enum.auto()
+    abandoned = enum.auto()
 
 
 class BaseTarget:
@@ -14,6 +25,7 @@ class BaseTarget:
     title: str
     description: str
     dependents: typing.List["BaseTarget"]
+    state: State
 
     def __init__(self):
         self.point_cost = 0
@@ -22,6 +34,7 @@ class BaseTarget:
         self.title = ""
         self.description = ""
         self.dependents = []
+        self.state = State.unknown
 
     def parse_point_cost(self, cost):
         return float(cost)

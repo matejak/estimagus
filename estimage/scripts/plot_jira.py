@@ -12,14 +12,14 @@ import con
 
 
 JIRA_STATUS_TO_STATE = {
-    "Backlog": hist.State.todo,
-    "New": hist.State.todo,
-    "Done": hist.State.done,
-    "Abandoned": hist.State.abandoned,
-    "Closed": hist.State.abandoned,
-    "In Progress": hist.State.in_progress,
-    "Needs Peer Review": hist.State.review,
-    "To Do": hist.State.todo,
+    "Backlog": target.State.todo,
+    "New": target.State.todo,
+    "Done": target.State.done,
+    "Abandoned": target.State.abandoned,
+    "Closed": target.State.abandoned,
+    "In Progress": target.State.in_progress,
+    "Needs Peer Review": target.State.review,
+    "To Do": target.State.todo,
 }
 
 
@@ -93,16 +93,19 @@ def get_events(task, cutoff=None):
 
             field_name = event.field
             former_value = event.fromString
+            new_value = event.toString
 
             if field_name == "status":
                 evt = hist.Event(task.key, date)
-                evt.value = JIRA_STATUS_TO_STATE[former_value]
-                evt.msg = f"Status changed from '{former_value}' to '{event.toString}'"
+                evt.value_before = JIRA_STATUS_TO_STATE[former_value]
+                evt.value_after = JIRA_STATUS_TO_STATE[new_value]
+                evt.msg = f"Status changed from '{former_value}' to '{new_value}'"
                 result["status"].append(evt)
             elif field_name == STORY_POINTS:
                 evt = hist.Event(task.key, date)
-                evt.value = float(former_value or 0)
-                evt.msg = f"Points changed from {former_value} to {event.toString}"
+                evt.value_before = float(former_value or 0)
+                evt.value_after = float(new_value or 0)
+                evt.msg = f"Points changed from {former_value} to {new_value}"
                 result["points"].append(evt)
 
     return result

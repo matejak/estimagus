@@ -1,8 +1,11 @@
 import datetime
-import enum
 import typing
+import collections
+import dataclasses
 
 import numpy as np
+
+from .entities import target
 
 
 ONE_DAY = datetime.timedelta(days=1)
@@ -18,17 +21,80 @@ def localize_event(
     return (evt - start).days
 
 
+@dataclasses.dataclass
 class Event:
     time: datetime.datetime
     task_name: str
+    quantity: str
+    value_before: str
+    value_after: str
 
-    def __init__(self, task_name, time):
+    def __init__(self, task_name, quantity, time):
         self.time = time
         self.task_name = task_name
-        self.value = None
+        self.quantity = quantity
+        self.value_after = None
+        self.value_before = None
 
     def __str__(self):
-        return f"{self.time.date()}: {self.value}"
+        return f"{self.time.date()} {self.quantity}: {self.value_before} -> {self.value_after}"
+
+    @classmethod
+    def last_points_measurement(cls, task_name, when, value):
+        ret = cls(task_name, "points", when)
+        ret.value_after = value
+        ret.value_before = value
+        return ret
+
+    @classmethod
+    def last_state_measurement(cls, task_name, when, value):
+        ret = cls(task_name, "state", when)
+        ret.value_after = target.State.unknown
+        ret.value_before = value
+        return ret
+
+
+class EventManager:
+    _events: typing.Dict[str, typing.List[Event]]
+
+    def __init__(self):
+        self._events = collections.defaultdict(list)
+
+    def add_event(self, event: Event):
+        events = self._events[event.task_name]
+        events.append(event)
+        self._events[event.task_name] = sorted(events, key=lambda e: e.time)
+
+    def get_referenced_task_names(self):
+        return set(self._events.keys())
+
+    def get_chronological_events_concerning(self, task_name: str):
+        sorted_events = []
+        if task_name in self._events:
+            sorted_events = self._events[task_name]
+        return sorted_events
+
+    def save(self):
+        task_names = self.get_referenced_task_names()
+        for name in task_names:
+            self._save_task_events(name, self._events[name])
+
+    def _save_task_events(self, task_name: str, event_list: typing.List[Event]):
+        raise NotImplementedError()
+
+    @classmethod
+    def load(cls):
+        result = cls()
+        events_task_names = result._load_event_names()
+        for name in events_task_names:
+            result._events[name] = result._load_events(name)
+        return result
+
+    def _load_events(self, name):
+        raise NotImplementedError()
+
+    def _load_event_names(self):
+        raise NotImplementedError()
 
 
 class Timeline:
@@ -51,7 +117,10 @@ class Timeline:
         return len(self._data)
 
     def process_events(self, events):
+        if not events:
+            return
         events = sorted(events, key=lambda x: x.time, reverse=True)
+        self._data[:] = events[0].value_after
         indices = np.empty(len(events), dtype=int)
         for i, e in enumerate(events):
             index = localize_event(self.start, e.time)
@@ -59,11 +128,11 @@ class Timeline:
             if index >= len(self._data):
                 msg = "Event outside of the timeline"
                 raise ValueError(msg)
-            self._data[0:index] = e.value
+            self._data[0:index] = e.value_before
 
         for i, e in enumerate(events[::-1]):
             index = indices[-1 - i]
-            self._data[index] = e.value
+            self._data[index] = e.value_before
 
     def set_value_at(self, time: datetime.datetime, value):
         index = localize_event(self.start, time)
@@ -80,36 +149,30 @@ class Timeline:
         return self._data[mask]
 
 
-class State(enum.IntEnum):
-    unknown = enum.auto()
-    backlog = enum.auto()
-    todo = enum.auto()
-    in_progress = enum.auto()
-    review = enum.auto()
-    done = enum.auto()
-    abandoned = enum.auto()
-
-
 class Repre:
     start: datetime.datetime
     end: datetime.datetime
     points_timeline: Timeline
     status_timeline: Timeline
     time_timeline: Timeline
+    task_name: str
 
     def __init__(self, start, end):
         self.points_timeline = Timeline(start, end)
         self.status_timeline = Timeline(start, end)
-        self.status_timeline.recreate_with_value(State.unknown)
+        self.status_timeline.recreate_with_value(target.State.unknown)
         self.time_timeline = Timeline(start, end)
         self.start = start
         self.end = end
+        self.task_name = ""
 
     def update(self, when, status=None, points=None, time=None):
         if points is not None:
             self.points_timeline.set_value_at(when, points)
         if status is not None:
             self.status_timeline.set_value_at(when, status)
+        if time is not None:
+            self.time_timeline.set_value_at(when, status)
 
     def get_points_at(self, when):
         return self.points_timeline.value_at(when)
@@ -117,7 +180,7 @@ class Repre:
     def get_status_at(self, when):
         return self.status_timeline.value_at(when)
 
-    def status_is(self, status: State):
+    def status_is(self, status: target.State):
         return self.status_timeline.get_value_mask(status)
 
     def points_of_status(self, status):
@@ -125,12 +188,12 @@ class Repre:
         return self.points_timeline.get_masked_values(mask)
 
     def fill_history_from(self, when):
-        init_event = Event("", when)
+        init_event = Event("", "points", when)
 
-        init_event.value = self.points_timeline.value_at(when)
+        init_event.value_before = self.points_timeline.value_at(when)
         self.points_timeline.process_events([init_event])
 
-        init_event.value = self.status_timeline.value_at(when)
+        init_event.value_before = self.status_timeline.value_at(when)
         self.status_timeline.process_events([init_event])
 
     def is_done(self, latest_at=None):
@@ -141,25 +204,25 @@ class Repre:
             elif latest_at < self.end:
                 deadline_index = localize_event(self.start, latest_at)
                 relevant_slice = slice(0, deadline_index + 1)
-        done_mask = self.status_timeline.get_value_mask(State.done)[relevant_slice]
+        done_mask = self.status_timeline.get_value_mask(target.State.done)[relevant_slice]
         task_done = done_mask.sum() > 0
         return task_done
 
     def points_completed(self, before=None):
         if not self.is_done(before):
             return 0
-        done_mask = self.status_timeline.get_value_mask(State.done)
+        done_mask = self.status_timeline.get_value_mask(target.State.done)
         task_points = self.points_timeline.get_masked_values(done_mask)[-1]
         return task_points
 
     @property
     def average_daily_velocity(self):
-        in_progress_mask = self.status_timeline.get_value_mask(State.in_progress)
+        in_progress_mask = self.status_timeline.get_value_mask(target.State.in_progress)
         time_taken = in_progress_mask.sum() or 1
         return self.points_completed() / time_taken
 
     def get_day_of_completion(self):
-        done_mask = self.status_timeline.get_value_mask(State.done)
+        done_mask = self.status_timeline.get_value_mask(target.State.done)
         if done_mask.sum() == 0:
             return None
         indices = np.arange(len(done_mask))
@@ -168,13 +231,46 @@ class Repre:
 
     def get_velocity_array(self):
         if not self.is_done():
-            return self.status_timeline.get_value_mask(State.done).astype(float)
-        velocity_array = self.status_timeline.get_value_mask(State.in_progress).astype(float)
+            return self.status_timeline.get_value_mask(target.State.done).astype(float)
+        velocity_array = self.status_timeline.get_value_mask(target.State.in_progress).astype(float)
         if velocity_array.sum() == 0:
             index_of_completion = localize_event(self.start, self.get_day_of_completion())
             velocity_array[index_of_completion] = 1
         velocity_array *= self.points_completed() / velocity_array.sum()
         return velocity_array
+
+    def process_events(self, events_by_type):
+        TYPES_TO_TIMELINE = {
+            "time": self.time_timeline,
+            "points": self.points_timeline,
+            "state": self.status_timeline
+        }
+        for event_type, timeline in TYPES_TO_TIMELINE.items():
+            events = events_by_type.get(event_type, [])
+            timeline.process_events(events)
+
+
+def _convert_target_to_representation(
+        source: target.BaseTarget,
+        start: datetime.datetime, end: datetime.datetime) -> typing.List[Repre]:
+    repre = Repre(start, end)
+    repre.task_name = source.name
+    repre.points_timeline.set_value_at(end, source.point_cost)
+    repre.status_timeline.set_value_at(end, source.state)
+    repre.fill_history_from(end)
+    return repre
+
+
+def convert_target_to_representations_of_leaves(
+        source: target.BaseTarget,
+        start: datetime.datetime, end: datetime.datetime) -> typing.List[Repre]:
+    ret = []
+    if source.dependents:
+        for d in source.dependents:
+            ret.extend(convert_target_to_representations_of_leaves(d, start, end))
+    else:
+        ret = [_convert_target_to_representation(source, start, end)]
+    return ret
 
 
 class Aggregation:
@@ -183,7 +279,28 @@ class Aggregation:
     def __init__(self):
         self.repres = []
 
+    @classmethod
+    def from_target(
+            cls, source: target.BaseTarget,
+            start: datetime.datetime, end: datetime.datetime) -> "Aggregation":
+        ret = cls()
+        for r in convert_target_to_representations_of_leaves(source, start, end):
+            ret.add_repre(r)
+        return ret
+
+    def process_events(self, events: typing.Iterable[Event]):
+        events_by_taskname = collections.defaultdict(lambda: collections.defaultdict(list))
+        for evt in events:
+            events_by_taskname[evt.task_name][evt.quantity].append(evt)
+
+        for r in self.repres:
+            if (task_name := r.task_name) in events_by_taskname:
+                r.process_events(events_by_taskname[task_name])
+
     def add_repre(self, repre):
+        if (self.end and self.end != repre.end) or (self.start and self.start != repre.start):
+            msg = "Incompatible timespan of the representation"
+            raise ValueError(msg)
         self.repres.append(repre)
 
     def states_on(self, when):
@@ -199,6 +316,18 @@ class Aggregation:
         return points
 
     @property
+    def start(self):
+        if not self.repres:
+            return None
+        return self.repres[0].start
+
+    @property
+    def end(self):
+        if not self.repres:
+            return None
+        return self.repres[0].end
+
+    @property
     def days(self):
         return self.repres[0].points_timeline.days
 
@@ -208,9 +337,9 @@ class MPLPointPlot:
         self.aggregation = a
         empty_array = np.zeros(a.days)
         self.styles = [
-            (State.todo, empty_array.copy(), (0.1, 0.1, 0.5, 1)),
-            (State.in_progress, empty_array.copy(), (0.1, 0.1, 0.6, 0.8)),
-            (State.review, empty_array.copy(), (0.1, 0.2, 0.7, 0.6)),
+            (target.State.todo, empty_array.copy(), (0.1, 0.1, 0.5, 1)),
+            (target.State.in_progress, empty_array.copy(), (0.1, 0.1, 0.6, 0.8)),
+            (target.State.review, empty_array.copy(), (0.1, 0.2, 0.7, 0.6)),
         ]
 
     def _prepare_plots(self):
@@ -276,30 +405,3 @@ class MPLVelocityPlot:
         ax.set_ylabel("velocity")
 
         plt.show()
-
-
-def demo_plot():
-    start = datetime.datetime(2022, 10, 1)
-    end = datetime.datetime(2022, 10, 21)
-
-    someday = datetime.datetime(2022, 10, 10)
-    day_after = someday + ONE_DAY
-
-    repre = Repre(start, end)
-
-    repre.update(day_after, points=6, status=State.review)
-    repre.update(someday, points=6, status=State.in_progress)
-    repre.fill_history_from(someday)
-    repre.update(someday - 3 * ONE_DAY, points=5, status=State.todo)
-    repre.fill_history_from(someday - 3 * ONE_DAY)
-
-    repre2 = Repre(start, end)
-    repre2.update(day_after, points=8, status=State.todo)
-    repre2.fill_history_from(day_after)
-
-    aggregation = Aggregation()
-    aggregation.add_repre(repre)
-    aggregation.add_repre(repre2)
-
-    plotter = MPLPlot(aggregation)
-    plotter.plot_stuff(someday)

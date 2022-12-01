@@ -2,7 +2,7 @@ import math
 
 import numpy as np
 
-from .entities.target import BaseTarget
+from .entities.target import BaseTarget, State
 from .entities.estimate import Estimate, EstimInput
 from .entities.task import TaskModel, MemoryTaskModel
 from .entities.composition import Composition, MemoryComposition

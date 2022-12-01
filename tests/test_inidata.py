@@ -4,6 +4,7 @@ import os
 import pytest
 
 import estimage.inidata as tm
+from test_history import early_event_and_date, less_early_event_and_date
 
 
 @pytest.fixture
@@ -23,6 +24,14 @@ def target_inifile(temp_filename):
         TIME_UNIT = "d"
 
     yield TmpIniTarget
+
+
+@pytest.fixture
+def eventmgr_inifile(temp_filename):
+    class TmpIniEventMgr(tm.IniEvents):
+        CONFIG_FILENAME = temp_filename
+
+    yield TmpIniEventMgr
 
 
 def test_require_name_for_saving(target_inifile):
@@ -89,3 +98,34 @@ def test_save_something2_load_same(target_inifile):
 
     assert data.name == data2.name
     assert data.title == data2.title
+
+
+def test_eventmgr_storage(eventmgr_inifile, early_event_and_date, less_early_event_and_date):
+    early_event, _ = early_event_and_date
+
+    mgr_one = eventmgr_inifile()
+    mgr_one.add_event(early_event)
+    mgr_one.save()
+
+    mgr_two = eventmgr_inifile.load()
+    assert mgr_two.get_chronological_events_concerning(early_event.task_name) == [early_event]
+
+    less_early_event, _ = less_early_event_and_date
+    less_early_event.value_before = "rano"
+    less_early_event.value_after = "vecer"
+    less_early_event.task_name = "den"
+    mgr_one.add_event(less_early_event)
+
+    mgr_one.save()
+    mgr_two = eventmgr_inifile.load()
+
+    assert mgr_two.get_chronological_events_concerning(
+        less_early_event.task_name) == [less_early_event]
+
+    less_early_event.task_name = early_event.task_name
+    mgr_one.add_event(less_early_event)
+
+    mgr_one.save()
+    mgr_two = eventmgr_inifile.load()
+
+    assert mgr_two.get_chronological_events_concerning(early_event.task_name) == [early_event, less_early_event]

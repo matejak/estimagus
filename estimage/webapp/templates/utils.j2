@@ -16,9 +16,16 @@
         <a href="{{ url_for("main.view_epic", epic_name=epic.name) }}">{{ epic.name }}</a>
 {%- endmacro %}
 
+{% macro render_state_short(state) -%}
+        <span class="state.style_class">state.shortcut</span>
+{%- endmacro %}
+
+{% macro render_state(state) -%}
+        <span class="state.style_class">state.name</span>
+{%- endmacro %}
+
 {% macro render_task(task, model) %}
-        {{ task_link(task) }} &mdash; {{ task.title }}
-        Estimates: {{ "%.3g" % model.point_estimate_of(task.name).expected }} sigma = {{ "%.3g" % model.point_estimate_of(task.name).sigma }}
+        {{ task_link(task) }} &mdash; {{ task.title }} {{ task.status }}
 {% endmacro %}
 
 {% macro render_epic(epic, model) %}

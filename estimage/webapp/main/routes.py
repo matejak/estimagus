@@ -31,8 +31,7 @@ def logout():
     return flask.redirect("/login")
 
 
-@bp.route('/login', methods=['GET', 'POST'])
-def login():
+def autologin():
     form = forms.LoginForm()
     if form.validate_on_submit():
         user = User(form.username.data)
@@ -44,6 +43,20 @@ def login():
         return flask.redirect(next_page)
     return render_template(
         'login.html', title='Sign In', form=form)
+
+
+@bp.route('/login', methods=['GET', 'POST'])
+def login():
+    config_dict = flask.current_app.config
+    match provider_name := config_dict["LOGIN_PROVIDER_NAME"]:
+        case "autologin":
+            return autologin()
+        case "google":
+            from .google_login import google_login
+            return google_login()
+        case _:
+            msg = f"Unknown login provider: {provider_name}"
+            raise ValueError(msg)
 
 
 def tell_pollster_about_obtained_data(pollster, task_id, form_data):
@@ -208,6 +221,35 @@ def get_pert_in_figure(estimation, task_name):
     ax.legend()
 
     return fig
+
+
+def get_burnout_in_figure(subtasks, epic_name):
+    from ... import history
+
+
+
+    fig, ax = plt.subplots(1, 1)
+    ax.plot(pert[0], pert[1], 'b-', lw=2, label=f'task {task_name}')
+    ax.axvline(estimation.expected, color="orange", label="expected value")
+    ax.set_xlabel("points")
+    ax.set_ylabel("probability density")
+    ax.set_yticklabels([])
+    ax.grid()
+    ax.legend()
+
+    return fig
+
+
+@bp.route('/vis/<epic_name>-burnout.png')
+@flask_login.login_required
+def visualize_burnout(epic_name):
+    all_targets = simpledata.Target.load_all_targets()
+    epic = all_targets[epic_name]
+    subtasks = [all_targets[name] for name in epic.dependents]
+
+    fig = get_burnout_in_figure(subtasks, epic_name)
+
+    return send_figure_as_png(fig, f'{epic_name}.png')
 
 
 @bp.route('/vis/<task_name>-pert.png')

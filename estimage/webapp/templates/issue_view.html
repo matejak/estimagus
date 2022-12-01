@@ -7,7 +7,9 @@
 <div class="container">
     <h1>Estimate</h1>
     <h2>{{ task.title }}</h2>
-    <div>{{ task.description | safe }}</div>
+    <div>State: {{ task.state  }}</div>
+    <h3>Description</h3>
+    <div>{{ (task.description | safe) or "No description" }}</div>
     <h2>Estimates</h2>
     <div class="row">
     <div class="col">

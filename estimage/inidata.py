@@ -1,7 +1,10 @@
 import configparser
 import contextlib
+import typing
+import datetime
 
 from . import data
+from . import history
 
 
 class IniStorage:
@@ -49,6 +52,7 @@ class IniTarget(data.BaseTarget, IniStorage):
                 title=self.title,
                 description=self.description,
                 depnames=",".join([dep.name for dep in self.dependents]),
+                state=str(int(self.state)),
             )
             callback(metadata)
 
@@ -82,6 +86,8 @@ class IniTarget(data.BaseTarget, IniStorage):
         ret.name = name
         ret.title = config[name].get("title", "")
         ret.description = config[name].get("description", "")
+        state = config[name].get("state", data.State.unknown)
+        ret.state = data.State(int(state))
         for n in config[name].get("depnames", "").split(","):
             if not n:
                 continue
@@ -147,3 +153,51 @@ class IniPollster(data.Pollster, IniStorage):
                 optimistic=points.optimistic,
                 pessimistic=points.pessimistic,
             )
+
+
+class IniEvents(history.EventManager, IniStorage):
+    def _save_task_events(self, task_name: str, event_list: typing.List[history.Event]):
+        all_values_to_save = dict()
+        for index, event in enumerate(event_list):
+            to_save = dict(
+                time=event.time.isoformat(),
+                quantity=event.quantity or "",
+                task_name=task_name
+            )
+            if (val := event.value_before) is not None:
+                to_save["value_before"] = val
+            if (val := event.value_after) is not None:
+                to_save["value_after"] = val
+
+            keyname = f"{index:04d}-{task_name}"
+            all_values_to_save[keyname] = to_save
+
+        with self._manipulate_existing_config() as config:
+            config.update(all_values_to_save)
+
+    def _get_event_from_data(self, data, name):
+        time = datetime.datetime.fromisoformat(data["time"])
+        ret = history.Event(name, data["quantity"] or None, time)
+        if "value_before" in data:
+            ret.value_before = data["value_before"]
+        if "value_after" in data:
+            ret.value_after = data["value_after"]
+        return ret
+
+    def _load_events(self, name):
+        config = self._load_existing_config()
+        events = []
+        for key, value in config.items():
+            if "-" in key and name == key.split("-", 1)[1]:
+                event = self._get_event_from_data(value, name)
+                events.append(event)
+        return events
+
+    def _load_event_names(self):
+        config = self._load_existing_config()
+        names = set()
+        for key in config:
+            if "-" not in key:
+                continue
+            names.add(key.split("-", 1)[1])
+        return names
