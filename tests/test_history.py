@@ -12,13 +12,15 @@ PERIOD_START = datetime.datetime(2022, 10, 1)
 LONG_PERIOD_END = datetime.datetime(2022, 10, 21)
 
 
-def test_timeline():
+@pytest.mark.dependency()
+def test_timeline_length():
     start = PERIOD_START
     end = LONG_PERIOD_END
     timeline = tm.Timeline(start, end)
     assert timeline.days == 21
 
 
+@pytest.mark.dependency(depends=["test_timeline_length"])
 def test_timeline_masking():
     timeline = tm.Timeline(PERIOD_START, LONG_PERIOD_END)
     timeline.set_value_at(PERIOD_START + ONE_DAY, 55)
@@ -28,87 +30,100 @@ def test_timeline_masking():
 
 
 @pytest.fixture
-def early_event_and_date():
+def early_event():
     early_date = datetime.datetime(2022, 10, 11, 12)
     early_event = tm.Event("", None, early_date)
-    return early_event, early_date
+    early_event.value_before = 15
+    return early_event
 
 
 @pytest.fixture
-def less_early_event_and_date():
+def less_early_event():
     less_early_date = datetime.datetime(2022, 10, 11, 13)
     less_early_event = tm.Event("", None, less_early_date)
-    return less_early_event, less_early_date
+    less_early_event.value_before = 17
+    return less_early_event
 
 
-def test_events(early_event_and_date, less_early_event_and_date):
-    start = PERIOD_START
-    end = LONG_PERIOD_END
+@pytest.fixture
+def late_event():
+    time_late = datetime.datetime(2022, 10, 15)
+    late_event = tm.Event("", None, time_late)
+    late_event.value_before = 10
+    late_event.value_after = 0
+    return late_event
 
-    event_early, evt_early = early_event_and_date
-    event_early.value_before = 15
 
-    event_less_early, evt_less_early = less_early_event_and_date
-    event_less_early.value_before = 17
+@pytest.fixture
+def long_timeline():
+    return tm.Timeline(PERIOD_START, LONG_PERIOD_END)
 
-    evt_late = datetime.datetime(2022, 10, 15)
-    evtx = datetime.datetime(2023, 1, 1)
 
-    assert tm.localize_event(start, evt_early) == 10
-    index_late = 14
-    assert tm.localize_event(start, evt_late) == index_late
+def test_localize_events(early_event, less_early_event, late_event):
+    early_loc = tm.localize_event(PERIOD_START, early_event.time)
+    less_early_loc = tm.localize_event(PERIOD_START, less_early_event.time)
 
-    event_late = tm.Event("", None, evt_late)
-    event_late.value_before = 10
-    event_late.value_after = 0
+    assert int(early_loc) == early_loc
+    assert int(less_early_loc) == less_early_loc
 
-    timeline = tm.Timeline(start, end)
+    assert early_loc <= less_early_loc
+    assert early_loc < tm.localize_event(PERIOD_START, late_event.time)
 
+    assert tm.localize_event(PERIOD_START, PERIOD_START) == 0
+
+
+def test_beyond_timeline(long_timeline):
+    time_too_late = datetime.datetime(2023, 1, 1)
     with pytest.raises(ValueError):
-        timeline.process_events([tm.Event("", None, evtx)])
-
-    timeline.process_events([event_early, event_late])
-    assert timeline.value_at(end) == 0
-    assert timeline.value_at(start) == 15
-    assert timeline.value_at(evt_early + ONE_DAY * 2) == 10
-    assert timeline.value_at(evt_late) == 10
-    assert timeline.value_at(evt_late + ONE_DAY) == 0
-
-    timeline.recreate_with_value(3, dtype=int)
-    assert timeline.value_at(start) == timeline.value_at(end)
-    assert timeline.value_at(start) == 3
-
-    timeline.process_events([event_less_early, event_early, event_late])
-    assert timeline.value_at(end) == 0
-    assert timeline.value_at(start) == 15
-    assert timeline.value_at(evt_early + ONE_DAY * 2) == 10
-    assert timeline.value_at(evt_late) == 10
-    assert timeline.value_at(evt_late + ONE_DAY) == 0
-    assert timeline.value_at(evt_less_early) == 17
+        long_timeline.process_events([tm.Event("", None, time_too_late)])
 
 
-def test_event_manager_trivial(early_event_and_date):
-    event_early, _ = early_event_and_date
+def test_timeline_applies_distinct_events(long_timeline, early_event, late_event):
+    long_timeline.process_events([early_event, late_event])
+    assert long_timeline.value_at(LONG_PERIOD_END) == 0
+    assert long_timeline.value_at(PERIOD_START) == 15
+    assert long_timeline.value_at(early_event.time + ONE_DAY * 2) == 10
+    assert long_timeline.value_at(late_event.time) == 10
+    assert long_timeline.value_at(late_event.time + ONE_DAY) == 0
 
+
+def test_reset_timeline(long_timeline):
+    long_timeline.recreate_with_value(3, dtype=int)
+    assert long_timeline.value_at(PERIOD_START) == long_timeline.value_at(LONG_PERIOD_END)
+    assert long_timeline.value_at(PERIOD_START) == 3
+
+
+def test_timeline_process_close_and_distinct_events(
+        long_timeline, early_event, less_early_event, late_event):
+
+    long_timeline.process_events([less_early_event, early_event, late_event])
+
+    assert long_timeline.value_at(LONG_PERIOD_END) == 0
+    assert long_timeline.value_at(PERIOD_START) == 15
+    assert long_timeline.value_at(early_event.time + ONE_DAY * 2) == 10
+    assert long_timeline.value_at(late_event.time) == 10
+    assert long_timeline.value_at(late_event.time + ONE_DAY) == 0
+    assert long_timeline.value_at(less_early_event.time) == 17
+
+
+def test_event_manager_trivial(early_event):
     mgr = tm.EventManager()
-    assert mgr.get_chronological_events_concerning(event_early.task_name) == []
+    assert mgr.get_chronological_events_concerning(early_event.task_name) == []
     assert mgr.get_referenced_task_names() == set()
 
-    mgr.add_event(event_early)
-    assert mgr.get_chronological_events_concerning(event_early.task_name) == [event_early]
-    assert mgr.get_referenced_task_names() == {event_early.task_name}
+    mgr.add_event(early_event)
+    assert mgr.get_chronological_events_concerning(early_event.task_name) == [early_event]
+    assert mgr.get_referenced_task_names() == {early_event.task_name}
 
     assert mgr.get_chronological_events_concerning("x") == []
 
 
-def test_event_manager(early_event_and_date, less_early_event_and_date):
+def test_event_manager(early_event, less_early_event):
     mgr = tm.EventManager()
-    event_early, _ = early_event_and_date
-    event_less_early, _ = less_early_event_and_date
-    mgr.add_event(event_less_early)
-    mgr.add_event(event_early)
-    events = mgr.get_chronological_events_concerning(event_early.task_name)
-    assert events == [event_early, event_less_early]
+    mgr.add_event(less_early_event)
+    mgr.add_event(early_event)
+    events = mgr.get_chronological_events_concerning(early_event.task_name)
+    assert events == [early_event, less_early_event]
 
 
 @pytest.fixture

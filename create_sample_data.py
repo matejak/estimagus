@@ -1,9 +1,10 @@
 import estimage.simpledata as sd
 
 
-def create_task(name):
+def create_task(name, points):
     t = sd.Target()
     t.name = name
+    t.point_cost = points
     t.title = f"Issue {name}"
     t.description = f"Description of Issue {name}"
     t.save_metadata()
@@ -22,9 +23,9 @@ def create_epic(name, children=None):
 
 
 def create_tasks_and_epics():
-    t1 = create_task("one")
-    t2 = create_task("two")
-    t3 = create_task("three")
+    t1 = create_task("one", 1)
+    t2 = create_task("two", 2)
+    t3 = create_task("three", 3)
     e1 = create_epic("first", children=[t1, t2])
     e3 = create_epic("deep", children=[t3])
     e2 = create_epic("shallow", children=[e3])
