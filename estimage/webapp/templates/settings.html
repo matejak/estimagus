@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+
+{% from 'bootstrap5/form.html' import render_form %}
+
+{% block content %}
+    <h1>Settings</h1>
+
+    {{ render_form(settings_form, action=url_for("main.settings")) }}
+
+{% endblock %}

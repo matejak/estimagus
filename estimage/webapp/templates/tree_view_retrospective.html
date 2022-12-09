@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% import "utils.j2" as utils %}
+
+{% block content %}
+    <h1>Tree View</h1>
+    <p>
+        Grand total: {{ "%.3g" % model.point_estimate.expected }}
+    </p>
+    <p>
+    <img src="{{ url_for('main.visualize_task', task_name='.') }}" alt="PERT prob density function for everything"/>
+    </p>
+    <ul>
+    {% for target in targets -%}
+    {{ utils.render_whatever(target, model) }}
+    {% endfor -%}
+    </ul>
+{% endblock %}
