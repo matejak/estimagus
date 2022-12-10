@@ -175,7 +175,13 @@ def view_task(task_name):
         feed_estimation_to_form_and_arg_dict(estimation, eform, estimation_args)
 
     if "estimate" in estimation_args:
-        supply_similar_tasks(user_id, task_name, estimation_args)
+        similar_tasks = get_similar_tasks(user_id, task_name, estimation_args)
+        estimation_args["similar_sized_tasks"] = similar_tasks
+        all_targets = simpledata.Target.get_loaded_targets_by_id()
+        estimation_args["similar_sized_targets"] = [
+            all_targets[task.name] for task in similar_tasks
+        ]
+        estimation_args["zip"] = zip
 
         c_pollster = simpledata.AuthoritativePollster()
         con_input = c_pollster.ask_points(task_name)
@@ -314,11 +320,10 @@ def order_nearby_tasks(reference_task, all_tasks, distance_threshold, rank_thres
     return [distance_task_map[dst] for dst in distances]
 
 
-def supply_similar_tasks(user_id, task_name, estimation_data):
+def get_similar_tasks(user_id, task_name, estimation_data):
     model = get_user_model(user_id)
     all_tasks = model.get_all_task_models()
-    ordered_tasks = order_nearby_tasks(model.get_element(task_name), all_tasks, 0.5, 2)
-    estimation_data["similar_sized_tasks"] = ordered_tasks
+    return order_nearby_tasks(model.get_element(task_name), all_tasks, 0.5, 2)
 
 
 @bp.route('/')

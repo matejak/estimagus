@@ -24,8 +24,12 @@
         <span class="state.style_class">state.name</span>
 {%- endmacro %}
 
+{% macro render_task_basic(task) -%}
+        {{ task_link(task) }} &mdash; <span class="d-inline-block text-truncate" style="max-width: 200px;">{{ task.title }}</span>
+{%- endmacro %}
+
 {% macro render_task(task, model) %}
-        {{ task_link(task) }} &mdash; {{ task.title }} {{ task.status }}
+        {{ render_task_basic(task) }} {{ task.status }}
 {% endmacro %}
 
 {% macro render_epic(epic, model) %}
@@ -37,3 +41,8 @@
         </ul>
             {% endfor %}
 {% endmacro %}
+
+{% macro render_estimate(estimate, unit="") -%}
+	{{ "{expected:.3g}{unit_with_space}, 𝜎 = {sigma:.2g}{unit_with_space}".format(
+		expected=estimate.expected, sigma=estimate.sigma, unit_with_space=" " ~ unit) }}
+{%- endmacro %}

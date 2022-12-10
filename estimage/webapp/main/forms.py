@@ -10,28 +10,30 @@ class LoginForm(FlaskForm):
     submit = SubmitField('Sign In')
 
 
-class Promotion(FlaskForm):
-    def __init__(self, serious_note, button_msg, * args, ** kwargs):
+class PromotionMixin(FlaskForm):
+    def __init__(self, id_prefix, * args, ** kwargs):
         super().__init__(* args, ** kwargs)
-        self.i_kid_you_not.label.text = serious_note
-        self.submit.label.text = button_msg
-
-    i_kid_you_not = BooleanField("I am serious")
-    submit = SubmitField("Approve")
+        self.i_kid_you_not.id = id_prefix + self.i_kid_you_not.id
+        self.submit.id = id_prefix + self.submit.id
 
 
-class ConsensusForm(Promotion):
+class ConsensusForm(PromotionMixin):
     def __init__(self, * args, ** kwargs):
-        serious_note = "Own Estimate Represents the Consensus"
-        button_msg = "Promote Own Estimate"
-        super().__init__(* args, serious_note=serious_note, button_msg=button_msg, ** kwargs)
+        id_prefix = "consensus_"
+        super().__init__(* args, id_prefix=id_prefix, ** kwargs)
+
+    i_kid_you_not = BooleanField("Own Estimate Represents the Consensus")
+    forget_own_estimate = BooleanField("Also Forget Own Estimate", default=True)
+    submit = SubmitField("Promote Own Estimate")
 
 
-class AuthoritativeForm(Promotion):
+class AuthoritativeForm(PromotionMixin):
     def __init__(self, * args, ** kwargs):
-        serious_note = "Consensus Represents should be authoritative"
-        button_msg = "Promote Consensus Estimate"
-        super().__init__(* args, serious_note=serious_note, button_msg=button_msg, ** kwargs)
+        id_prefix = "authoritative_"
+        super().__init__(* args, id_prefix=id_prefix, ** kwargs)
+
+    i_kid_you_not = BooleanField("Consensus should be authoritative")
+    submit = SubmitField("Promote Consensus Estimate")
 
 
 FIB = [0, 1, 2, 3, 5, 8, 13, 21, 34]

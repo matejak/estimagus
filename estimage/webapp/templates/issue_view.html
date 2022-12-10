@@ -3,61 +3,94 @@
 {% import "utils.j2" as utils %}
 {% from 'bootstrap5/form.html' import render_form %}
 
+
+{% macro task_metadata() -%}
+<h2>{{ task.title }}</h2>
+<div>State: {{ task.state  }}</div>
+<h3>Description</h3>
+<div>{{ (task.description | escape) or "No description" }}</div>
+{%- endmacro %}
+
+
+{% macro task_authoritative() -%}
+{% set time_cost_is_relevant = task.time_cost -%}
+{% set point_cost_is_relevant = task.point_cost or not time_cost_is_relevant -%}
+{% if point_cost_is_relevant -%}
+	<p>Point cost: {{ task.point_cost }}</p>
+{%- endif -%}
+{% if time_cost_is_relevant -%}
+	<p>Time cost: {{ task.time_cost }}{% if task.TIME_UNIT %} {{ task.TIME_UNIT }} {%- endif %}</p>
+{%- endif -%}
+{%- endmacro %}
+
+
+{% macro estimation_form_in_accordion() -%}
+<div class="accordion-item">
+	<h4 class="accordion-header" id="headingTwo">
+		<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
+			Create or modify the estimate
+		</button>
+	</h4>
+	<div id="collapseTwo" class="accordion-collapse collapse" aria-labelledby="headingTwo" data-bs-parent="#accordionExample">
+		<div class="accordion-body">
+			{{ render_form(forms["estimation"], action=url_for("main.estimate", task_name=task.name)) }}
+		</div>
+	</div>
+</div>
+{%- endmacro %}
+
+
+{% macro render_similar_sized_tasks() -%}
+    <div class="row">
+    <h4>Tasks of similar sizes</h4>
+    <p>
+    <ul>
+    {%- for model, target in zip(similar_sized_tasks, similar_sized_targets) %}
+    <li>{{ utils.render_task_basic(target) }}: {{ utils.render_estimate(model.point_estimate) }}</li>
+    {%- endfor %}
+    </ul>
+    </p>
+    </div>
+{%- endmacro %}
+
+
 {% block content %}
 <div class="container">
+    <div class="row">
     <h1>Estimate</h1>
-    <h2>{{ task.title }}</h2>
-    <div>State: {{ task.state  }}</div>
-    <h3>Description</h3>
-    <div>{{ (task.description | escape) or "No description" }}</div>
+    {{ task_metadata() | indent(4) }}
     <h2>Estimates</h2>
+    </div>
     <div class="row">
     <div class="col">
     <h3>Authoritative values</h3>
     <p>
-        <p>Point cost: {{ task.point_cost }}</p>
-        <p>Time cost: {{ task.time_cost }}{% if task.TIME_UNIT %} {{ task.TIME_UNIT }} -{% endif %}</p>
-	{% if "authoritative" in forms %}
+        {{ task_authoritative() | indent(8) -}}
+        {% if "authoritative" in forms -%}
         {{ render_form(forms["authoritative"], action=url_for("main.move_consensus_estimate_to_authoritative", task_name=task.name)) }}
-	{% endif %}
+        {%- endif %}
     </p>
     </div>
     <div class="col">
-    <h3>Concensus values</h3>
-    <p>
+    <h3>Consensus values</h3>
 	{% if consensus.expected %}
-        <p>Point cost: {{ "%.3g" % consensus.expected }}</p>
-	{% endif %}
-	{% if task.time_cost %}
-        <p>Time cost: {{ task.time_cost }}{% if task.TIME_UNIT %} {{ task.TIME_UNIT }} -{% endif %}</p>
+	<p>Point cost: {{ utils.render_estimate(consensus) }}</p>
 	{% endif %}
 	{% if "consensus" in forms %}
         {{ render_form(forms["consensus"], action=url_for("main.move_issue_estimate_to_consensus", task_name=task.name)) }}
 	{% endif %}
-    </p>
     </div>
     <div class="col">
     <h3>Our values</h3>
-    <h4>Estimate</h4>
-    {{ render_form(forms["estimation"], action=url_for("main.estimate", task_name=task.name)) }}
+        {{ estimation_form_in_accordion() }}
     {%- if estimate %}
-    <p>
-        <p>Point expected value: {{ "%.3g" % estimate.expected }}</p>
-        <p>Point stdev: {{ "%.3g" % estimate.sigma }}</p>
-    </p>
-    <img src="{{ url_for('main.visualize_task', task_name=task.name) }}" alt="PERT prob density function for {{ task.name }}"/>
+        <p>Point estimate: {{ utils.render_estimate(estimate) }}</p>
+        <img src="{{ url_for('main.visualize_task', task_name=task.name) }}" alt="PERT prob density function for {{ task.name }}"/>
+    {%- endif %}
     </div>
     </div>
     {%- if similar_sized_tasks %}
-    <h4>Tasks of similar sizes</h4>
-    <p>
-    <ul>
-    {%- for t in similar_sized_tasks %}
-    <li>{{ utils.task_link(t)}} &mdash; {{ "%.3g, 𝜎 = %.2g" % (t.point_estimate.expected, t.point_estimate.sigma) }}</li>
-    {%- endfor %}
-    </ul>
-    </p>
-    {%- endif %}
+        {{ render_similar_sized_tasks() }}
     {%- endif %}
 </div>
 {% endblock %}
