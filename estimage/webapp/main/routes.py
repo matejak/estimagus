@@ -9,8 +9,10 @@ from . import bp
 from . import forms
 from ... import data
 from ... import utilities
-from ... import simpledata
+from ... import simpledata as webdata
+from ... import history
 from ..users import User
+from .google_login import google_callback_dest, google_login
 
 
 matplotlib.use('Agg')
@@ -32,17 +34,18 @@ def logout():
 
 
 def autologin():
-    form = forms.LoginForm()
+    form = forms.AutoLoginForm()
     if form.validate_on_submit():
         user = User(form.username.data)
         flask_login.login_user(user, remember=form.remember_me.data)
 
         next_page = flask.request.args.get('next')
         if not next_page or werkzeug.urls.url_parse(next_page).netloc != '':
-            next_page = flask.url_for('index')
+            next_page = flask.url_for('main.tree_view')
         return flask.redirect(next_page)
+    login_provider = flask.current_app.config["LOGIN_PROVIDER_NAME"]
     return render_template(
-        'login.html', title='Sign In', form=form)
+        'login.html', title='Sign In', login_form=form, login_provider=login_provider)
 
 
 @bp.route('/login', methods=['GET', 'POST'])
@@ -52,7 +55,6 @@ def login():
         case "autologin":
             return autologin()
         case "google":
-            from .google_login import google_login
             return google_login()
         case _:
             msg = f"Unknown login provider: {provider_name}"
@@ -88,7 +90,7 @@ def feed_estimation_to_form_and_arg_dict(estimation, form_data, arg_dict):
 
 
 def retreive_task(task_id):
-    ret = simpledata.Target.load_metadata(task_id)
+    ret = webdata.Target.load_metadata(task_id)
     ret.load_point_cost()
     return ret
 
@@ -100,8 +102,8 @@ def move_issue_estimate_to_consensus(task_name):
     user_id = user.get_id()
     form = forms.ConsensusForm()
     if form.validate_on_submit() and form.i_kid_you_not.data:
-        pollster_user = simpledata.UserPollster(user_id)
-        pollster_cons = simpledata.AuthoritativePollster()
+        pollster_user = webdata.UserPollster(user_id)
+        pollster_cons = webdata.AuthoritativePollster()
 
         user_point = pollster_user.ask_points(task_name)
         pollster_cons.tell_points(task_name, user_point)
@@ -117,7 +119,7 @@ def move_issue_estimate_to_consensus(task_name):
 def move_consensus_estimate_to_authoritative(task_name):
     form = forms.AuthoritativeForm()
     if form.validate_on_submit() and form.i_kid_you_not.data:
-        pollster_cons = simpledata.AuthoritativePollster()
+        pollster_cons = webdata.AuthoritativePollster()
 
         est_input = pollster_cons.ask_points(task_name)
         propagate_estimate_to_task(task_name, est_input)
@@ -129,7 +131,7 @@ def move_consensus_estimate_to_authoritative(task_name):
 
 
 def propagate_estimate_to_task(task_name, est_input):
-    targets = simpledata.Target.get_loaded_targets_by_id()
+    targets = webdata.Target.get_loaded_targets_by_id()
     target = targets[task_name]
 
     est = data.Estimate.from_input(est_input)
@@ -146,7 +148,7 @@ def estimate(task_name):
     user_id = user.get_id()
 
     form = forms.NumberEstimationForm()
-    pollster = simpledata.UserPollster(user_id)
+    pollster = webdata.UserPollster(user_id)
 
     if form.validate_on_submit():
         tell_pollster_about_obtained_data(pollster, task_name, form)
@@ -160,7 +162,7 @@ def view_task(task_name):
     user = flask_login.current_user
 
     user_id = user.get_id()
-    pollster = simpledata.UserPollster(user_id)
+    pollster = webdata.UserPollster(user_id)
     request_forms = dict(
         estimation=forms.NumberEstimationForm(),
         consensus=forms.ConsensusForm(),
@@ -175,15 +177,14 @@ def view_task(task_name):
         feed_estimation_to_form_and_arg_dict(estimation, eform, estimation_args)
 
     if "estimate" in estimation_args:
-        similar_tasks = get_similar_tasks(user_id, task_name, estimation_args)
+        similar_tasks = get_similar_tasks(user_id, task_name)
         estimation_args["similar_sized_tasks"] = similar_tasks
-        all_targets = simpledata.Target.get_loaded_targets_by_id()
+        all_targets = webdata.Target.get_loaded_targets_by_id()
         estimation_args["similar_sized_targets"] = [
             all_targets[task.name] for task in similar_tasks
         ]
-        estimation_args["zip"] = zip
 
-        c_pollster = simpledata.AuthoritativePollster()
+        c_pollster = webdata.AuthoritativePollster()
         con_input = c_pollster.ask_points(task_name)
         estimation_args["consensus"] = data.Estimate.from_input(con_input)
 
@@ -229,32 +230,24 @@ def get_pert_in_figure(estimation, task_name):
     return fig
 
 
-def get_burnout_in_figure(subtasks, epic_name):
-    from ... import history
-
-
-
-    fig, ax = plt.subplots(1, 1)
-    ax.plot(pert[0], pert[1], 'b-', lw=2, label=f'task {task_name}')
-    ax.axvline(estimation.expected, color="orange", label="expected value")
-    ax.set_xlabel("points")
-    ax.set_ylabel("probability density")
-    ax.set_yticklabels([])
-    ax.grid()
-    ax.legend()
-
-    return fig
-
-
 @bp.route('/vis/<epic_name>-burnout.png')
 @flask_login.login_required
 def visualize_burnout(epic_name):
-    all_targets = simpledata.Target.load_all_targets()
-    epic = all_targets[epic_name]
-    subtasks = [all_targets[name] for name in epic.dependents]
+    all_targets = webdata.Target.get_loaded_targets_by_id()
+    all_events = webdata.EventManager.load()
 
-    fig = get_burnout_in_figure(subtasks, epic_name)
+    start = flask.current_app.config["PERIOD"]["start"]
+    end = flask.current_app.config["PERIOD"]["end"]
 
+    if epic_name == ".":
+        aggregation = history.Aggregation.from_targets(all_targets.values(), start, end)
+    else:
+        epic = all_targets[epic_name]
+        aggregation = history.Aggregation.from_target(epic, start, end)
+
+    aggregation.process_event_manager(all_events)
+
+    fig = history.MPLPointPlot(aggregation).get_figure()
     return send_figure_as_png(fig, f'{epic_name}.png')
 
 
@@ -276,54 +269,31 @@ def visualize_task(task_name):
 
 
 def get_target_tree_with_no_double_occurence():
-    all_targets = simpledata.Target.load_all_targets()
+    all_targets = webdata.Target.load_all_targets()
     targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(all_targets)
     return targets_tree_without_duplicates
 
 
-def get_model(targets_tree_without_duplicates=None):
-    if not targets_tree_without_duplicates:
-        targets_tree_without_duplicates = get_target_tree_with_no_double_occurence()
-    main_composition = simpledata.Target.to_tree(targets_tree_without_duplicates)
-    model = data.EstiModel()
-    model.use_composition(main_composition)
-    return model
-
-
-def get_authoritative_model(targets_tree_without_duplicates=None):
-    pollster = simpledata.AuthoritativePollster()
-    model = get_model(targets_tree_without_duplicates)
+def get_authoritative_model(targets_tree_without_duplicates):
+    pollster = webdata.AuthoritativePollster()
+    model = webdata.get_model(targets_tree_without_duplicates)
     pollster.inform_results(model.get_all_task_models())
     return model
 
 
 def get_user_model(user_id, targets_tree_without_duplicates=None):
-    pollster = simpledata.UserPollster(user_id)
-    model = get_model(targets_tree_without_duplicates)
+    if targets_tree_without_duplicates is None:
+        targets_tree_without_duplicates = get_target_tree_with_no_double_occurence()
+    pollster = webdata.UserPollster(user_id)
+    model = webdata.get_model(targets_tree_without_duplicates)
     pollster.inform_results(model.get_all_task_models())
     return model
 
 
-def order_nearby_tasks(reference_task, all_tasks, distance_threshold, rank_threshold):
-    reference_estimate = reference_task.point_estimate
-    expected = reference_estimate.expected
-
-    distance_task_map = dict()
-    for t in all_tasks:
-        if t.name == reference_task.name:
-            continue
-        distance = abs(t.point_estimate.expected - expected)
-        rank = t.point_estimate.rank_distance(reference_estimate)
-        if (distance < distance_threshold or rank < rank_threshold):
-            distance_task_map[distance] = t
-    distances = sorted(list(distance_task_map.keys()))
-    return [distance_task_map[dst] for dst in distances]
-
-
-def get_similar_tasks(user_id, task_name, estimation_data):
+def get_similar_tasks(user_id, task_name):
     model = get_user_model(user_id)
     all_tasks = model.get_all_task_models()
-    return order_nearby_tasks(model.get_element(task_name), all_tasks, 0.5, 2)
+    return webdata.order_nearby_tasks(model.get_element(task_name), all_tasks, 0.5, 2)
 
 
 @bp.route('/')
@@ -332,7 +302,8 @@ def tree_view():
     user = flask_login.current_user
     user_id = user.get_id()
 
-    targets_tree_without_duplicates = get_target_tree_with_no_double_occurence()
+    all_targets = webdata.Target.load_all_targets()
+    targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(all_targets)
     model = get_user_model(user_id, targets_tree_without_duplicates)
     return render_template(
         "tree_view.html", title="Tasks tree view",

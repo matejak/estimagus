@@ -3,40 +3,37 @@
 {% import "utils.j2" as utils %}
 
 {% block content %}
+<div class="container">
+    <div class="row">
     <h1>Overview</h1>
-    <h2>{{ epic.title }}</h2>
-    <div>{{ epic.description | safe }}</div>
+    {{ utils.task_metadata(epic) | indent(4) }}
     <h3>Subtasks</h3>
     <p>
         <ul>
         {% for d in epic.dependents %}
-        <li>{{ utils.task_link(d) }} &mdash; {{ d.title }}</li>
+        <li>{{ utils.render_task(d) }}</li>
         {% endfor %}
         </ul>
     </p>
-    <h2>Estimation</h2>
-    <h3>Authoritative values</h3>
-    <p>
-        <p>Point cost: {{ epic.point_cost }}</p>
-        <p>Time cost: {{ epic.time_cost }}{% if epic.TIME_UNIT %} {{ epic.TIME_UNIT }} -{% endif %}</p>
-    </p>
+    </div>
     {%- if estimate %}
-    <h3>User estimation sums</h3>
-    <p>
-        <p>Point expected value: {{ "%.3g" % estimate.expected }}</p>
-        <p>Point stdev: {{ "%.3g" % estimate.sigma }}</p>
-    </p>
-    <img src="{{ url_for('main.visualize_task', task_name=epic.name) }}" alt="PERT prob density function for {{ epic.name }}"/>
+    <div class="row">
+    <h2>Estimation</h2>
+    <h3>Sum of subtasks</h3>
+        <div class="col">
+            <p>Point cost: {{ utils.render_estimate(estimate) }}</p>
+            <img src="{{ url_for('main.visualize_task', task_name=epic.name) }}" alt="PERT prob density function for {{ epic.name }}"/>
+        </div>
+        <div class="col">
+            <h3>Nominal values</h3>
+            <p>Point cost: {{ epic.point_cost }}</p>
+        </div>
+    </div>
     {%- if similar_sized_epics %}
-    <h4>Epics of similar sizes</h4>
-    <p>
-    <ul>
-    {%- for t in similar_sized_epics %}
-    <li>{{ utils.epic_link(t)}} &mdash; {{ "%.3g, 𝜎" %  (t.point_estimate.expected, t.point_estimate.sigma) }}</li>
-    {%- endfor %}
-    </ul>
-    </p>
+    <div class="row">
+        {{ utils.render_similar_sized_tasks(similar_sized_epics, similar_sized_targets) }}
+    </div>
     {%- endif %}
     {%- endif %}
+</div>
 {% endblock %}
-

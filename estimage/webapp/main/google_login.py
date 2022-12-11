@@ -1,12 +1,13 @@
-import json
-
 import flask
 import flask_login
 import requests
+import json
 
 from oauthlib import oauth2
 
 from . import bp
+from . import forms
+from ..users import User
 
 
 def get_google_client(app):
@@ -19,17 +20,24 @@ def get_google_provider_cfg():
     return requests.get(GOOGLE_DISCOVERY_URL, timeout=10).json()
 
 
+@bp.route('/google_login')
 def google_login():
-    google_provider_cfg = get_google_provider_cfg()
-    authorization_endpoint = google_provider_cfg["authorization_endpoint"]
-    client = get_google_client(flask.app)
+    form = forms.GoogleLoginForm()
+    if form.validate_on_submit():
+        google_provider_cfg = get_google_provider_cfg()
+        authorization_endpoint = google_provider_cfg["authorization_endpoint"]
+        client = get_google_client(flask.app)
 
-    request_uri = client.prepare_request_uri(
-        authorization_endpoint,
-        redirect_uri=flask.request.base_url + "/callback",
-        scope=["openid", "email"],
-    )
-    return flask.redirect(request_uri)
+        request_uri = client.prepare_request_uri(
+            authorization_endpoint,
+            redirect_uri=flask.request.base_url + "/callback",
+            scope=["openid", "email"],
+        )
+        return flask.redirect(request_uri)
+
+    login_provider = flask.current_app.config["LOGIN_PROVIDER_NAME"]
+    return flask.render_template(
+        'login.html', title='Sign In', login_form=form, login_provider=login_provider)
 
 
 @bp.route('/login/callback', methods=['GET', 'POST'])
@@ -64,7 +72,7 @@ def google_callback_dest():
     user, domain = mail.split("@", 1)
     user = User(user, domain)
     flask_login.login_user(user)
-    return flask.redirect(flask.url_for('index'))
+    return flask.redirect(flask.url_for('main.tree_view'))
 
 
 def _get_user_email(client):

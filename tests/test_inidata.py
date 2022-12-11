@@ -4,7 +4,7 @@ import os
 import pytest
 
 import estimage.inidata as tm
-from test_history import early_event_and_date, less_early_event_and_date
+from test_history import early_event, less_early_event
 
 
 @pytest.fixture
@@ -100,9 +100,7 @@ def test_save_something2_load_same(target_inifile):
     assert data.title == data2.title
 
 
-def test_eventmgr_storage(eventmgr_inifile, early_event_and_date, less_early_event_and_date):
-    early_event, _ = early_event_and_date
-
+def test_eventmgr_storage(eventmgr_inifile, early_event, less_early_event):
     mgr_one = eventmgr_inifile()
     mgr_one.add_event(early_event)
     mgr_one.save()
@@ -110,7 +108,6 @@ def test_eventmgr_storage(eventmgr_inifile, early_event_and_date, less_early_eve
     mgr_two = eventmgr_inifile.load()
     assert mgr_two.get_chronological_events_concerning(early_event.task_name) == [early_event]
 
-    less_early_event, _ = less_early_event_and_date
     less_early_event.value_before = "rano"
     less_early_event.value_after = "vecer"
     less_early_event.task_name = "den"

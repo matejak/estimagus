@@ -4,14 +4,6 @@
 {% from 'bootstrap5/form.html' import render_form %}
 
 
-{% macro task_metadata() -%}
-<h2>{{ task.title }}</h2>
-<div>State: {{ task.state  }}</div>
-<h3>Description</h3>
-<div>{{ (task.description | escape) or "No description" }}</div>
-{%- endmacro %}
-
-
 {% macro task_authoritative() -%}
 {% set time_cost_is_relevant = task.time_cost -%}
 {% set point_cost_is_relevant = task.point_cost or not time_cost_is_relevant -%}
@@ -40,25 +32,11 @@
 {%- endmacro %}
 
 
-{% macro render_similar_sized_tasks() -%}
-    <div class="row">
-    <h4>Tasks of similar sizes</h4>
-    <p>
-    <ul>
-    {%- for model, target in zip(similar_sized_tasks, similar_sized_targets) %}
-    <li>{{ utils.render_task_basic(target) }}: {{ utils.render_estimate(model.point_estimate) }}</li>
-    {%- endfor %}
-    </ul>
-    </p>
-    </div>
-{%- endmacro %}
-
-
 {% block content %}
 <div class="container">
     <div class="row">
     <h1>Estimate</h1>
-    {{ task_metadata() | indent(4) }}
+    {{ utils.task_metadata(task) | indent(4) }}
     <h2>Estimates</h2>
     </div>
     <div class="row">
@@ -90,7 +68,7 @@
     </div>
     </div>
     {%- if similar_sized_tasks %}
-        {{ render_similar_sized_tasks() }}
+        {{ utils.render_similar_sized_tasks(similar_sized_tasks, similar_sized_targets) }}
     {%- endif %}
 </div>
 {% endblock %}

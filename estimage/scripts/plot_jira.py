@@ -5,6 +5,7 @@ import jinja2
 
 import estimage.history as hist
 import estimage.inidata as inidata
+import estimage.simpledata as simpledata
 from estimage.entities import target
 
 
@@ -13,6 +14,7 @@ import con
 
 JIRA_STATUS_TO_STATE = {
     "Backlog": target.State.todo,
+    "Refinement": target.State.todo,
     "New": target.State.todo,
     "Done": target.State.done,
     "Abandoned": target.State.abandoned,
@@ -55,25 +57,45 @@ class HybridTarget(inidata.IniTarget):
     CONFIG_FILENAME = "jira-export.ini"
 
 
+def export_jira_item(cls, item, exported_items_by_name):
+    ret = cls()
+    ret.name = item.key
+    ret.title = item.get_field("summary") or ""
+    ret.description = item.get_field("description") or ""
+    ret.point_cost = float(item.get_field(STORY_POINTS) or 0)
+    ret.state = JIRA_STATUS_TO_STATE.get(str(item.get_field("status")), target.State.unknown)
+
+    return ret
+
+
 def export_jira_tasks_to_targets(epics, tasks, target_class: target.BaseTarget):
     targets_by_id = dict()
-    for e in epics:
-        target = target_class()
-        target.name = e.key
-        target.title = e.get_field("summary")
-        targets_by_id[e.key] = target
+    for e in epics.values():
+        targets_by_id[e.key] = export_jira_item(target_class, e, targets_by_id)
 
-    for t in tasks:
-        target = target_class()
-        target.name = t.key
-        target.title = t.get_field("summary")
-        targets_by_id[t.key] = target
-        target.point_cost = float(t.get_field(STORY_POINTS) or 0)
-
-        epic_id = t.get_field(EPIC_LINK)
-        targets_by_id[epic_id].add_element(target)
+    for t in tasks.values():
+        exported = export_jira_item(target_class, t, targets_by_id)
+        targets_by_id[t.key] = exported
+        if epic_id := t.get_field(EPIC_LINK):
+            targets_by_id[epic_id].add_element(exported)
 
     return targets_by_id
+
+
+def save_events(tasks, event_manager_cls: hist.EventManager):
+    storer = event_manager_cls()
+    for t in tasks:
+        evts = get_events(t)
+        for e in evts:
+            storer.add_event(e)
+    storer.save()
+
+
+def save_exported_jira_tasks(targets_by_id):
+    for t in targets_by_id.values():
+        t.save_metadata()
+        t.save_point_cost()
+        t.save_time_cost()
 
 
 def get_events(task, cutoff=None):

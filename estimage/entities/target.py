@@ -1,7 +1,9 @@
 import re
 import typing
 import enum
+import dataclasses
 
+from .estimate import Estimate
 from .task import TaskModel
 from .composition import Composition
 from .. import utilities
@@ -17,8 +19,9 @@ class State(enum.IntEnum):
     abandoned = enum.auto()
 
 
+@dataclasses.dataclass(init=False)
 class BaseTarget:
-    TIME_UNIT = None
+    TIME_UNIT: str = None
     point_cost: float
     time_cost: float
     name: str
@@ -36,6 +39,17 @@ class BaseTarget:
         self.dependents = []
         self.state = State.unknown
 
+    def as_class(self, cls):
+        ret = cls()
+        ret.TIME_UNIT = self.TIME_UNIT
+        for fieldname in (
+            "point_cost", "time_cost", "name", "title", "description", "state",
+        ):
+            setattr(ret, fieldname, getattr(self, fieldname))
+        ret.dependents = [d.as_class(cls) for d in self.dependents]
+
+        return ret
+
     def parse_point_cost(self, cost):
         return float(cost)
 
@@ -43,24 +57,19 @@ class BaseTarget:
         ret = Composition(self.name)
         for d in self.dependents:
             if d.dependents:
-                ret.add_composition(d.get_tree())
+                ret.add_composition(d._convert_into_composition())
             else:
-                ret.add_element(d.get_tree())
+                ret.add_element(d._convert_into_single_result())
         return ret
 
     def _convert_into_single_result(self):
         ret = TaskModel(self.name)
         if self.point_cost:
-            ret.point_estimate.expected = self.point_cost
+            ret.point_estimate = Estimate(self.point_cost, 0)
         if self.time_cost:
-            ret.time_estimate.expected = self.time_cost
-        return ret
-
-    def get_tree(self) -> "Composition":
-        if self.dependents:
-            ret = self._convert_into_composition()
-        else:
-            ret = self._convert_into_single_result()
+            ret.time_estimate = Estimate(self.time_cost, 0)
+        if self.state in (State.abandoned, State.done):
+            ret.mask()
         return ret
 
     def add_element(self, what: "BaseTarget"):
@@ -132,12 +141,16 @@ class BaseTarget:
         if not targets:
             return Composition("")
         targets = utilities.reduce_subsets_from_sets(targets)
-        if len(targets) == 1:
-            return targets[0].get_tree()
         result = Composition("")
+        if len(targets) == 1 and (target := targets[0]).dependents:
+            result = target._convert_into_composition()
+            return result
         for t in targets:
             if t.dependents:
-                result.add_composition(t.get_tree())
+                result.add_composition(t._convert_into_composition())
             else:
-                result.add_element(t.get_tree())
+                result.add_element(t._convert_into_single_result())
         return result
+
+    def get_tree(self):
+        return self.to_tree([self])

@@ -25,7 +25,7 @@
 {%- endmacro %}
 
 {% macro render_task_basic(task) -%}
-        {{ task_link(task) }} &mdash; <span class="d-inline-block text-truncate" style="max-width: 200px;">{{ task.title }}</span>
+        {{ task_link(task) }} &mdash; <span class="d-inline-block text-truncate" style="max-width: 350pt;">{{ task.title }}</span>
 {%- endmacro %}
 
 {% macro render_task(task, model) %}
@@ -45,4 +45,26 @@
 {% macro render_estimate(estimate, unit="") -%}
 	{{ "{expected:.3g}{unit_with_space}, 𝜎 = {sigma:.2g}{unit_with_space}".format(
 		expected=estimate.expected, sigma=estimate.sigma, unit_with_space=" " ~ unit) }}
+{%- endmacro %}
+
+
+{% macro task_metadata(task) -%}
+<h2>{{ task.title }}</h2>
+<div>State: {{ task.state  }}</div>
+<h3>Description</h3>
+<div>{{ (task.description | escape) or "No description" }}</div>
+{%- endmacro %}
+
+
+{% macro render_similar_sized_tasks(similar_sized_tasks, similar_sized_targets) -%}
+    <div class="row">
+    <h4>Tasks of similar sizes</h4>
+    <p>
+    <ul>
+    {%- for index in range(similar_sized_tasks | length) %}
+    <li>{{ render_task_basic(similar_sized_targets[index]) }}: {{ render_estimate(similar_sized_tasks[index].point_estimate) }}</li>
+    {%- endfor %}
+    </ul>
+    </p>
+    </div>
 {%- endmacro %}

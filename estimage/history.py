@@ -283,9 +283,16 @@ class Aggregation:
     def from_target(
             cls, source: target.BaseTarget,
             start: datetime.datetime, end: datetime.datetime) -> "Aggregation":
+        return cls.from_targets([source], start, end)
+
+    @classmethod
+    def from_targets(
+            cls, sources: target.BaseTarget,
+            start: datetime.datetime, end: datetime.datetime) -> "Aggregation":
         ret = cls()
-        for r in convert_target_to_representations_of_leaves(source, start, end):
-            ret.add_repre(r)
+        for s in sources:
+            for r in convert_target_to_representations_of_leaves(s, start, end):
+                ret.add_repre(r)
         return ret
 
     def process_events(self, events: typing.Iterable[Event]):
@@ -388,7 +395,7 @@ class MPLPointPlot:
         ax.plot([days[0], days[-1]], [bottom[0], 0], color="blue")
         ax.axvline(index_of_today, label="today", color="grey", linewidth=2)
 
-    def plot_stuff(self):
+    def get_figure(self):
         import matplotlib.pyplot as plt
         fig, ax = plt.subplots()
         ax.grid(True)
@@ -400,6 +407,12 @@ class MPLPointPlot:
         r = self.aggregation.repres[0]
         x_axis_weeks_and_months(ax, r.start, r.end)
         ax.set_ylabel("points")
+
+        return fig
+
+    def plot_stuff(self):
+        import matplotlib.pyplot as plt
+        self.get_figure()
 
         plt.show()
 
@@ -425,6 +438,12 @@ class MPLVelocityPlot:
 
     def plot_stuff(self, cutoff_date):
         import matplotlib.pyplot as plt
+        self.get_figure(cutoff_date)
+
+        plt.show()
+
+    def get_figure(self, cutoff_date):
+        import matplotlib.pyplot as plt
         fig, ax = plt.subplots()
         ax.grid(True)
 
@@ -441,4 +460,4 @@ class MPLVelocityPlot:
         x_axis_weeks_and_months(ax, r.start, r.end)
         ax.set_ylabel("team velocity / points per day")
 
-        plt.show()
+        return fig

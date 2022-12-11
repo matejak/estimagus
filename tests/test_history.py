@@ -33,7 +33,7 @@ def test_timeline_masking():
 def early_event():
     early_date = datetime.datetime(2022, 10, 11, 12)
     early_event = tm.Event("", None, early_date)
-    early_event.value_before = 15
+    early_event.value_before = "15"
     return early_event
 
 
@@ -41,7 +41,7 @@ def early_event():
 def less_early_event():
     less_early_date = datetime.datetime(2022, 10, 11, 13)
     less_early_event = tm.Event("", None, less_early_date)
-    less_early_event.value_before = 17
+    less_early_event.value_before = "17"
     return less_early_event
 
 
@@ -49,8 +49,8 @@ def less_early_event():
 def late_event():
     time_late = datetime.datetime(2022, 10, 15)
     late_event = tm.Event("", None, time_late)
-    late_event.value_before = 10
-    late_event.value_after = 0
+    late_event.value_before = "10"
+    late_event.value_after = "0"
     return late_event
 
 
@@ -355,6 +355,16 @@ def supertask_target(simple_target):
 
 
 @pytest.fixture
+def another_supertask_target(simple_target):
+    ret = target.BaseTarget()
+    ret.name = "another-supertask"
+    subtask = simple_target
+    subtask.name = "subtask"
+    ret.add_element(subtask)
+    return ret
+
+
+@pytest.fixture
 def simple_long_period_aggregation(simple_target):
     start = PERIOD_START
     end = LONG_PERIOD_END
@@ -403,7 +413,7 @@ def test_supertask_to_aggregation_long(supertask_target):
     check_repre_against_target(supertask_target.dependents[0], repre, start, end)
 
 
-def test_supertasks_to_aggregation_long(supertask_target):
+def test_supertask_with_more_subtasks_to_aggregation_long(supertask_target):
     start = PERIOD_START
     end = LONG_PERIOD_END
 
@@ -418,12 +428,24 @@ def test_supertasks_to_aggregation_long(supertask_target):
     check_repre_against_target(supertask_target.dependents[1], aggregation.repres[1], start, end)
 
 
+def test_supertasks_to_aggregation_long(supertask_target, another_supertask_target):
+    start = PERIOD_START
+    end = LONG_PERIOD_END
+
+    aggregation = tm.Aggregation.from_targets(
+        [supertask_target, another_supertask_target], start, end)
+    assert len(aggregation.repres) == 2
+
+    check_repre_against_target(supertask_target.dependents[0], aggregation.repres[0], start, end)
+    check_repre_against_target(another_supertask_target.dependents[0], aggregation.repres[1], start, end)
+
+
 def test_event_processing(simple_long_period_aggregation):
     start = PERIOD_START
 
     evt_bad = tm.Event("another task", "points", start + ONE_DAY)
-    evt_bad.value_after = 3
-    evt_bad.value_before = 3
+    evt_bad.value_after = "3"
+    evt_bad.value_before = "3"
 
     simple_long_period_aggregation.process_events([evt_bad])
 
@@ -431,8 +453,8 @@ def test_event_processing(simple_long_period_aggregation):
     assert repre.get_points_at(start) == 8
 
     evt_good = tm.Event("task", "points", start + ONE_DAY)
-    evt_good.value_after = 5
-    evt_good.value_before = 1
+    evt_good.value_after = "5"
+    evt_good.value_before = "1"
 
     simple_long_period_aggregation.process_events([evt_bad, evt_good])
 

@@ -63,8 +63,9 @@ class IniTarget(data.BaseTarget, IniStorage):
 
     @classmethod
     def get_loaded_targets_by_id(cls):
+        config = cls._load_existing_config()
         return {
-            name: cls.load_metadata(name)
+            name: cls._load_metadata(name, config)
             for name in cls.get_all_target_names()
         }
 
@@ -72,13 +73,17 @@ class IniTarget(data.BaseTarget, IniStorage):
     def load_all_targets(cls):
         config = cls._load_existing_config()
         return [
-            cls.load_metadata(name)
+            cls._load_metadata(name, config)
             for name in config.sections()
         ]
 
     @classmethod
     def load_metadata(cls, name):
         config = cls._load_existing_config()
+        return cls._load_metadata(name, config)
+
+    @classmethod
+    def _load_metadata(cls, name, config):
         if name not in config:
             msg = f"{name} couldnt be loaded"
             raise RuntimeError(msg)
@@ -88,10 +93,11 @@ class IniTarget(data.BaseTarget, IniStorage):
         ret.description = config[name].get("description", "")
         state = config[name].get("state", data.State.unknown)
         ret.state = data.State(int(state))
+        ret.load_point_cost()
         for n in config[name].get("depnames", "").split(","):
             if not n:
                 continue
-            new = cls.load_metadata(n)
+            new = cls._load_metadata(n, config)
             ret.dependents.append(new)
         return ret
 
