@@ -23,8 +23,6 @@ class TaskModel:
 
     @property
     def time_estimate(self):
-        if self.masked:
-            return Estimate(0, 0)
         return self._time_estimate
 
     @time_estimate.setter
@@ -36,8 +34,6 @@ class TaskModel:
 
     @property
     def point_estimate(self):
-        if self.masked:
-            return Estimate(0, 0)
         return self._point_estimate
 
     @point_estimate.setter

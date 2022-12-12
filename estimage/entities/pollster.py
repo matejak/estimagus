@@ -33,6 +33,12 @@ class Pollster:
     def _tell_points(self, ns: str, name: str, points: EstimInput):
         raise NotImplementedError()
 
+    def forget_points(self, name: str):
+        return self._forget_points(self._namespace, name)
+
+    def _forget_points(self, ns: str, name: str):
+        raise NotImplementedError()
+
     def inform_results(self, results: typing.List[TaskModel]):
         for r in results:
             if not self.knows_points(r.name):
@@ -62,3 +68,8 @@ class MemoryPollster(Pollster):
         prefix = self._prefix(ns, name)
         key = f"{prefix}points"
         MemoryPollster._memory[key] = points
+
+    def _forget_points(self, ns, name):
+        prefix = self._prefix(ns, name)
+        key = f"{prefix}points"
+        MemoryPollster._memory.pop(key)

@@ -160,6 +160,12 @@ class IniPollster(data.Pollster, IniStorage):
                 pessimistic=points.pessimistic,
             )
 
+    def _forget_points(self, ns, name):
+        keyname = self._keyname(ns, name)
+
+        with self._manipulate_existing_config() as config:
+            config.pop(keyname)
+
 
 class IniEvents(history.EventManager, IniStorage):
     def _save_task_events(self, task_name: str, event_list: typing.List[history.Event]):

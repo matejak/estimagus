@@ -107,6 +107,10 @@ def move_issue_estimate_to_consensus(task_name):
 
         user_point = pollster_user.ask_points(task_name)
         pollster_cons.tell_points(task_name, user_point)
+
+        if form.forget_own_estimate.data:
+            pollster_user.forget_points(task_name)
+
     else:
         flask.flash("Consensus not updated, request was not serious")
 
@@ -274,19 +278,14 @@ def get_target_tree_with_no_double_occurence():
     return targets_tree_without_duplicates
 
 
-def get_authoritative_model(targets_tree_without_duplicates):
-    pollster = webdata.AuthoritativePollster()
-    model = webdata.get_model(targets_tree_without_duplicates)
-    pollster.inform_results(model.get_all_task_models())
-    return model
-
-
 def get_user_model(user_id, targets_tree_without_duplicates=None):
     if targets_tree_without_duplicates is None:
         targets_tree_without_duplicates = get_target_tree_with_no_double_occurence()
-    pollster = webdata.UserPollster(user_id)
+    authoritative_pollster = webdata.AuthoritativePollster()
+    user_pollster = webdata.UserPollster(user_id)
     model = webdata.get_model(targets_tree_without_duplicates)
-    pollster.inform_results(model.get_all_task_models())
+    authoritative_pollster.inform_results(model.get_all_task_models())
+    user_pollster.inform_results(model.get_all_task_models())
     return model
 
 

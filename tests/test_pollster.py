@@ -96,7 +96,6 @@ def test_pollster_save_load(pollster_class):
     assert points.most_likely == points2.most_likely
 
 
-
 @pytest.fixture(params=["memory", "ini"])
 def ns_pollster(request, pollster_inifile):
     pollsters = dict(
@@ -104,6 +103,16 @@ def ns_pollster(request, pollster_inifile):
         ini=pollster_inifile(),
     )
     return pollsters[request.param]
+
+
+def test_pollster_forgets(ns_pollster, estiminput_1):
+    name = ""
+    assert not ns_pollster.knows_points(name)
+    ns_pollster.tell_points(name, estiminput_1)
+    assert ns_pollster.knows_points(name)
+    ns_pollster.forget_points(name)
+    assert not ns_pollster.knows_points(name)
+    assert ns_pollster.ask_points(name) == tm.EstimInput()
 
 
 def test_pollster_with_namespaces(ns_pollster, estiminput_1, estiminput_2):
