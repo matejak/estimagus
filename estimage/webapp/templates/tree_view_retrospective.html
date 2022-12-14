@@ -3,32 +3,43 @@
 {% import "utils.j2" as utils %}
 
 {% block content %}
-<div class="container">
+<div class="container-md">
     <div class="row">
     <h1>Tree View</h1>
     <div class="col">
     <h2>Burndown</h2>
     <p>
-        Done to date:
+        Total SP waiting to be completed at start of the sprint: {{ initial_todo }}
     </p>
     <p>
-    <img src="{{ url_for('main.visualize_task', task_name='.') }}" alt="PERT prob density function for everything"/>
+        Last recorded data:
+        <ul>
+            <li>TODO: {{ last_record.todo }}</li>
+            <li>In Progress / needs review: {{ last_record.underway }}</li>
+            <li>Done: {{ last_record.done }}</li>
+        </ul>
+    </p>
+    <p>
+    <img src="{{ url_for('main.visualize_burndown', epic_name='.') }}" alt="Overall Burndown"/>
     </p>
     </div>
     <div class="col">
     <h2>Velocity</h2>
     <p>
-        Done to date:
+        <ul>
+            <li>Average weekly: {{ "%.02g" % (total_points_done / total_days_in_period * 7) }}</li>
+            <li>Average workday: {{ "%.02g" % (total_points_done / total_days_in_period * 7 / 5.0) }}</li>
+        </ul>
     </p>
     <p>
-    <img src="{{ url_for('main.visualize_task', task_name='.') }}" alt="PERT prob density function for everything"/>
+    <img src="{{ url_for('main.visualize_velocity', epic_name='.') }}" alt="Overall velocity"/>
     </p>
     </div>
     </div>
     <div class="row">
     <ul>
     {% for target in targets -%}
-    {{ utils.render_whatever(target, model) }}
+    {{ utils.render_whatever_retro(target) }}
     {% endfor -%}
     </ul>
     </div>

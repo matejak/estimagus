@@ -4,6 +4,8 @@ import flask
 import flask_login
 import werkzeug.urls
 import matplotlib
+import datetime
+import types
 
 from . import bp
 from . import forms
@@ -234,9 +236,9 @@ def get_pert_in_figure(estimation, task_name):
     return fig
 
 
-@bp.route('/vis/<epic_name>-burnout.png')
+@bp.route('/vis/<epic_name>-burndown.png')
 @flask_login.login_required
-def visualize_burnout(epic_name):
+def visualize_burndown(epic_name):
     all_targets = webdata.Target.get_loaded_targets_by_id()
     all_events = webdata.EventManager.load()
 
@@ -252,6 +254,28 @@ def visualize_burnout(epic_name):
     aggregation.process_event_manager(all_events)
 
     fig = history.MPLPointPlot(aggregation).get_figure()
+    return send_figure_as_png(fig, f'{epic_name}.png')
+
+
+@bp.route('/vis/<epic_name>-velocity.png')
+@flask_login.login_required
+def visualize_velocity(epic_name):
+    all_targets = webdata.Target.get_loaded_targets_by_id()
+    all_events = webdata.EventManager.load()
+
+    start = flask.current_app.config["PERIOD"]["start"]
+    end = flask.current_app.config["PERIOD"]["end"]
+
+    if epic_name == ".":
+        aggregation = history.Aggregation.from_targets(all_targets.values(), start, end)
+    else:
+        epic = all_targets[epic_name]
+        aggregation = history.Aggregation.from_target(epic, start, end)
+
+    aggregation.process_event_manager(all_events)
+    cutoff_date = min(datetime.datetime.today(), end)
+
+    fig = history.MPLVelocityPlot(aggregation).get_figure(cutoff_date)
     return send_figure_as_png(fig, f'{epic_name}.png')
 
 
@@ -307,3 +331,58 @@ def tree_view():
     return render_template(
         "tree_view.html", title="Tasks tree view",
         targets=targets_tree_without_duplicates, model=model)
+
+
+def executive_summary_of_points_and_velocity(targets):
+    all_events = webdata.EventManager.load()
+
+    start = flask.current_app.config["PERIOD"]["start"]
+    end = flask.current_app.config["PERIOD"]["end"]
+    cutoff_date = min(datetime.datetime.today(), end)
+    aggregation = history.Aggregation.from_targets(targets, start, end)
+    aggregation.process_event_manager(all_events)
+
+    not_done_on_start = 0
+    cutoff_data = types.SimpleNamespace(todo=0, underway=0, done=0)
+    for r in aggregation.repres:
+        repre_points = r.get_points_at(start)
+        if r.get_status_at(start) in (data.State.todo, data.State.in_progress, data.State.review):
+            not_done_on_start += repre_points
+        if r.get_status_at(cutoff_date) == data.State.todo:
+            cutoff_data.todo += repre_points
+        elif r.get_status_at(cutoff_date) in (data.State.in_progress, data.State.review):
+            cutoff_data.underway += repre_points
+        else:
+            cutoff_data.done += repre_points
+
+    output = dict(
+        initial_todo=not_done_on_start,
+        last_record=cutoff_data,
+        total_days_in_period=(cutoff_date - start).days,
+        total_points_done=not_done_on_start - (cutoff_data.todo + cutoff_data.underway)
+    )
+    return output
+
+
+@bp.route('/retro')
+@flask_login.login_required
+def tree_view_retro():
+    all_targets = webdata.Target.load_all_targets()
+    executive_summary = executive_summary_of_points_and_velocity(all_targets)
+
+    targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(all_targets)
+    return render_template(
+        "tree_view_retrospective.html", title="Retrospective Tasks tree view",
+        targets=targets_tree_without_duplicates, ** executive_summary)
+
+
+@bp.route('/retro/view_epic/<epic_name>')
+@flask_login.login_required
+def view_epic_retro(epic_name):
+
+    t = retreive_task(epic_name)
+    executive_summary = executive_summary_of_points_and_velocity(t.dependents)
+
+    return render_template(
+        'epic_view.html', title='View epic', epic=t, ** executive_summary)
+

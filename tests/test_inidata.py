@@ -4,6 +4,7 @@ import os
 import pytest
 
 import estimage.inidata as tm
+import estimage.data as data
 from test_history import early_event, less_early_event
 
 
@@ -106,7 +107,7 @@ def test_eventmgr_storage(eventmgr_inifile, early_event, less_early_event):
     mgr_one.save()
 
     mgr_two = eventmgr_inifile.load()
-    assert mgr_two.get_chronological_events_concerning(early_event.task_name) == [early_event]
+    assert mgr_two.get_chronological_task_events_by_type(early_event.task_name) == {None: [early_event]}
 
     less_early_event.value_before = "rano"
     less_early_event.value_after = "vecer"
@@ -116,8 +117,8 @@ def test_eventmgr_storage(eventmgr_inifile, early_event, less_early_event):
     mgr_one.save()
     mgr_two = eventmgr_inifile.load()
 
-    assert mgr_two.get_chronological_events_concerning(
-        less_early_event.task_name) == [less_early_event]
+    assert mgr_two.get_chronological_task_events_by_type(
+        less_early_event.task_name) == {None: [less_early_event]}
 
     less_early_event.task_name = early_event.task_name
     mgr_one.add_event(less_early_event)
@@ -125,4 +126,28 @@ def test_eventmgr_storage(eventmgr_inifile, early_event, less_early_event):
     mgr_one.save()
     mgr_two = eventmgr_inifile.load()
 
-    assert mgr_two.get_chronological_events_concerning(early_event.task_name) == [early_event, less_early_event]
+    assert mgr_two.get_chronological_task_events_by_type(early_event.task_name) == {None: [early_event, less_early_event]}
+
+
+def test_eventmgr_storage_float(eventmgr_inifile, early_event):
+    mgr_one = eventmgr_inifile()
+    early_event.value_after = 8.5
+    early_event.value_before = 5.4
+    early_event.quantity = "points"
+    mgr_one.add_event(early_event)
+    mgr_one.save()
+
+    mgr_two = eventmgr_inifile.load()
+    assert mgr_two.get_chronological_task_events_by_type(early_event.task_name) == {"points": [early_event]}
+
+
+def test_eventmgr_storage_state(eventmgr_inifile, early_event):
+    mgr_one = eventmgr_inifile()
+    early_event.value_after = data.State.abandoned
+    early_event.value_before = data.State.in_progress
+    early_event.quantity = "state"
+    mgr_one.add_event(early_event)
+    mgr_one.save()
+
+    mgr_two = eventmgr_inifile.load()
+    assert mgr_two.get_chronological_task_events_by_type(early_event.task_name) == {"state": [early_event]}

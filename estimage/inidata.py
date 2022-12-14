@@ -171,15 +171,7 @@ class IniEvents(history.EventManager, IniStorage):
     def _save_task_events(self, task_name: str, event_list: typing.List[history.Event]):
         all_values_to_save = dict()
         for index, event in enumerate(event_list):
-            to_save = dict(
-                time=event.time.isoformat(),
-                quantity=event.quantity or "",
-                task_name=task_name
-            )
-            if (val := event.value_before) is not None:
-                to_save["value_before"] = val
-            if (val := event.value_after) is not None:
-                to_save["value_after"] = val
+            to_save = self._event_to_string_dict(event)
 
             keyname = f"{index:04d}-{task_name}"
             all_values_to_save[keyname] = to_save
@@ -187,13 +179,38 @@ class IniEvents(history.EventManager, IniStorage):
         with self._manipulate_existing_config() as config:
             config.update(all_values_to_save)
 
-    def _get_event_from_data(self, data, name):
-        time = datetime.datetime.fromisoformat(data["time"])
-        ret = history.Event(name, data["quantity"] or None, time)
-        if "value_before" in data:
-            ret.value_before = data["value_before"]
-        if "value_after" in data:
-            ret.value_after = data["value_after"]
+    def _event_to_string_dict(self, event):
+        to_save = dict(
+            time=event.time.isoformat(),
+            quantity=event.quantity or "",
+            task_name=event.task_name
+        )
+        if (val := event.value_before) is not None:
+            if event.quantity == "state":
+                val = int(val)
+            to_save["value_before"] = val
+        if (val := event.value_after) is not None:
+            if event.quantity == "state":
+                val = int(val)
+            to_save["value_after"] = val
+
+        return to_save
+
+    def _get_event_from_data(self, data_dict, name):
+        time = datetime.datetime.fromisoformat(data_dict["time"])
+        ret = history.Event(name, data_dict["quantity"] or None, time)
+        if "value_before" in data_dict:
+            ret.value_before = data_dict["value_before"]
+            if ret.quantity in ("points",):
+                ret.value_before = float(ret.value_before)
+            elif ret.quantity == "state":
+                ret.value_before = data.State(int(ret.value_before))
+        if "value_after" in data_dict:
+            ret.value_after = data_dict["value_after"]
+            if ret.quantity in ("points",):
+                ret.value_after = float(ret.value_after)
+            elif ret.quantity == "state":
+                ret.value_after = data.State(int(ret.value_after))
         return ret
 
     def _load_events(self, name):

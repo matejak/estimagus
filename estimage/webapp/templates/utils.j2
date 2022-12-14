@@ -1,3 +1,22 @@
+{% macro render_whatever_retro(target) %}
+<li>
+{% if target.dependents %}
+{{ render_epic_retro(target) }}
+{% else %}
+{{ target.title }} {{ target.status }}
+{% endif %}
+</li>
+{% endmacro %}
+
+{% macro render_epic_retro(epic) %}
+        {{ epic_link(epic, "main.view_epic_retro") }} &mdash; {{ epic.title }}
+            {% for target in epic.dependents %}
+        <ul>
+            {{ render_whatever_retro(target) }}
+        </ul>
+            {% endfor %}
+{% endmacro %}
+
 {% macro render_whatever(target, model) %}
 <li>
 {% if target.dependents %}
@@ -12,8 +31,8 @@
         <a href="{{ url_for("main.view_task", task_name=task.name) }}">{{ task.name }}</a>
 {%- endmacro %}
 
-{% macro epic_link(epic) -%}
-        <a href="{{ url_for("main.view_epic", epic_name=epic.name) }}">{{ epic.name }}</a>
+{% macro epic_link(epic, endpoint="main.view_epic") -%}
+        <a href="{{ url_for(endpoint, epic_name=epic.name) }}">{{ epic.name }}</a>
 {%- endmacro %}
 
 {% macro render_state_short(state) -%}

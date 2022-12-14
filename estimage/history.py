@@ -68,11 +68,16 @@ class EventManager:
     def get_referenced_task_names(self):
         return set(self._events.keys())
 
-    def get_chronological_events_concerning(self, task_name: str):
-        sorted_events = []
-        if task_name in self._events:
-            sorted_events = self._events[task_name]
-        return sorted_events
+    def get_chronological_task_events_by_type(self, task_name: str):
+        if task_name not in self._events:
+            return dict()
+
+        sorted_events = self._events[task_name]
+        events_by_type = collections.defaultdict(list)
+        for evt in sorted_events:
+            events_by_type[evt.quantity].append(evt)
+
+        return events_by_type
 
     def save(self):
         task_names = self.get_referenced_task_names()
@@ -119,20 +124,21 @@ class Timeline:
     def process_events(self, events):
         if not events:
             return
-        events = sorted(events, key=lambda x: x.time, reverse=True)
-        self._data[:] = events[0].value_after
-        indices = np.empty(len(events), dtype=int)
-        for i, e in enumerate(events):
+        events_from_oldest = sorted(events, key=lambda x: x.time)
+        events_from_newest = events_from_oldest[::-1]
+        self._data[:] = events_from_newest[0].value_after
+        indices_from_newest = np.empty(len(events_from_newest), dtype=int)
+        for i, e in enumerate(events_from_newest):
             index = localize_event(self.start, e.time)
-            indices[i] = index
-            if index >= len(self._data):
+            indices_from_newest[i] = index
+            if not 0 <= index < len(self._data):
                 msg = "Event outside of the timeline"
                 raise ValueError(msg)
             self._data[0:index] = e.value_before
 
-        for i, e in enumerate(events[::-1]):
-            index = indices[-1 - i]
-            self._data[index] = e.value_before
+        indices_from_oldest = indices_from_newest[::-1]
+        for i, e in zip(indices_from_oldest, events_from_oldest):
+            self._data[i] = e.value_before
 
     def set_value_at(self, time: datetime.datetime, value):
         index = localize_event(self.start, time)
@@ -239,6 +245,11 @@ class Repre:
         velocity_array *= self.points_completed() / velocity_array.sum()
         return velocity_array
 
+    def _extract_time_relevant_events(self, events: typing.Iterable[Event]):
+        return [
+            evt for evt in events if self.start <= evt.time <= self.end
+        ]
+
     def process_events(self, events_by_type):
         TYPES_TO_TIMELINE = {
             "time": self.time_timeline,
@@ -247,6 +258,7 @@ class Repre:
         }
         for event_type, timeline in TYPES_TO_TIMELINE.items():
             events = events_by_type.get(event_type, [])
+            events = self._extract_time_relevant_events(events)
             timeline.process_events(events)
 
 
@@ -299,7 +311,9 @@ class Aggregation:
         events_by_taskname = collections.defaultdict(lambda: collections.defaultdict(list))
         for evt in events:
             events_by_taskname[evt.task_name][evt.quantity].append(evt)
+        self.process_events_by_taskname_and_type(events_by_taskname)
 
+    def process_events_by_taskname_and_type(self, events_by_taskname: typing.Mapping[str, Event]):
         for r in self.repres:
             if (task_name := r.task_name) in events_by_taskname:
                 r.process_events(events_by_taskname[task_name])
@@ -337,6 +351,13 @@ class Aggregation:
     @property
     def days(self):
         return self.repres[0].points_timeline.days
+
+    def process_event_manager(self, manager: EventManager):
+        events_by_taskname = dict()
+        for repre in self.repres:
+            name = repre.task_name
+            events_by_taskname[name] = manager.get_chronological_task_events_by_type(name)
+        return self.process_events_by_taskname_and_type(events_by_taskname)
 
 
 def x_axis_weeks_and_months(ax, start, end):
@@ -447,10 +468,12 @@ class MPLVelocityPlot:
         fig, ax = plt.subplots()
         ax.grid(True)
 
+        days_in_real_week = 7
+
         self._prepare_plots(cutoff_date)
 
-        ax.plot(self.days, self.velocity_focus, label="Velocity retrofit")
-        ax.plot(self.days, self.velocity_estimate, label="Rolling velocity estimate")
+        ax.plot(self.days, self.velocity_focus * 7, label="Velocity retrofit")
+        ax.plot(self.days, self.velocity_estimate * 7, label="Rolling velocity estimate")
 
         index_of_today = localize_event(self.aggregation.repres[0].start, datetime.datetime.today())
         ax.axvline(index_of_today, label="today", color="grey", linewidth=2)
@@ -458,6 +481,6 @@ class MPLVelocityPlot:
         ax.legend(loc="upper center")
         r = self.aggregation.repres[0]
         x_axis_weeks_and_months(ax, r.start, r.end)
-        ax.set_ylabel("team velocity / points per day")
+        ax.set_ylabel("team velocity / points per week")
 
         return fig

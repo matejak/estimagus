@@ -77,6 +77,10 @@ def test_beyond_timeline(long_timeline):
     with pytest.raises(ValueError):
         long_timeline.process_events([tm.Event("", None, time_too_late)])
 
+    time_too_early = datetime.datetime(2021, 1, 1)
+    with pytest.raises(ValueError):
+        long_timeline.process_events([tm.Event("", None, time_too_early)])
+
 
 def test_timeline_applies_distinct_events(long_timeline, early_event, late_event):
     long_timeline.process_events([early_event, late_event])
@@ -108,22 +112,22 @@ def test_timeline_process_close_and_distinct_events(
 
 def test_event_manager_trivial(early_event):
     mgr = tm.EventManager()
-    assert mgr.get_chronological_events_concerning(early_event.task_name) == []
+    assert mgr.get_chronological_task_events_by_type(early_event.task_name) == dict()
     assert mgr.get_referenced_task_names() == set()
 
     mgr.add_event(early_event)
-    assert mgr.get_chronological_events_concerning(early_event.task_name) == [early_event]
+    assert mgr.get_chronological_task_events_by_type(early_event.task_name) == {None: [early_event]}
     assert mgr.get_referenced_task_names() == {early_event.task_name}
 
-    assert mgr.get_chronological_events_concerning("x") == []
+    assert mgr.get_chronological_task_events_by_type("x") == dict()
 
 
 def test_event_manager(early_event, less_early_event):
     mgr = tm.EventManager()
     mgr.add_event(less_early_event)
     mgr.add_event(early_event)
-    events = mgr.get_chronological_events_concerning(early_event.task_name)
-    assert events == [early_event, less_early_event]
+    events = mgr.get_chronological_task_events_by_type(early_event.task_name)
+    assert events == {None: [early_event, less_early_event]}
 
 
 @pytest.fixture
@@ -221,6 +225,25 @@ def test_last_measurement_events(repre):
     assert repre.get_status_at(day_before) == target.State.todo
     assert repre.get_status_at(someday) == target.State.todo
     assert repre.get_status_at(day_after) == target.State.unknown
+
+
+def test_out_of_bounds_events_ignored(repre):
+    too_early = PERIOD_START - ONE_DAY
+    too_late = LONG_PERIOD_END + ONE_DAY
+
+    event = tm.Event("", "points", too_early)
+    repre.process_events(dict(points=[event]))
+
+    event = tm.Event("", "points", too_late)
+    repre.process_events(dict(points=[event]))
+
+
+def test_out_of_bounds_events_ok(repre):
+    event = tm.Event("", "points", PERIOD_START)
+    repre.process_events(dict(points=[event]))
+
+    event = tm.Event("", "points", LONG_PERIOD_END)
+    repre.process_events(dict(points=[event]))
 
 
 def test_aggregation(repre):
@@ -460,3 +483,27 @@ def test_event_processing(simple_long_period_aggregation):
 
     repre = simple_long_period_aggregation.repres[0]
     assert repre.get_points_at(start) == 1
+
+
+def test_aggregation_and_event_manager(simple_long_period_aggregation, simple_target, early_event):
+    mgr = tm.EventManager()
+    early_event.quantity = "points"
+    simple_long_period_aggregation.process_event_manager(mgr)
+    repre = simple_long_period_aggregation.repres[0]
+    assert repre.get_points_at(PERIOD_START) == repre.get_points_at(LONG_PERIOD_END)
+    assert repre.get_points_at(PERIOD_START) == simple_target.point_cost
+
+    early_event.task_name = simple_target.name + "---"
+    mgr.add_event(early_event)
+    simple_long_period_aggregation.process_event_manager(mgr)
+    repre = simple_long_period_aggregation.repres[0]
+    assert repre.get_points_at(PERIOD_START) == repre.get_points_at(LONG_PERIOD_END)
+    assert repre.get_points_at(PERIOD_START) == simple_target.point_cost
+
+    early_event.task_name = simple_target.name
+    early_event.value_after = "99"
+    mgr.add_event(early_event)
+    simple_long_period_aggregation.process_event_manager(mgr)
+    repre = simple_long_period_aggregation.repres[0]
+    assert repre.get_points_at(LONG_PERIOD_END) == float(early_event.value_after)
+    assert repre.get_points_at(PERIOD_START) == float(early_event.value_before)
