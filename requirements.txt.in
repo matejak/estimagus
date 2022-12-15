@@ -1,4 +1,12 @@
 numpy
-flask
-oauthlib
+scipy
 matplotlib
+
+flask
+flask-login
+flask-wtf
+bootstrap-flask
+
+oauthlib
+pytest
+pytest-dependency
