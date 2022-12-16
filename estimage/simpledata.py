@@ -4,7 +4,11 @@ from . import data
 from . import inidata
 
 
-class Target(inidata.IniTarget):
+class RetroTarget(inidata.IniTarget):
+    CONFIG_FILENAME = "targets.ini"
+
+
+class ProjTarget(inidata.IniTarget):
     CONFIG_FILENAME = "targets.ini"
 
 
@@ -45,9 +49,13 @@ class EventManager(inidata.IniEvents):
     CONFIG_FILENAME = "events.ini"
 
 
-def get_model(targets_tree_without_duplicates):
-    main_composition = Target.to_tree(targets_tree_without_duplicates)
+def get_model(targets_tree_without_duplicates, cls=None):
     model = data.EstiModel()
+    if not targets_tree_without_duplicates:
+        return model
+    if cls is None:
+        cls = targets_tree_without_duplicates[0].__class__
+    main_composition = cls.to_tree(targets_tree_without_duplicates)
     model.use_composition(main_composition)
     return model
 

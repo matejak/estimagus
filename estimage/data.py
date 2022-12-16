@@ -8,6 +8,7 @@ from .entities.task import TaskModel, MemoryTaskModel
 from .entities.composition import Composition, MemoryComposition
 from .entities.pollster import Pollster, MemoryPollster
 from .entities.model import EstiModel
+from .entities.event import Event, EventManager
 
 
 def pert_compute_expected_value(dom, values):

@@ -5,11 +5,9 @@ import numpy as np
 
 import estimage.history as tm
 import estimage.entities.target as target
+import estimage.data as data
 
-
-ONE_DAY = datetime.timedelta(days=1)
-PERIOD_START = datetime.datetime(2022, 10, 1)
-LONG_PERIOD_END = datetime.datetime(2022, 10, 21)
+from test_events import early_event, less_early_event, late_event, ONE_DAY, PERIOD_START, LONG_PERIOD_END
 
 
 @pytest.mark.dependency()
@@ -27,31 +25,6 @@ def test_timeline_masking():
     mask = timeline.get_value_mask(55)
     assert sum(mask) == 1
     assert timeline.get_masked_values(mask)[0] == 55
-
-
-@pytest.fixture
-def early_event():
-    early_date = datetime.datetime(2022, 10, 11, 12)
-    early_event = tm.Event("", None, early_date)
-    early_event.value_before = "15"
-    return early_event
-
-
-@pytest.fixture
-def less_early_event():
-    less_early_date = datetime.datetime(2022, 10, 11, 13)
-    less_early_event = tm.Event("", None, less_early_date)
-    less_early_event.value_before = "17"
-    return less_early_event
-
-
-@pytest.fixture
-def late_event():
-    time_late = datetime.datetime(2022, 10, 15)
-    late_event = tm.Event("", None, time_late)
-    late_event.value_before = "10"
-    late_event.value_after = "0"
-    return late_event
 
 
 @pytest.fixture
@@ -75,11 +48,11 @@ def test_localize_events(early_event, less_early_event, late_event):
 def test_beyond_timeline(long_timeline):
     time_too_late = datetime.datetime(2023, 1, 1)
     with pytest.raises(ValueError):
-        long_timeline.process_events([tm.Event("", None, time_too_late)])
+        long_timeline.process_events([data.Event("", None, time_too_late)])
 
     time_too_early = datetime.datetime(2021, 1, 1)
     with pytest.raises(ValueError):
-        long_timeline.process_events([tm.Event("", None, time_too_early)])
+        long_timeline.process_events([data.Event("", None, time_too_early)])
 
 
 def test_timeline_applies_distinct_events(long_timeline, early_event, late_event):
@@ -110,26 +83,6 @@ def test_timeline_process_close_and_distinct_events(
     assert long_timeline.value_at(less_early_event.time) == 17
 
 
-def test_event_manager_trivial(early_event):
-    mgr = tm.EventManager()
-    assert mgr.get_chronological_task_events_by_type(early_event.task_name) == dict()
-    assert mgr.get_referenced_task_names() == set()
-
-    mgr.add_event(early_event)
-    assert mgr.get_chronological_task_events_by_type(early_event.task_name) == {None: [early_event]}
-    assert mgr.get_referenced_task_names() == {early_event.task_name}
-
-    assert mgr.get_chronological_task_events_by_type("x") == dict()
-
-
-def test_event_manager(early_event, less_early_event):
-    mgr = tm.EventManager()
-    mgr.add_event(less_early_event)
-    mgr.add_event(early_event)
-    events = mgr.get_chronological_task_events_by_type(early_event.task_name)
-    assert events == {None: [early_event, less_early_event]}
-
-
 @pytest.fixture
 def repre():
     start = PERIOD_START
@@ -155,20 +108,6 @@ def twoday_repre():
 
     representation = tm.Repre(start, end)
     return representation
-
-
-@pytest.fixture
-def event_in_progress():
-    ret = tm.Event("", None, PERIOD_START)
-    ret.value_before = target.State.in_progress
-    return ret
-
-
-@pytest.fixture
-def event_review():
-    ret = tm.Event("", None, PERIOD_START)
-    ret.value_before = target.State.review
-    return ret
 
 
 def test_repre(repre):
@@ -213,14 +152,14 @@ def test_last_measurement_events(repre):
     assert repre.get_points_at(day_after) == 0
     assert repre.get_status_at(day_after) == target.State.unknown
 
-    last_measurement_points = tm.Event.last_points_measurement("task_name", someday, 5)
+    last_measurement_points = data.Event.last_points_measurement("task_name", someday, 5)
     repre.process_events(dict(points=[last_measurement_points]))
 
     assert repre.get_points_at(day_before) == 5
     assert repre.get_points_at(someday) == 5
     assert repre.get_points_at(day_after) == 5
 
-    last_measurement_state = tm.Event.last_state_measurement("task_name", someday, target.State.todo)
+    last_measurement_state = data.Event.last_state_measurement("task_name", someday, target.State.todo)
     repre.process_events(dict(state=[last_measurement_state]))
     assert repre.get_status_at(day_before) == target.State.todo
     assert repre.get_status_at(someday) == target.State.todo
@@ -231,18 +170,18 @@ def test_out_of_bounds_events_ignored(repre):
     too_early = PERIOD_START - ONE_DAY
     too_late = LONG_PERIOD_END + ONE_DAY
 
-    event = tm.Event("", "points", too_early)
+    event = data.Event("", "points", too_early)
     repre.process_events(dict(points=[event]))
 
-    event = tm.Event("", "points", too_late)
+    event = data.Event("", "points", too_late)
     repre.process_events(dict(points=[event]))
 
 
 def test_out_of_bounds_events_ok(repre):
-    event = tm.Event("", "points", PERIOD_START)
+    event = data.Event("", "points", PERIOD_START)
     repre.process_events(dict(points=[event]))
 
-    event = tm.Event("", "points", LONG_PERIOD_END)
+    event = data.Event("", "points", LONG_PERIOD_END)
     repre.process_events(dict(points=[event]))
 
 
@@ -466,7 +405,7 @@ def test_supertasks_to_aggregation_long(supertask_target, another_supertask_targ
 def test_event_processing(simple_long_period_aggregation):
     start = PERIOD_START
 
-    evt_bad = tm.Event("another task", "points", start + ONE_DAY)
+    evt_bad = data.Event("another task", "points", start + ONE_DAY)
     evt_bad.value_after = "3"
     evt_bad.value_before = "3"
 
@@ -475,7 +414,7 @@ def test_event_processing(simple_long_period_aggregation):
     repre = simple_long_period_aggregation.repres[0]
     assert repre.get_points_at(start) == 8
 
-    evt_good = tm.Event("task", "points", start + ONE_DAY)
+    evt_good = data.Event("task", "points", start + ONE_DAY)
     evt_good.value_after = "5"
     evt_good.value_before = "1"
 
@@ -486,7 +425,7 @@ def test_event_processing(simple_long_period_aggregation):
 
 
 def test_aggregation_and_event_manager(simple_long_period_aggregation, simple_target, early_event):
-    mgr = tm.EventManager()
+    mgr = data.EventManager()
     early_event.quantity = "points"
     simple_long_period_aggregation.process_event_manager(mgr)
     repre = simple_long_period_aggregation.repres[0]

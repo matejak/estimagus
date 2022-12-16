@@ -4,7 +4,6 @@ import typing
 import datetime
 
 from . import data
-from . import history
 
 
 class IniStorage:
@@ -167,8 +166,8 @@ class IniPollster(data.Pollster, IniStorage):
             config.pop(keyname)
 
 
-class IniEvents(history.EventManager, IniStorage):
-    def _save_task_events(self, task_name: str, event_list: typing.List[history.Event]):
+class IniEvents(data.EventManager, IniStorage):
+    def _save_task_events(self, task_name: str, event_list: typing.List[data.Event]):
         all_values_to_save = dict()
         for index, event in enumerate(event_list):
             to_save = self._event_to_string_dict(event)
@@ -198,7 +197,7 @@ class IniEvents(history.EventManager, IniStorage):
 
     def _get_event_from_data(self, data_dict, name):
         time = datetime.datetime.fromisoformat(data_dict["time"])
-        ret = history.Event(name, data_dict["quantity"] or None, time)
+        ret = data.Event(name, data_dict["quantity"] or None, time)
         if "value_before" in data_dict:
             ret.value_before = data_dict["value_before"]
             if ret.quantity in ("points",):

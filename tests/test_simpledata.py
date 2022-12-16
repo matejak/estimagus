@@ -28,6 +28,11 @@ def test_obtaining_model_overriden_by_pollster(leaf_target):
     assert model.point_estimate_of(leaf_target.name).expected == 99
 
 
+def test_empty_model():
+    model = tm.get_model([])
+    assert model.point_estimate.expected == 0
+
+
 def test_obtaining_model_overriden_by_pollster(leaf_target):
     pollster = data.MemoryPollster()
 

@@ -32,7 +32,7 @@ def render_template(template_basename, title, **kwargs):
 @bp.route('/logout', methods=['GET'])
 def logout():
     flask_login.logout_user()
-    return flask.redirect("/login")
+    return flask.redirect(flask.url_for("main.login"))
 
 
 def autologin():
@@ -91,8 +91,14 @@ def feed_estimation_to_form_and_arg_dict(estimation, form_data, arg_dict):
     arg_dict["estimate"] = estimation
 
 
-def retreive_task(task_id):
-    ret = webdata.Target.load_metadata(task_id)
+def projective_retreive_task(task_id):
+    ret = webdata.ProjTarget.load_metadata(task_id)
+    ret.load_point_cost()
+    return ret
+
+
+def retro_retreive_task(task_id):
+    ret = webdata.RetroTarget.load_metadata(task_id)
     ret.load_point_cost()
     return ret
 
@@ -137,7 +143,7 @@ def move_consensus_estimate_to_authoritative(task_name):
 
 
 def propagate_estimate_to_task(task_name, est_input):
-    targets = webdata.Target.get_loaded_targets_by_id()
+    targets = webdata.ProjTarget.get_loaded_targets_by_id()
     target = targets[task_name]
 
     est = data.Estimate.from_input(est_input)
@@ -162,7 +168,7 @@ def estimate(task_name):
             flask.url_for("main.view_task", task_name=task_name))
 
 
-@bp.route('/view_task/<task_name>')
+@bp.route('/projective/task/<task_name>')
 @flask_login.login_required
 def view_task(task_name):
     user = flask_login.current_user
@@ -175,7 +181,7 @@ def view_task(task_name):
         authoritative=forms.AuthoritativeForm(),
     )
 
-    t = retreive_task(task_name)
+    t = projective_retreive_task(task_name)
     estimation_args = dict()
     estimation = ask_pollster_of_existing_data(pollster, task_name)
     if estimation:
@@ -185,7 +191,7 @@ def view_task(task_name):
     if "estimate" in estimation_args:
         similar_tasks = get_similar_tasks(user_id, task_name)
         estimation_args["similar_sized_tasks"] = similar_tasks
-        all_targets = webdata.Target.get_loaded_targets_by_id()
+        all_targets = webdata.ProjTarget.get_loaded_targets_by_id()
         estimation_args["similar_sized_targets"] = [
             all_targets[task.name] for task in similar_tasks
         ]
@@ -199,18 +205,18 @@ def view_task(task_name):
         user=user, forms=request_forms, task=t, ** estimation_args)
 
 
-@bp.route('/view_epic/<epic_name>')
+@bp.route('/projective/epic/<epic_name>')
 @flask_login.login_required
 def view_epic(epic_name):
     user = flask_login.current_user
 
     user_id = user.get_id()
-    model = get_user_model(user_id)
+    model = get_user_model(user_id, webdata.ProjTarget)
 
-    t = retreive_task(epic_name)
+    t = projective_retreive_task(epic_name)
 
     return render_template(
-        'epic_view.html', title='View epic', epic=t, estimate=model.point_estimate_of(epic_name))
+        'epic_view.html', title='View epic', epic=t, model=model, estimate=model.point_estimate_of(epic_name))
 
 
 def send_figure_as_png(figure, filename):
@@ -239,7 +245,7 @@ def get_pert_in_figure(estimation, task_name):
 @bp.route('/vis/<epic_name>-burndown.png')
 @flask_login.login_required
 def visualize_burndown(epic_name):
-    all_targets = webdata.Target.get_loaded_targets_by_id()
+    all_targets = webdata.RetroTarget.get_loaded_targets_by_id()
     all_events = webdata.EventManager.load()
 
     start = flask.current_app.config["PERIOD"]["start"]
@@ -260,7 +266,7 @@ def visualize_burndown(epic_name):
 @bp.route('/vis/<epic_name>-velocity.png')
 @flask_login.login_required
 def visualize_velocity(epic_name):
-    all_targets = webdata.Target.get_loaded_targets_by_id()
+    all_targets = webdata.RetroTarget.get_loaded_targets_by_id()
     all_events = webdata.EventManager.load()
 
     start = flask.current_app.config["PERIOD"]["start"]
@@ -285,7 +291,7 @@ def visualize_task(task_name):
     user = flask_login.current_user
 
     user_id = user.get_id()
-    model = get_user_model(user_id)
+    model = get_user_model(user_id, webdata.ProjTarget)
     if task_name == ".":
         estimation = model.main_composition.point_estimate
     else:
@@ -296,15 +302,15 @@ def visualize_task(task_name):
     return send_figure_as_png(fig, f'{task_name}.png')
 
 
-def get_target_tree_with_no_double_occurence():
-    all_targets = webdata.Target.load_all_targets()
+def get_target_tree_with_no_double_occurence(cls):
+    all_targets = cls.load_all_targets()
     targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(all_targets)
     return targets_tree_without_duplicates
 
 
-def get_user_model(user_id, targets_tree_without_duplicates=None):
+def get_user_model(user_id, cls, targets_tree_without_duplicates=None):
     if targets_tree_without_duplicates is None:
-        targets_tree_without_duplicates = get_target_tree_with_no_double_occurence()
+        targets_tree_without_duplicates = get_target_tree_with_no_double_occurence(cls)
     authoritative_pollster = webdata.AuthoritativePollster()
     user_pollster = webdata.UserPollster(user_id)
     model = webdata.get_model(targets_tree_without_duplicates)
@@ -314,20 +320,25 @@ def get_user_model(user_id, targets_tree_without_duplicates=None):
 
 
 def get_similar_tasks(user_id, task_name):
-    model = get_user_model(user_id)
+    model = get_user_model(user_id, webdata.ProjTarget)
     all_tasks = model.get_all_task_models()
     return webdata.order_nearby_tasks(model.get_element(task_name), all_tasks, 0.5, 2)
 
 
 @bp.route('/')
+def index():
+    return flask.redirect(flask.url_for("main.tree_view"))
+
+
+@bp.route('/projective')
 @flask_login.login_required
 def tree_view():
     user = flask_login.current_user
     user_id = user.get_id()
 
-    all_targets = webdata.Target.load_all_targets()
+    all_targets = webdata.ProjTarget.load_all_targets()
     targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(all_targets)
-    model = get_user_model(user_id, targets_tree_without_duplicates)
+    model = get_user_model(user_id, webdata.ProjTarget, targets_tree_without_duplicates)
     return render_template(
         "tree_view.html", title="Tasks tree view",
         targets=targets_tree_without_duplicates, model=model)
@@ -364,10 +375,10 @@ def executive_summary_of_points_and_velocity(targets):
     return output
 
 
-@bp.route('/retro')
+@bp.route('/retrospective')
 @flask_login.login_required
 def tree_view_retro():
-    all_targets = webdata.Target.load_all_targets()
+    all_targets = webdata.RetroTarget.load_all_targets()
     executive_summary = executive_summary_of_points_and_velocity(all_targets)
 
     targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(all_targets)
@@ -376,13 +387,13 @@ def tree_view_retro():
         targets=targets_tree_without_duplicates, ** executive_summary)
 
 
-@bp.route('/retro/view_epic/<epic_name>')
+@bp.route('/retrospective/epic/<epic_name>')
 @flask_login.login_required
 def view_epic_retro(epic_name):
 
-    t = retreive_task(epic_name)
+    t = retro_retreive_task(epic_name)
     executive_summary = executive_summary_of_points_and_velocity(t.dependents)
 
     return render_template(
-        'epic_view.html', title='View epic', epic=t, ** executive_summary)
+        'epic_view_retrospective.html', title='View epic', epic=t, ** executive_summary)
 

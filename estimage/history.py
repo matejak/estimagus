@@ -1,11 +1,11 @@
 import datetime
 import typing
 import collections
-import dataclasses
 
 import numpy as np
 
 from .entities import target
+from . import data
 
 
 ONE_DAY = datetime.timedelta(days=1)
@@ -19,87 +19,6 @@ def get_period(start: datetime.datetime, end: datetime.datetime):
 def localize_event(
         start: datetime.datetime, evt: datetime.datetime):
     return (evt - start).days
-
-
-@dataclasses.dataclass
-class Event:
-    time: datetime.datetime
-    task_name: str
-    quantity: str
-    value_before: str
-    value_after: str
-
-    def __init__(self, task_name, quantity, time):
-        self.time = time
-        self.task_name = task_name
-        self.quantity = quantity
-        self.value_after = None
-        self.value_before = None
-
-    def __str__(self):
-        return f"{self.time.date()} {self.quantity}: {self.value_before} -> {self.value_after}"
-
-    @classmethod
-    def last_points_measurement(cls, task_name, when, value):
-        ret = cls(task_name, "points", when)
-        ret.value_after = value
-        ret.value_before = value
-        return ret
-
-    @classmethod
-    def last_state_measurement(cls, task_name, when, value):
-        ret = cls(task_name, "state", when)
-        ret.value_after = target.State.unknown
-        ret.value_before = value
-        return ret
-
-
-class EventManager:
-    _events: typing.Dict[str, typing.List[Event]]
-
-    def __init__(self):
-        self._events = collections.defaultdict(list)
-
-    def add_event(self, event: Event):
-        events = self._events[event.task_name]
-        events.append(event)
-        self._events[event.task_name] = sorted(events, key=lambda e: e.time)
-
-    def get_referenced_task_names(self):
-        return set(self._events.keys())
-
-    def get_chronological_task_events_by_type(self, task_name: str):
-        if task_name not in self._events:
-            return dict()
-
-        sorted_events = self._events[task_name]
-        events_by_type = collections.defaultdict(list)
-        for evt in sorted_events:
-            events_by_type[evt.quantity].append(evt)
-
-        return events_by_type
-
-    def save(self):
-        task_names = self.get_referenced_task_names()
-        for name in task_names:
-            self._save_task_events(name, self._events[name])
-
-    def _save_task_events(self, task_name: str, event_list: typing.List[Event]):
-        raise NotImplementedError()
-
-    @classmethod
-    def load(cls):
-        result = cls()
-        events_task_names = result._load_event_names()
-        for name in events_task_names:
-            result._events[name] = result._load_events(name)
-        return result
-
-    def _load_events(self, name):
-        raise NotImplementedError()
-
-    def _load_event_names(self):
-        raise NotImplementedError()
 
 
 class Timeline:
@@ -194,7 +113,7 @@ class Repre:
         return self.points_timeline.get_masked_values(mask)
 
     def fill_history_from(self, when):
-        init_event = Event("", "points", when)
+        init_event = data.Event("", "points", when)
 
         init_event.value_before = self.points_timeline.value_at(when)
         self.points_timeline.process_events([init_event])
@@ -245,7 +164,7 @@ class Repre:
         velocity_array *= self.points_completed() / velocity_array.sum()
         return velocity_array
 
-    def _extract_time_relevant_events(self, events: typing.Iterable[Event]):
+    def _extract_time_relevant_events(self, events: typing.Iterable[data.Event]):
         return [
             evt for evt in events if self.start <= evt.time <= self.end
         ]
@@ -307,13 +226,13 @@ class Aggregation:
                 ret.add_repre(r)
         return ret
 
-    def process_events(self, events: typing.Iterable[Event]):
+    def process_events(self, events: typing.Iterable[data.Event]):
         events_by_taskname = collections.defaultdict(lambda: collections.defaultdict(list))
         for evt in events:
             events_by_taskname[evt.task_name][evt.quantity].append(evt)
         self.process_events_by_taskname_and_type(events_by_taskname)
 
-    def process_events_by_taskname_and_type(self, events_by_taskname: typing.Mapping[str, Event]):
+    def process_events_by_taskname_and_type(self, events_by_taskname: typing.Mapping[str, data.Event]):
         for r in self.repres:
             if (task_name := r.task_name) in events_by_taskname:
                 r.process_events(events_by_taskname[task_name])
@@ -352,7 +271,7 @@ class Aggregation:
     def days(self):
         return self.repres[0].points_timeline.days
 
-    def process_event_manager(self, manager: EventManager):
+    def process_event_manager(self, manager: data.EventManager):
         events_by_taskname = dict()
         for repre in self.repres:
             name = repre.task_name

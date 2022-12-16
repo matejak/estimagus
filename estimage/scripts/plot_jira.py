@@ -4,8 +4,9 @@ import collections
 import jinja2
 
 import estimage.history as hist
+import estimage.entities.event as evts
 import estimage.inidata as inidata
-import estimage.simpledata as simpledata
+import estimage.simpledata as webdata
 from estimage.entities import target
 
 
@@ -82,20 +83,26 @@ def export_jira_tasks_to_targets(epics, tasks, target_class: target.BaseTarget):
     return targets_by_id
 
 
-def save_events(tasks, event_manager_cls: hist.EventManager):
-    storer = event_manager_cls()
-    for t in tasks:
-        evts = get_events(t)
-        for e in evts:
-            storer.add_event(e)
-    storer.save()
-
-
 def save_exported_jira_tasks(targets_by_id):
     for t in targets_by_id.values():
         t.save_metadata()
         t.save_point_cost()
         t.save_time_cost()
+
+
+def export_projective_targets(query):
+    epics, tasks = get_tasks(query)
+    targets_by_id = export_jira_tasks_to_targets(epics, tasks, webdata.ProjTarget)
+    save_exported_jira_tasks(targets_by_id)
+
+
+def save_events(tasks, event_manager_cls: type):
+    storer = event_manager_cls()
+    for t in tasks:
+        events = get_events(t)
+        for e in events:
+            storer.add_event(e)
+    storer.save()
 
 
 def get_events(task, cutoff=None):
@@ -115,19 +122,27 @@ def get_events(task, cutoff=None):
             new_value = event.toString
 
             if field_name == "status":
-                evt = hist.Event(task.key, "state", date)
+                evt = evts.Event(task.key, "state", date)
                 evt.value_before = JIRA_STATUS_TO_STATE[former_value]
                 evt.value_after = JIRA_STATUS_TO_STATE[new_value]
                 evt.msg = f"Status changed from '{former_value}' to '{new_value}'"
                 events.append(evt)
             elif field_name == STORY_POINTS:
-                evt = hist.Event(task.key, "points", date)
+                evt = evts.Event(task.key, "points", date)
                 evt.value_before = float(former_value or 0)
                 evt.value_after = float(new_value or 0)
                 evt.msg = f"Points changed from {former_value} to {new_value}"
                 events.append(evt)
 
     return events
+
+
+def export_retrospective_targets(query):
+    epics, tasks = get_tasks(query)
+    targets_by_id = export_jira_tasks_to_targets(epics, tasks, webdata.RetroTarget)
+    save_exported_jira_tasks(targets_by_id)
+
+    save_events(tasks.values(), webdata.EventManager)
 
 
 def aggregate_tasks(tasks):
@@ -147,8 +162,8 @@ def aggregate_tasks(tasks):
         points = float(task.get_field(STORY_POINTS) or 0)
         status = JIRA_STATUS_TO_STATE[str(task.get_field("status"))]
 
-        all_events.append(hist.Event.last_state_measurement(task.key, today, status))
-        all_events.append(hist.Event.last_points_measurement(task.key, today, points))
+        all_events.append(evts.Event.last_state_measurement(task.key, today, status))
+        all_events.append(evts.Event.last_points_measurement(task.key, today, points))
 
         all_events.extend(get_events(task, start))
         if points:
