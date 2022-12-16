@@ -1,15 +1,26 @@
 import typing
+import pathlib
+
+import flask
 
 from . import data
 from . import inidata
 
 
-class RetroTarget(inidata.IniTarget):
-    CONFIG_FILENAME = "targets.ini"
+class IniInDirMixin:
+    @classmethod
+    @property
+    def CONFIG_FILENAME(cls):
+        datadir = pathlib.Path(flask.current_app.config["DATA_DIR"])
+        return datadir / cls.CONFIG_BASENAME
 
 
-class ProjTarget(inidata.IniTarget):
-    CONFIG_FILENAME = "targets.ini"
+class RetroTarget(IniInDirMixin, inidata.IniTarget):
+    CONFIG_BASENAME = "retrospective.ini"
+
+
+class ProjTarget(IniInDirMixin, inidata.IniTarget):
+    CONFIG_BASENAME = "projective.ini"
 
 
 class UserPollsterBase(data.Pollster):
@@ -20,7 +31,7 @@ class UserPollsterBase(data.Pollster):
 
 
 class UserPollster(UserPollsterBase, inidata.IniPollster):
-    CONFIG_FILENAME = "pollsters.ini"
+    CONFIG_BASENAME = "pollsters.ini"
 
 
 class AuthoritativePollsterBase(data.Pollster):
@@ -30,11 +41,11 @@ class AuthoritativePollsterBase(data.Pollster):
 
 
 class AuthoritativePollster(AuthoritativePollsterBase, inidata.IniPollster):
-    CONFIG_FILENAME = "pollsters.ini"
+    CONFIG_BASENAME = "pollsters.ini"
 
 
 class Pollster(inidata.IniPollster):
-    CONFIG_FILENAME = "pollsters.ini"
+    CONFIG_BASENAME = "pollsters.ini"
 
     def __init__(self, poll_id_prefix, * args, ** kwargs):
         super().__init__(* args, ** kwargs)
@@ -45,8 +56,8 @@ class Pollster(inidata.IniPollster):
         return keyname
 
 
-class EventManager(inidata.IniEvents):
-    CONFIG_FILENAME = "events.ini"
+class EventManager(IniInDirMixin, inidata.IniEvents):
+    CONFIG_BASENAME = "events.ini"
 
 
 def get_model(targets_tree_without_duplicates, cls=None):

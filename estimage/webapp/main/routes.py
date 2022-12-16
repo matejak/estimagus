@@ -192,6 +192,7 @@ def view_task(task_name):
         similar_tasks = get_similar_tasks(user_id, task_name)
         estimation_args["similar_sized_tasks"] = similar_tasks
         all_targets = webdata.ProjTarget.get_loaded_targets_by_id()
+        all_targets.update(webdata.RetroTarget.get_loaded_targets_by_id())
         estimation_args["similar_sized_targets"] = [
             all_targets[task.name] for task in similar_tasks
         ]
@@ -320,8 +321,10 @@ def get_user_model(user_id, cls, targets_tree_without_duplicates=None):
 
 
 def get_similar_tasks(user_id, task_name):
-    model = get_user_model(user_id, webdata.ProjTarget)
-    all_tasks = model.get_all_task_models()
+    all_tasks = []
+    for cls in (webdata.RetroTarget, webdata.ProjTarget):
+        model = get_user_model(user_id, cls)
+        all_tasks.extend(model.get_all_task_models())
     return webdata.order_nearby_tasks(model.get_element(task_name), all_tasks, 0.5, 2)
 
 

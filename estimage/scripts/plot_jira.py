@@ -147,7 +147,7 @@ def export_retrospective_targets(query):
 
 def aggregate_tasks(tasks):
     start = datetime.datetime(2022, 10, 1)
-    end = datetime.datetime(2022, 12, 9)
+    end = datetime.datetime(2022, 12, 23)
 
     today = datetime.datetime.today()
 
