@@ -11,7 +11,10 @@ class IniInDirMixin:
     @classmethod
     @property
     def CONFIG_FILENAME(cls):
-        datadir = pathlib.Path(flask.current_app.config["DATA_DIR"])
+        try:
+            datadir = pathlib.Path(flask.current_app.config["DATA_DIR"])
+        except RuntimeError:
+            datadir = pathlib.Path(".")
         return datadir / cls.CONFIG_BASENAME
 
 
@@ -30,7 +33,7 @@ class UserPollsterBase(data.Pollster):
         self.set_namespace(f"user-{username}-")
 
 
-class UserPollster(UserPollsterBase, inidata.IniPollster):
+class UserPollster(IniInDirMixin, UserPollsterBase, inidata.IniPollster):
     CONFIG_BASENAME = "pollsters.ini"
 
 
@@ -40,7 +43,7 @@ class AuthoritativePollsterBase(data.Pollster):
         self.set_namespace("***-")
 
 
-class AuthoritativePollster(AuthoritativePollsterBase, inidata.IniPollster):
+class AuthoritativePollster(IniInDirMixin, AuthoritativePollsterBase, inidata.IniPollster):
     CONFIG_BASENAME = "pollsters.ini"
 
 

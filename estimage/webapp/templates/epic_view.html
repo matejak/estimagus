@@ -10,9 +10,9 @@
     <h3>Subtasks</h3>
     <p>
         <ul>
-        {% for d in epic.dependents %}
-        <li>{{ utils.render_whatever(d, model) }} {{ d.state }} {{ model.point_estimate_of(d.name).expected }}</li>
-        {% endfor %}
+        {% for d in epic.dependents -%}
+        {{ utils.render_whatever(d, model) }} {{ d.state }} {{ model.point_estimate_of(d.name).expected }}</li>
+        {% endfor -%}
         </ul>
     </p>
     </div>

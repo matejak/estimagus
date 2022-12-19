@@ -127,6 +127,13 @@ class Estimate:
 
     @classmethod
     def from_triple(cls, most_likely, optimistic, pessimistic):
+        if not optimistic <= most_likely <= pessimistic:
+            msg = (
+                "The optimistic<=most likely<=pessimistic inequality "
+                "is not met, i.e. it is not true that "
+                f"{optimistic:.4g} <= {most_likely:.4g} <= {pessimistic:.4g}"
+            )
+            raise ValueError(msg)
         expected = (optimistic + pessimistic + 4 * most_likely) / 6
         sigma1 = math.sqrt((most_likely - optimistic) * (pessimistic - most_likely) / 7.0)
         var1 = sigma1**2

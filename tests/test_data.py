@@ -41,6 +41,25 @@ def broad_estimate_246():
     return tm.Estimate.from_triple(4, 2, 6)
 
 
+def test_estimate_invalid():
+    with pytest.raises(ValueError, match="most likely"):
+        tm.Estimate.from_triple(0, 1, 3)
+
+    with pytest.raises(ValueError, match="most likely"):
+        tm.Estimate.from_triple(4, 1, 3)
+
+    with pytest.raises(ValueError, match="optimistic"):
+        tm.Estimate.from_triple(2, 2.5, 3)
+
+    with pytest.raises(ValueError, match="optimistic"):
+        tm.Estimate.from_triple(2, 4, 3)
+
+    with pytest.raises(ValueError, match="pessimistic"):
+        tm.Estimate.from_triple(2, 1, 0)
+
+    with pytest.raises(ValueError, match="pessimistic"):
+        tm.Estimate.from_triple(2, 1, 1.5)
+
 @pytest.mark.dependency
 def test_estimates(precise_estimate_1, centered_estimate_345, medium_estimate_346):
     assert 6 > medium_estimate_346.expected > 4

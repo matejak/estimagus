@@ -46,20 +46,24 @@
 {%- endmacro %}
 
 {% macro render_task(task, model) %}
-        {{ render_task_basic(task) }} {{ task.status }}
+        <li>
+        {{- render_task_basic(task) }} {{ task.status -}}
+        </li>
+{% endmacro %}
+
+{% macro render_epic_basic(epic) %}
+        {{ epic_link(epic) }} &mdash; {{ epic.title }}
 {% endmacro %}
 
 {% macro render_epic(epic, model) %}
         <li>
-        {{ epic_link(epic) }} &mdash; {{ epic.title }}
+        {{ render_epic_basic(epic) }}
         <p>
         To be done: {{ "%.3g" % model.point_estimate_of(epic.name).expected }}
         </p>
         <ul>
             {% for target in epic.dependents %}
-        <li>
             {{- render_whatever(target, model) -}}
-        </li>
             {% endfor %}
         </ul>
         </li>

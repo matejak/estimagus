@@ -365,7 +365,7 @@ class MPLVelocityPlot:
         self.days = np.arange(a.days)
 
     def _prepare_plots(self, cutoff_date):
-        start_date = self.aggregation.repres[0].start
+        start_date = self.aggregation.start
         for r in self.aggregation.repres:
             self.velocity_focus += r.get_velocity_array()
 
@@ -391,8 +391,8 @@ class MPLVelocityPlot:
 
         self._prepare_plots(cutoff_date)
 
-        ax.plot(self.days, self.velocity_focus * 7, label="Velocity retrofit")
-        ax.plot(self.days, self.velocity_estimate * 7, label="Rolling velocity estimate")
+        ax.plot(self.days, self.velocity_focus * days_in_real_week, label="Velocity retrofit")
+        ax.plot(self.days, self.velocity_estimate * days_in_real_week, label="Rolling velocity estimate")
 
         index_of_today = localize_event(self.aggregation.repres[0].start, datetime.datetime.today())
         ax.axvline(index_of_today, label="today", color="grey", linewidth=2)
