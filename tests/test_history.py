@@ -446,3 +446,7 @@ def test_aggregation_and_event_manager(simple_long_period_aggregation, simple_ta
     repre = simple_long_period_aggregation.repres[0]
     assert repre.get_points_at(LONG_PERIOD_END) == float(early_event.value_after)
     assert repre.get_points_at(PERIOD_START) == float(early_event.value_before)
+
+
+def test_aggregation_point_velocity_trivial(simple_long_period_aggregation):
+    assert simple_long_period_aggregation.point_velocity.expected == 0

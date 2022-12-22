@@ -53,3 +53,7 @@ def test_event_manager(early_event, less_early_event):
     mgr.add_event(early_event)
     events = mgr.get_chronological_task_events_by_type(early_event.task_name)
     assert events == {None: [early_event, less_early_event]}
+
+
+def test_events_consistency_trivial():
+    assert data.Event.consistent([])
