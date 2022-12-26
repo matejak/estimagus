@@ -239,11 +239,16 @@ def test_repre_velocity_not_done(oneday_repre):
     assert np.all(oneday_repre.get_velocity_array() == 0)
 
 
-@pytest.mark.dependency(depends=["test_repre_velocity_not_done"])
-def test_repre_velocity_done_in_day(twoday_repre):
+@pytest.fixture
+def twoday_repre_done_in_day(twoday_repre):
     twoday_repre.update(PERIOD_START, target.State.in_progress, points=2)
     twoday_repre.update(PERIOD_START + ONE_DAY, target.State.done, points=2)
-    assert twoday_repre.average_daily_velocity == 2
+    return twoday_repre
+
+
+@pytest.mark.dependency(depends=["test_repre_velocity_not_done"])
+def test_repre_velocity_done_in_day(twoday_repre_done_in_day):
+    assert twoday_repre_done_in_day.average_daily_velocity == 2
 
 
 @pytest.mark.dependency(depends=["test_repre_velocity_not_done"])
@@ -448,5 +453,18 @@ def test_aggregation_and_event_manager(simple_long_period_aggregation, simple_ta
     assert repre.get_points_at(PERIOD_START) == float(early_event.value_before)
 
 
-def test_aggregation_point_velocity_trivial(simple_long_period_aggregation):
-    assert simple_long_period_aggregation.point_velocity.expected == 0
+def test_aggregation_point_velocity_array(twoday_repre_done_in_day):
+    a = tm.Aggregation()
+    assert len(a.get_velocity_array()) == 0
+
+    a.add_repre(twoday_repre_done_in_day)
+    assert np.all(a.get_velocity_array() == twoday_repre_done_in_day.get_velocity_array())
+
+
+def test_aggregation_point_velocity_trivial(twoday_repre_done_in_day):
+    a = tm.Aggregation()
+    assert a.point_velocity.expected == 0
+
+    a.add_repre(twoday_repre_done_in_day)
+    assert a.point_velocity.expected == 1
+    assert a.point_velocity.sigma == pytest.approx(1)

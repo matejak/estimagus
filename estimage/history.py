@@ -232,7 +232,23 @@ class Aggregation:
             events_by_taskname[evt.task_name][evt.quantity].append(evt)
         self.process_events_by_taskname_and_type(events_by_taskname)
 
-    def process_events_by_taskname_and_type(self, events_by_taskname: typing.Mapping[str, data.Event]):
+    def get_velocity_array(self):
+        if not self.repres:
+            return np.array([])
+        ret = np.zeros_like(self.repres[0].get_velocity_array())
+        for r in self.repres:
+            ret += r.get_velocity_array()
+        return ret
+
+    @property
+    def point_velocity(self) -> data.Estimate:
+        if not self.repres:
+            return data.Estimate(0, 0)
+        array = self.get_velocity_array()
+        return data.Estimate(array.mean(), array.std())
+
+    def process_events_by_taskname_and_type(
+                self, events_by_taskname: typing.Mapping[str, data.Event]):
         for r in self.repres:
             if (task_name := r.task_name) in events_by_taskname:
                 r.process_events(events_by_taskname[task_name])
