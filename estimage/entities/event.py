@@ -38,6 +38,19 @@ class Event:
         ret.value_before = value
         return ret
 
+    @classmethod
+    def consistent(cls, events: typing.Iterable["Event"]):
+        events = sorted(events, key=lambda e: e.time)
+        return cls._consistent_sorted_events(events)
+
+    @classmethod
+    def _consistent_sorted_events(cls, events: typing.Iterable["Event"]):
+        if len(events) < 2:
+            return True
+        if events[0].value_after != events[1].value_before:
+            return False
+        return cls._consistent_sorted_events(events[1:])
+
 
 class EventManager:
     _events: typing.Dict[str, typing.List[Event]]

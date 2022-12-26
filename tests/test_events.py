@@ -2,7 +2,7 @@ import datetime
 
 import pytest
 
-import estimage.data as data
+import estimage.entities.event as data
 
 
 ONE_DAY = datetime.timedelta(days=1)
@@ -55,5 +55,30 @@ def test_event_manager(early_event, less_early_event):
     assert events == {None: [early_event, less_early_event]}
 
 
-def test_events_consistency_trivial():
+def test_events_consistency_trivial(early_event):
     assert data.Event.consistent([])
+
+    assert data.Event.consistent([early_event])
+
+
+def test_events_consistency_2tuples(early_event, less_early_event):
+    early_event.value_after = 4
+    less_early_event.value_before = 5
+
+    assert not data.Event.consistent([early_event, less_early_event])
+
+    early_event.value_before = 1
+    early_event.value_after = 5
+    less_early_event.value_before = 5
+    less_early_event.value_after = 6
+    assert data.Event.consistent([early_event, less_early_event])
+    assert data.Event.consistent([less_early_event, early_event])
+
+
+def test_events_consistency_3tuples(early_event, less_early_event, late_event):
+    early_event.value_after = 2
+    less_early_event.value_before = 2
+    less_early_event.value_after = 3
+    late_event.value_before = 4
+
+    assert not data.Event.consistent([late_event, early_event, less_early_event])
