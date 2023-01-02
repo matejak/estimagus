@@ -91,13 +91,13 @@ def feed_estimation_to_form_and_arg_dict(estimation, form_data, arg_dict):
     arg_dict["estimate"] = estimation
 
 
-def projective_retreive_task(task_id):
+def projective_retrieve_task(task_id):
     ret = webdata.ProjTarget.load_metadata(task_id)
     ret.load_point_cost()
     return ret
 
 
-def retro_retreive_task(task_id):
+def retro_retrieve_task(task_id):
     ret = webdata.RetroTarget.load_metadata(task_id)
     ret.load_point_cost()
     return ret
@@ -181,7 +181,7 @@ def view_task(task_name):
         authoritative=forms.AuthoritativeForm(),
     )
 
-    t = projective_retreive_task(task_name)
+    t = projective_retrieve_task(task_name)
     estimation_args = dict()
     estimation = ask_pollster_of_existing_data(pollster, task_name)
     if estimation:
@@ -214,7 +214,7 @@ def view_epic(epic_name):
     user_id = user.get_id()
     model = get_user_model(user_id, webdata.ProjTarget)
 
-    t = projective_retreive_task(epic_name)
+    t = projective_retrieve_task(epic_name)
 
     return render_template(
         'epic_view.html', title='View epic', epic=t, model=model, estimate=model.point_estimate_of(epic_name))
@@ -394,7 +394,7 @@ def tree_view_retro():
 @flask_login.login_required
 def view_epic_retro(epic_name):
 
-    t = retro_retreive_task(epic_name)
+    t = retro_retrieve_task(epic_name)
     executive_summary = executive_summary_of_points_and_velocity(t.dependents)
 
     return render_template(
