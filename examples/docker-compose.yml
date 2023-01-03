@@ -1,0 +1,13 @@
+version: "3"
+
+services:
+  estimage:
+    image:
+      estimage
+    ports:
+      - 5000:5000
+    environment:
+      - SECRET_KEY=1234
+      - DATA_DIR=data
+    volumes:
+      - ./data:/usr/src/app/data:z
