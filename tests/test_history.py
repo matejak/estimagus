@@ -33,16 +33,16 @@ def long_timeline():
 
 
 def test_localize_events(early_event, less_early_event, late_event):
-    early_loc = tm.localize_event(PERIOD_START, early_event.time)
-    less_early_loc = tm.localize_event(PERIOD_START, less_early_event.time)
+    early_loc = tm.localize_date(PERIOD_START, early_event.time)
+    less_early_loc = tm.localize_date(PERIOD_START, less_early_event.time)
 
     assert int(early_loc) == early_loc
     assert int(less_early_loc) == less_early_loc
 
     assert early_loc <= less_early_loc
-    assert early_loc < tm.localize_event(PERIOD_START, late_event.time)
+    assert early_loc < tm.localize_date(PERIOD_START, late_event.time)
 
-    assert tm.localize_event(PERIOD_START, PERIOD_START) == 0
+    assert tm.localize_date(PERIOD_START, PERIOD_START) == 0
 
 
 def test_beyond_timeline(long_timeline):

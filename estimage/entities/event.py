@@ -98,4 +98,3 @@ class EventManager:
 
     def _load_event_names(self):
         raise NotImplementedError()
-

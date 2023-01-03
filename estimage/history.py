@@ -16,7 +16,7 @@ def get_period(start: datetime.datetime, end: datetime.datetime):
     return np.zeros(period.days)
 
 
-def localize_event(
+def localize_date(
         start: datetime.datetime, evt: datetime.datetime):
     return (evt - start).days
 
@@ -48,7 +48,7 @@ class Timeline:
         self._data[:] = events_from_newest[0].value_after
         indices_from_newest = np.empty(len(events_from_newest), dtype=int)
         for i, e in enumerate(events_from_newest):
-            index = localize_event(self.start, e.time)
+            index = localize_date(self.start, e.time)
             indices_from_newest[i] = index
             if not 0 <= index < len(self._data):
                 msg = "Event outside of the timeline"
@@ -60,11 +60,11 @@ class Timeline:
             self._data[i] = e.value_before
 
     def set_value_at(self, time: datetime.datetime, value):
-        index = localize_event(self.start, time)
+        index = localize_date(self.start, time)
         self._data[index] = value
 
     def value_at(self, time: datetime.datetime):
-        index = localize_event(self.start, time)
+        index = localize_date(self.start, time)
         return self._data[index]
 
     def get_value_mask(self, value):
@@ -127,7 +127,7 @@ class Repre:
             if latest_at < self.start:
                 return False
             elif latest_at < self.end:
-                deadline_index = localize_event(self.start, latest_at)
+                deadline_index = localize_date(self.start, latest_at)
                 relevant_slice = slice(0, deadline_index + 1)
         done_mask = self.status_timeline.get_value_mask(target.State.done)[relevant_slice]
         task_done = done_mask.sum() > 0
@@ -159,7 +159,7 @@ class Repre:
             return self.status_timeline.get_value_mask(target.State.done).astype(float)
         velocity_array = self.status_timeline.get_value_mask(target.State.in_progress).astype(float)
         if velocity_array.sum() == 0:
-            index_of_completion = localize_event(self.start, self.get_day_of_completion())
+            index_of_completion = localize_date(self.start, self.get_day_of_completion())
             velocity_array[index_of_completion] = 1
         velocity_array *= self.points_completed() / velocity_array.sum()
         return velocity_array
@@ -341,15 +341,15 @@ class MPLPointPlot:
         width = 1.0
         days = np.arange(self.aggregation.days)
         bottom = np.zeros_like(days, dtype=float)
-        index_of_today = localize_event(self.aggregation.repres[0].start, datetime.datetime.today())
+        index_of_today = localize_date(self.aggregation.repres[0].start, datetime.datetime.today())
         for status, array, color in self.styles:
             array[index_of_today:] = array[index_of_today]
             ax.fill_between(days, array + bottom, bottom, label=status,
-                            color=color, edgecolor="white", linewidth=0.5)
+                            color=color, edgecolor="white", linewidth=width * 0.5)
             bottom += array
 
-        ax.plot([days[0], days[-1]], [bottom[0], 0], color="blue")
-        ax.axvline(index_of_today, label="today", color="grey", linewidth=2)
+        ax.plot([days[0], days[-1]], [bottom[0], 0], color="blue", linewidth=width)
+        ax.axvline(index_of_today, label="today", color="grey", linewidth=width * 2)
 
     def get_figure(self):
         import matplotlib.pyplot as plt
@@ -410,7 +410,7 @@ class MPLVelocityPlot:
         ax.plot(self.days, self.velocity_focus * days_in_real_week, label="Velocity retrofit")
         ax.plot(self.days, self.velocity_estimate * days_in_real_week, label="Rolling velocity estimate")
 
-        index_of_today = localize_event(self.aggregation.repres[0].start, datetime.datetime.today())
+        index_of_today = localize_date(self.aggregation.repres[0].start, datetime.datetime.today())
         ax.axvline(index_of_today, label="today", color="grey", linewidth=2)
 
         ax.legend(loc="upper center")
