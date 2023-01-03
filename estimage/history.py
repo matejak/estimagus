@@ -341,15 +341,17 @@ class MPLPointPlot:
         width = 1.0
         days = np.arange(self.aggregation.days)
         bottom = np.zeros_like(days, dtype=float)
-        index_of_today = localize_date(self.aggregation.repres[0].start, datetime.datetime.today())
+        index_of_today = localize_date(self.aggregation.start, datetime.datetime.today())
         for status, array, color in self.styles:
-            array[index_of_today:] = array[index_of_today]
+            if 0 <= index_of_today <= len(days):
+                array[index_of_today:] = array[index_of_today]
             ax.fill_between(days, array + bottom, bottom, label=status,
                             color=color, edgecolor="white", linewidth=width * 0.5)
             bottom += array
 
         ax.plot([days[0], days[-1]], [bottom[0], 0], color="blue", linewidth=width)
-        ax.axvline(index_of_today, label="today", color="grey", linewidth=width * 2)
+        if 0 <= index_of_today <= len(days):
+            ax.axvline(index_of_today, label="today", color="grey", linewidth=width * 2)
 
     def get_figure(self):
         import matplotlib.pyplot as plt
@@ -410,8 +412,9 @@ class MPLVelocityPlot:
         ax.plot(self.days, self.velocity_focus * days_in_real_week, label="Velocity retrofit")
         ax.plot(self.days, self.velocity_estimate * days_in_real_week, label="Rolling velocity estimate")
 
-        index_of_today = localize_date(self.aggregation.repres[0].start, datetime.datetime.today())
-        ax.axvline(index_of_today, label="today", color="grey", linewidth=2)
+        index_of_today = localize_date(self.aggregation.start, datetime.datetime.today())
+        if 0 <= index_of_today <= len(self.days):
+            ax.axvline(index_of_today, label="today", color="grey", linewidth=2)
 
         ax.legend(loc="upper center")
         r = self.aggregation.repres[0]
