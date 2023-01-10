@@ -153,14 +153,14 @@ def test_last_measurement_events(repre):
     assert repre.get_status_at(day_after) == target.State.unknown
 
     last_measurement_points = data.Event.last_points_measurement("task_name", someday, 5)
-    repre.process_events(dict(points=[last_measurement_points]))
+    repre.process_events([last_measurement_points])
 
     assert repre.get_points_at(day_before) == 5
     assert repre.get_points_at(someday) == 5
     assert repre.get_points_at(day_after) == 5
 
     last_measurement_state = data.Event.last_state_measurement("task_name", someday, target.State.todo)
-    repre.process_events(dict(state=[last_measurement_state]))
+    repre.process_events([last_measurement_state])
     assert repre.get_status_at(day_before) == target.State.todo
     assert repre.get_status_at(someday) == target.State.todo
     assert repre.get_status_at(day_after) == target.State.unknown
@@ -171,18 +171,18 @@ def test_out_of_bounds_events_ignored(repre):
     too_late = LONG_PERIOD_END + ONE_DAY
 
     event = data.Event("", "points", too_early)
-    repre.process_events(dict(points=[event]))
+    repre.process_events([event])
 
     event = data.Event("", "points", too_late)
-    repre.process_events(dict(points=[event]))
+    repre.process_events([event])
 
 
 def test_out_of_bounds_events_ok(repre):
     event = data.Event("", "points", PERIOD_START)
-    repre.process_events(dict(points=[event]))
+    repre.process_events([event])
 
     event = data.Event("", "points", LONG_PERIOD_END)
-    repre.process_events(dict(points=[event]))
+    repre.process_events([event])
 
 
 def test_aggregation(repre):
@@ -468,3 +468,29 @@ def test_aggregation_point_velocity_trivial(twoday_repre_done_in_day):
     a.add_repre(twoday_repre_done_in_day)
     assert a.point_velocity.expected == 1
     assert a.point_velocity.sigma == pytest.approx(1)
+
+
+def test_project_events(repre, early_event, late_event):
+    points_event = data.Event("", "points", PERIOD_START)
+    points_event.value_before = 5
+    points_event.value_after = 5
+
+    status_event = data.Event("", "state", PERIOD_START)
+    status_event.value_before = data.State.backlog
+    status_event.value_after = data.State.todo
+
+    early_event.quantity = "project"
+    early_event.value_before = 0
+    early_event.value_after = 1
+
+    late_event.quantity = "project"
+    late_event.value_before = 1
+    late_event.value_after = 0
+
+    repre.process_events([points_event, status_event, late_event, early_event])
+    assert repre.get_points_at(PERIOD_START) == 0
+    assert repre.get_status_at(PERIOD_START) == data.State.unknown
+    assert repre.get_points_at(early_event.time + ONE_DAY) == 5
+    assert repre.get_status_at(early_event.time + ONE_DAY) == data.State.todo
+    assert repre.get_points_at(late_event.time + ONE_DAY) == 0
+    assert repre.get_status_at(late_event.time + ONE_DAY) == data.State.unknown

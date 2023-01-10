@@ -29,6 +29,8 @@ class BaseTarget:
     description: str
     dependents: typing.List["BaseTarget"]
     state: State
+    collaborators: typing.List[str]
+    tags: typing.List[str]
 
     def __init__(self):
         self.point_cost = 0
@@ -38,6 +40,8 @@ class BaseTarget:
         self.description = ""
         self.dependents = []
         self.state = State.unknown
+        self.collaborators = []
+        self.tags = []
 
     def as_class(self, cls):
         ret = cls()

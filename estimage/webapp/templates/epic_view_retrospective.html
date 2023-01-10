@@ -30,8 +30,8 @@
     <h2>Velocity</h2>
     <p>
         <ul>
-            <li>Average weekly: {{ "%.02g" % (total_points_done / total_days_in_period * 7) }}</li>
-            <li>Average workday: {{ "%.02g" % (total_points_done / total_days_in_period * 7 / 5.0) }}</li>
+            <li>Average weekly when there was work: {{ "%.02g" % (total_points_done / total_days_while_working * 7) }}</li>
+            <li>Average weekly across the whole period: {{ "%.02g" % (total_points_done / total_days_in_period * 7) }}</li>
         </ul>
     </p>
     <p>

@@ -52,6 +52,8 @@ class IniTarget(data.BaseTarget, IniStorage):
                 description=self.description,
                 depnames=",".join([dep.name for dep in self.dependents]),
                 state=str(int(self.state)),
+                collaborators=",".join(self.collaborators),
+                tags=",".join(self.tags),
             )
             callback(metadata)
 
@@ -98,6 +100,8 @@ class IniTarget(data.BaseTarget, IniStorage):
                 continue
             new = cls._load_metadata(n, config)
             ret.dependents.append(new)
+        ret.collaborators = config[name].get("collaborators", "").split(",")
+        ret.tags = config[name].get("tags", "").split(",")
         return ret
 
     def _save_point_cost(self, cost_str):

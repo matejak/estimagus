@@ -80,6 +80,7 @@ class Repre:
     points_timeline: Timeline
     status_timeline: Timeline
     time_timeline: Timeline
+    relevancy_timeline: Timeline
     task_name: str
 
     def __init__(self, start, end):
@@ -87,6 +88,8 @@ class Repre:
         self.status_timeline = Timeline(start, end)
         self.status_timeline.recreate_with_value(target.State.unknown)
         self.time_timeline = Timeline(start, end)
+        self.relevancy_timeline = Timeline(start, end)
+        self.relevancy_timeline.recreate_with_value(1)
         self.start = start
         self.end = end
         self.task_name = ""
@@ -100,9 +103,13 @@ class Repre:
             self.time_timeline.set_value_at(when, status)
 
     def get_points_at(self, when):
+        if not self.relevancy_timeline.value_at(when):
+            return 0
         return self.points_timeline.value_at(when)
 
     def get_status_at(self, when):
+        if not self.relevancy_timeline.value_at(when):
+            return target.State.unknown
         return self.status_timeline.value_at(when)
 
     def status_is(self, status: target.State):
@@ -169,11 +176,18 @@ class Repre:
             evt for evt in events if self.start <= evt.time <= self.end
         ]
 
-    def process_events(self, events_by_type):
+    def process_events(self, events: typing.List[data.Event]):
+        events_by_type = collections.defaultdict(list)
+        for evt in events:
+            events_by_type[evt.quantity].append(evt)
+        self.process_events_by_type(events_by_type)
+
+    def process_events_by_type(self, events_by_type: typing.Mapping[str, typing.List[data.Event]]):
         TYPES_TO_TIMELINE = {
             "time": self.time_timeline,
             "points": self.points_timeline,
-            "state": self.status_timeline
+            "state": self.status_timeline,
+            "project": self.relevancy_timeline,
         }
         for event_type, timeline in TYPES_TO_TIMELINE.items():
             events = events_by_type.get(event_type, [])
@@ -251,7 +265,7 @@ class Aggregation:
                 self, events_by_taskname: typing.Mapping[str, data.Event]):
         for r in self.repres:
             if (task_name := r.task_name) in events_by_taskname:
-                r.process_events(events_by_taskname[task_name])
+                r.process_events_by_type(events_by_taskname[task_name])
 
     def add_repre(self, repre):
         if (self.end and self.end != repre.end) or (self.start and self.start != repre.start):

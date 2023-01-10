@@ -373,7 +373,8 @@ def executive_summary_of_points_and_velocity(targets):
         initial_todo=not_done_on_start,
         last_record=cutoff_data,
         total_days_in_period=(cutoff_date - start).days,
-        total_points_done=not_done_on_start - (cutoff_data.todo + cutoff_data.underway)
+        total_days_while_working=sum(aggregation.get_velocity_array() > 0),
+        total_points_done=not_done_on_start - (cutoff_data.todo + cutoff_data.underway),
     )
     return output
 
@@ -400,3 +401,17 @@ def view_epic_retro(epic_name):
     return render_template(
         'epic_view_retrospective.html', title='View epic', epic=t, ** executive_summary)
 
+
+@bp.route('/plugins/jira', methods=("GET", "POST"))
+@flask_login.login_required
+def jira_plugin():
+    form = forms.JiraForm()
+    if form.validate_on_submit():
+
+        from estimage import plugins
+        import estimage.plugins.jira
+        task_spec = plugins.jira.InputSpec.from_dict(form)
+        plugins.jira.do_stuff(task_spec)
+
+    return render_template(
+        'jira.html', title='Jira Plugin', plugin_form=form, )

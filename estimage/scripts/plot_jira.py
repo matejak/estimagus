@@ -65,6 +65,7 @@ def export_jira_item(cls, item, exported_items_by_name):
     ret.description = item.get_field("description") or ""
     ret.point_cost = float(item.get_field(STORY_POINTS) or 0)
     ret.state = JIRA_STATUS_TO_STATE.get(str(item.get_field("status")), target.State.unknown)
+    ret.labels = item.get_field("labels") or []
 
     return ret
 
@@ -96,16 +97,16 @@ def export_projective_targets(query):
     save_exported_jira_tasks(targets_by_id)
 
 
-def save_events(tasks, event_manager_cls: type):
+def save_events(tasks, epics_names, event_manager_cls: type):
     storer = event_manager_cls()
     for t in tasks:
-        events = get_events(t)
+        events = get_events(t, sprint_epics=epics_names)
         for e in events:
             storer.add_event(e)
     storer.save()
 
 
-def get_events(task, cutoff=None):
+def get_events(task, cutoff=None, sprint_epics=frozenset()):
     events = []
     for history in task.changelog.histories:
         date_str = history.created
@@ -126,13 +127,20 @@ def get_events(task, cutoff=None):
                 evt.value_before = JIRA_STATUS_TO_STATE[former_value]
                 evt.value_after = JIRA_STATUS_TO_STATE[new_value]
                 evt.msg = f"Status changed from '{former_value}' to '{new_value}'"
-                events.append(evt)
             elif field_name == STORY_POINTS:
                 evt = evts.Event(task.key, "points", date)
                 evt.value_before = float(former_value or 0)
                 evt.value_after = float(new_value or 0)
                 evt.msg = f"Points changed from {former_value} to {new_value}"
-                events.append(evt)
+            elif field_name == EPIC_LINK:
+                evt = evts.Event(task.key, "project", date)
+                evt.value_before = int(former_value in sprint_epics)
+                evt.value_after = int(new_value in sprint_epics)
+                evt.msg = f"Got assigned epic {new_value}"
+            else:
+                continue
+
+            events.append(evt)
 
     return events
 
@@ -142,7 +150,7 @@ def export_retrospective_targets(query):
     targets_by_id = export_jira_tasks_to_targets(epics, tasks, webdata.RetroTarget)
     save_exported_jira_tasks(targets_by_id)
 
-    save_events(tasks.values(), webdata.EventManager)
+    save_events(tasks.values(), epics.keys(), webdata.EventManager)
 
 
 def aggregate_tasks(tasks):
@@ -249,15 +257,7 @@ TASKS_TEMPLATE_HTML = """
 
 
 def generate_tasks_html(tasks_by_name):
-    start = datetime.datetime(2022, 10, 1)
-    end = datetime.datetime(2022, 12, 1)
-
-    today = datetime.datetime.today()
-
-    aggregation = hist.Aggregation()
-
     sorted_tasks = [tasks_by_name[key] for key in sorted(tasks_by_name.keys())]
-
 
     tasks_with_points = []
     point_sum = 0
@@ -275,17 +275,12 @@ def generate_tasks_html(tasks_by_name):
     environment = jinja2.Environment()
     template = environment.from_string(TASKS_TEMPLATE_HTML)
     content = template.render(data=data)
-    with open("index.html", "w") as f:
+    with open("index.html", "w", encoding="utf8") as f:
         f.write(content)
 
 
 def generate_events_html(tasks_by_name):
     start = datetime.datetime(2022, 10, 1)
-    end = datetime.datetime(2022, 12, 1)
-
-    today = datetime.datetime.today()
-
-    aggregation = hist.Aggregation()
 
     events = []
     for t in tasks_by_name.values():
@@ -298,6 +293,5 @@ def generate_events_html(tasks_by_name):
     environment = jinja2.Environment()
     template = environment.from_string(EVENTS_TEMPLATE_HTML)
     content = template.render(events_by_date=events_by_date, sorted_dates=sorted(events_by_date.keys()))
-    with open("index.html", "w") as f:
+    with open("index.html", "w", encoding="utf8") as f:
         f.write(content)
-
