@@ -158,6 +158,7 @@ def aggregate_tasks(tasks):
     end = datetime.datetime(2022, 12, 23)
 
     today = datetime.datetime.today()
+    last_day = min(end, today)
 
     aggregation = hist.Aggregation()
 
@@ -170,8 +171,8 @@ def aggregate_tasks(tasks):
         points = float(task.get_field(STORY_POINTS) or 0)
         status = JIRA_STATUS_TO_STATE[str(task.get_field("status"))]
 
-        all_events.append(evts.Event.last_state_measurement(task.key, today, status))
-        all_events.append(evts.Event.last_points_measurement(task.key, today, points))
+        all_events.append(evts.Event.last_state_measurement(task.key, last_day, status))
+        all_events.append(evts.Event.last_points_measurement(task.key, last_day, points))
 
         all_events.extend(get_events(task, start))
         if points:

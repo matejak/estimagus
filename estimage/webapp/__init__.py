@@ -5,12 +5,14 @@ from flask_bootstrap import Bootstrap5
 from . import users, config
 from .main import bp as main_bp
 from .main import bp as main_bp
+from estimage import data
 
 login = LoginManager()
 
 
 def create_app(config_class=config.Config):
     app = Flask(__name__)
+    app.jinja_env.globals.update(dict(State=data.State))
     app.config.from_object(config_class)
 
     app.register_blueprint(main_bp)

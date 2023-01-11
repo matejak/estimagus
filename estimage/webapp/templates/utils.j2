@@ -47,7 +47,7 @@
 
 {% macro render_task(task, model) %}
         <li>
-        {{- render_task_basic(task) }} {{ task.status -}}
+        {{- render_task_basic(task) }} {{ state_to_string(task.state) -}}
         </li>
 {% endmacro %}
 
@@ -94,4 +94,18 @@
     </ul>
     </p>
     </div>
+{%- endmacro %}
+
+
+{% set states_table = {
+    State.todo: "To Do",
+    State.in_progress: "In Progress",
+    State.review: "Needs Peer Review",
+    State.done: "Done",
+    State.abandoned: "Abandoned",
+} %}
+
+
+{% macro state_to_string(state) -%}
+    {{ states_table.get(state, "Unknown") }}
 {%- endmacro %}

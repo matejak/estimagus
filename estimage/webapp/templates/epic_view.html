@@ -11,7 +11,7 @@
     <p>
         <ul>
         {% for d in epic.dependents -%}
-        {{ utils.render_whatever(d, model) }} {{ d.state }} {{ model.point_estimate_of(d.name).expected }}</li>
+        {{ utils.render_whatever(d, model) }} {{ "%.3g" % model.point_estimate_of(d.name).expected }} pts</li>
         {% endfor -%}
         </ul>
     </p>

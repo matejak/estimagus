@@ -151,7 +151,7 @@ def import_targets_and_events(spec, retro_target_class, proj_target_class, event
     if spec.projective_query:
         print("Gathering proj stuff")
         proj_epics, proj_tasks = get_epics_and_tasks_by_id(spec.server_url, spec.token, spec.projective_query)
-        new_targets = export_jira_tasks_to_targets(epics, tasks, target_class)
+        new_targets = export_jira_tasks_to_targets(proj_epics, proj_tasks, proj_target_class)
         targets_by_id.update(new_targets)
         all_tasks.update(proj_tasks)
 
