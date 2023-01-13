@@ -9,6 +9,7 @@ bootstrap-flask
 
 oauthlib
 requests
+jira
 
 pytest
 pytest-dependency
