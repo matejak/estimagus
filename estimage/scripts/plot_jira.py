@@ -35,6 +35,8 @@ def ours(task):
 STORY_POINTS = "customfield_12310243"
 EPIC_LINK = "customfield_12311140"
 
+query = 'project = "Security Compliance" AND type in (epic, task) AND (sprint = "CY22Q4" OR issueFunction in addedAfterSprintStart("Security Compliance sprint board (not used)",  "CY22Q4") OR issueFunction in removedAfterSprintStart("Security Compliance sprint board (not used)",  "CY22Q4"))'
+query = 'project = "Security Compliance" AND type in (epic, task) AND (sprint = "CY23Q1" OR (fixVersion = CY23Q1 AND Commitment in (Committed, Planned)))'
 
 def get_tasks(query=con.query):
     from jira import JIRA

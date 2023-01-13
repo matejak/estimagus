@@ -41,13 +41,13 @@
         <span class="state.style_class">state.name</span>
 {%- endmacro %}
 
-{% macro render_task_basic(task) -%}
-        {{ task_link(task) }} &mdash; <span class="d-inline-block text-truncate" style="max-width: 350pt;">{{ task.title }}</span>
+{% macro render_task_basic(task, model) -%}
+        {{ task_link(task) }} &mdash; <span class="task-state">{{ state_to_string(task.state) }}</span><span class="task-points {{- " uncounted_points" if model.get_element(task.name).masked }}">{{ "%.2g" % task.point_cost }}</span><span class="d-inline-block text-truncate" style="max-width: 350pt;">{{ task.title }}</span>
 {%- endmacro %}
 
 {% macro render_task(task, model) %}
         <li>
-        {{- render_task_basic(task) }} {{ state_to_string(task.state) -}}
+        {{- render_task_basic(task, model) -}}
         </li>
 {% endmacro %}
 
@@ -59,7 +59,7 @@
         <li>
         {{ render_epic_basic(epic) }}
         <p>
-        To be done: {{ "%.3g" % model.point_estimate_of(epic.name).expected }}
+        Left to do: {{ "%.3g" % model.point_estimate_of(epic.name).expected }}, i.e. {{ "%.2g %%" % (model.point_estimate_of(epic.name).expected / model.point_estimate.expected * 100) }} of the whole
         </p>
         <ul>
             {% for target in epic.dependents %}
@@ -89,7 +89,7 @@
     <p>
     <ul>
     {%- for index in range(similar_sized_tasks | length) %}
-    <li>{{ render_task_basic(similar_sized_targets[index]) }}: {{ render_estimate(similar_sized_tasks[index].point_estimate) }}</li>
+    <li>{{ render_task_basic(similar_sized_targets[index], model) }}: {{ render_estimate(similar_sized_tasks[index].point_estimate) }}</li>
     {%- endfor %}
     </ul>
     </p>

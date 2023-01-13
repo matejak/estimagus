@@ -1,0 +1,14 @@
+.task-state {
+	min-width: 4em;
+	display: inline-block;
+	text-align: center;
+}
+.task-points {
+	font-family: monospace;
+	text-align: center;
+	display: inline-block;
+	min-width: 3em;
+}
+.uncounted_points {
+	text-decoration: line-through;
+}
