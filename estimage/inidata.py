@@ -94,7 +94,10 @@ class IniTarget(data.BaseTarget, IniStorage):
         ret.description = config[name].get("description", "")
         state = config[name].get("state", data.State.unknown)
         ret.state = data.State(int(state))
-        ret.load_point_cost()
+
+        cost_str = ret._load_point_cost(config)
+        ret.point_cost = ret.parse_point_cost(cost_str)
+
         for n in config[name].get("depnames", "").split(","):
             if not n:
                 continue
@@ -111,8 +114,9 @@ class IniTarget(data.BaseTarget, IniStorage):
             )
             callback(new_value)
 
-    def _load_point_cost(self):
-        config = self._load_existing_config()
+    def _load_point_cost(self, config=None):
+        if not config:
+            config = self._load_existing_config()
         return config[self.name].get("point_cost", fallback=0)
 
     def _save_time_cost(self, cost_str):
@@ -145,10 +149,11 @@ class IniPollster(data.Pollster, IniStorage):
             ret = data.EstimInput()
         return ret
 
-    def _knows_points(self, ns, name):
+    def _knows_points(self, ns, name, config=None):
         keyname = self._keyname(ns, name)
 
-        config = self._load_existing_config()
+        if config is None:
+            config = self._load_existing_config()
         if keyname in config:
             return True
         return False
@@ -168,6 +173,14 @@ class IniPollster(data.Pollster, IniStorage):
 
         with self._manipulate_existing_config() as config:
             config.pop(keyname)
+
+    def provide_info_about(self, names: typing.Iterable[str]) -> typing.Dict[str, data.Estimate]:
+        config = self._load_existing_config()
+        ret = dict()
+        for name in names:
+            if self._knows_points(self._namespace, name, config=config):
+                ret[name] = self._ask_points(self._namespace, name, config)
+        return ret
 
 
 class IniEvents(data.EventManager, IniStorage):

@@ -24,6 +24,16 @@ def test_poll():
     assert point_input.most_likely == 1
 
 
+def test_pollster_provides_known_data():
+    pollster = tm.MemoryPollster()
+    pollster.tell_points("esti", tm.EstimInput(2))
+    assert pollster.provide_info_about([]) == dict()
+    assert pollster.provide_info_about(["x"]) == dict()
+
+    assert pollster.provide_info_about(["esti"]) == dict(esti=tm.EstimInput(2))
+    assert pollster.provide_info_about(["x", "esti"]) == dict(esti=tm.EstimInput(2))
+
+
 def test_pollster_fills_in():
     result = tm.TaskModel("esti")
     pollster = tm.MemoryPollster()

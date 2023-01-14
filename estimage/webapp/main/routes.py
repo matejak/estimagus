@@ -171,6 +171,14 @@ def estimate(task_name):
 @bp.route('/projective/task/<task_name>')
 @flask_login.login_required
 def view_task(task_name):
+    import cProfile
+    with cProfile.Profile() as pr:
+        ret = _view_task(task_name)
+        pr.dump_stats("lala.pstats")
+    return ret
+
+
+def _view_task(task_name):
     user = flask_login.current_user
 
     user_id = user.get_id()

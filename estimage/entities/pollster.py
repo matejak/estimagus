@@ -39,12 +39,19 @@ class Pollster:
     def _forget_points(self, ns: str, name: str):
         raise NotImplementedError()
 
+    def provide_info_about(self, names: typing.Iterable[str]) -> typing.Dict[str, Estimate]:
+        ret = dict()
+        for name in names:
+            if self.knows_points(name):
+                ret[name] = self.ask_points(name)
+        return ret
+
     def inform_results(self, results: typing.List[TaskModel]):
+        all_names = set(r.name for r in results)
+        known_estimates = self.provide_info_about(all_names)
         for r in results:
-            if not self.knows_points(r.name):
-                continue
-            inp = self.ask_points(r.name)
-            r.point_estimate = Estimate.from_input(inp)
+            if r.name in known_estimates:
+                r.point_estimate = Estimate.from_input(known_estimates[r.name])
 
 
 class MemoryPollster(Pollster):
