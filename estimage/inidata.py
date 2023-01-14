@@ -229,8 +229,9 @@ class IniEvents(data.EventManager, IniStorage):
                 ret.value_after = data.State(int(ret.value_after))
         return ret
 
-    def _load_events(self, name):
-        config = self._load_existing_config()
+    def _load_events(self, name, config=None):
+        if config is None:
+            config = self._load_existing_config()
         events = []
         for key, value in config.items():
             if "-" in key and name == key.split("-", 1)[1]:
@@ -238,8 +239,18 @@ class IniEvents(data.EventManager, IniStorage):
                 events.append(event)
         return events
 
-    def _load_event_names(self):
-        config = self._load_existing_config()
+    @classmethod
+    def load(cls):
+        result = cls()
+        config = result._load_existing_config()
+        events_task_names = result._load_event_names(config)
+        for name in events_task_names:
+            result._events[name] = result._load_events(name, config)
+        return result
+
+    def _load_event_names(self, config=None):
+        if config is None:
+            config = self._load_existing_config()
         names = set()
         for key in config:
             if "-" not in key:

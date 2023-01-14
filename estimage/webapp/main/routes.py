@@ -1,4 +1,6 @@
 import io
+import cProfile
+import functools
 
 import flask
 import flask_login
@@ -19,6 +21,20 @@ from .google_login import google_callback_dest, google_login
 
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+
+
+def profile(wrapped):
+    """
+    Decorate a function to save profiling info to the working directory.
+    The order of decorators matters.
+    """
+    @functools.wraps(wrapped)
+    def wrapper(* args, ** kwargs):
+        with cProfile.Profile() as pr:
+            ret = wrapped(* args, ** kwargs)
+            pr.dump_stats(f"{wrapped.__name__}.pstats")
+        return ret
+    return wrapper
 
 
 def render_template(template_basename, title, **kwargs):
@@ -171,14 +187,6 @@ def estimate(task_name):
 @bp.route('/projective/task/<task_name>')
 @flask_login.login_required
 def view_task(task_name):
-    import cProfile
-    with cProfile.Profile() as pr:
-        ret = _view_task(task_name)
-        pr.dump_stats("lala.pstats")
-    return ret
-
-
-def _view_task(task_name):
     user = flask_login.current_user
 
     user_id = user.get_id()
