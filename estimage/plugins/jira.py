@@ -17,7 +17,11 @@ JIRA_STATUS_TO_STATE = {
     "Abandoned": target.State.abandoned,
     "Closed": target.State.abandoned,
     "In Progress": target.State.in_progress,
+    "ASSIGNED": target.State.in_progress,
+    "ON_DEV": target.State.in_progress,
+    "POST": target.State.in_progress,
     "Needs Peer Review": target.State.review,
+    "ON_QA": target.State.review,
     "To Do": target.State.todo,
 }
 
@@ -55,32 +59,56 @@ def get_epics_and_tasks_by_id(server_url, token, epics_query):
     return all_epics, all_subtasks
 
 
-def merge_jira_item(result, item, exported_items_by_name):
+def merge_jira_item(result_class, item, exported_items_by_name):
     STORY_POINTS = "customfield_12310243"
     EPIC_LINK = "customfield_12311140"
+    CONTRIBUTORS = "customfield_12315950"
+    COMMITMENT = "customfield_12317404"
 
+    result = result_class()
     result.name = item.key
     result.title = item.get_field("summary") or ""
     result.description = item.get_field("description") or ""
     result.point_cost = float(item.get_field(STORY_POINTS) or 0)
     result.state = JIRA_STATUS_TO_STATE.get(str(item.get_field("status")), target.State.unknown)
-    result.labels = item.get_field("labels") or []
+    result.tags = [f"label:{value}" for value in (item.get_field("labels") or [])]
+    result.collaborators = []
+
+    try:
+        result.collaborators += [c.key for c in item.get_field(CONTRIBUTORS) or []]
+    except AttributeError:
+        pass
+
+    try:
+        if commitment_item := item.get_field(COMMITMENT):
+            result.tags.append(f"commitment:{commitment_item.value.lower()}")
+    except AttributeError:
+        pass
 
     if (epic_id := item.get_field(EPIC_LINK)) and epic_id in exported_items_by_name:
+        result.tags.extend(exported_items_by_name[epic_id].tags)
         exported_items_by_name[epic_id].add_element(result)
+
+    exported_items_by_name[item.key] = result
+
+    if subtasks := item.get_field("subtasks"):
+        for subtask in subtasks:
+            subtask.find(subtask.key)
+            subtask_item = merge_jira_item(result_class, subtask, exported_items_by_name)
+            subtask_item.tags.extend(result.tags)
+            exported_items_by_name[subtask.key] = subtask_item
+            exported_items_by_name[item.key].add_element(subtask_item)
+
+    return result
 
 
 def export_jira_tasks_to_targets(epics, tasks, target_class: target.BaseTarget):
     targets_by_id = dict()
     for e in epics.values():
-        epic_target = target_class()
-        merge_jira_item(epic_target, e, targets_by_id)
-        targets_by_id[e.key] = epic_target
+        epic_target = merge_jira_item(target_class, e, targets_by_id)
 
     for t in tasks.values():
-        task_target = target_class()
-        merge_jira_item(task_target, t, targets_by_id)
-        targets_by_id[t.key] = task_target
+        task_target = merge_jira_item(target_class, t, targets_by_id)
 
     return targets_by_id
 
