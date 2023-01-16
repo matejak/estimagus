@@ -2,6 +2,7 @@ import datetime
 
 import pytest
 import numpy as np
+import numpy.testing
 
 import estimage.history as tm
 import estimage.entities.target as target
@@ -468,6 +469,34 @@ def test_aggregation_point_velocity_trivial(twoday_repre_done_in_day):
     a.add_repre(twoday_repre_done_in_day)
     assert a.point_velocity.expected == 1
     assert a.point_velocity.sigma == pytest.approx(1)
+
+
+def test_simplify_history():
+    trivial_input = np.array([])
+    assert len(tm.simplify_timeline_array(trivial_input)) == 0
+
+    simple_input = np.array([[1, 2]])
+    np.testing.assert_array_equal(tm.simplify_timeline_array(simple_input), simple_input)
+
+    minimal_input = np.array([[1, 2], [1, 2]])
+    np.testing.assert_array_equal(tm.simplify_timeline_array(minimal_input), minimal_input)
+
+    redundant_input = np.array([[1, 2], [1, 2], [1, 2]])
+    np.testing.assert_array_equal(tm.simplify_timeline_array(redundant_input), minimal_input)
+
+    np.testing.assert_array_equal(tm.simplify_timeline_array(
+        np.array([[1, 2], [1.5, 2], [2, 2]])), np.array([[1, 2], [2, 2]]))
+
+    np.testing.assert_array_equal(tm.simplify_timeline_array(
+        np.array([[1, 2], [1.5, 2], [1.8, 2], [2, 2], [2, 2]])), np.array([[1, 2], [2, 2]]))
+
+    np.testing.assert_array_equal(tm.simplify_timeline_array(
+        np.array([[1, 2], [1.5, 2], [1.8, 2], [2, 3], [4, 3]])), np.array([[1, 2], [1.8, 2], [2, 3], [4, 3]]))
+
+    np.testing.assert_array_equal(
+        tm.simplify_timeline_array(
+            np.array([[1, 2, 0], [1.5, 2, 0], [1.8, 2, 1], [2, 3, 1], [3, 3, 1], [4, 3, 1]])),
+            np.array([[1, 2, 0], [1.5, 2, 0], [1.8, 2, 1], [2, 3, 1], [4, 3, 1]]))
 
 
 def test_project_events(repre, early_event, late_event):

@@ -436,3 +436,15 @@ class MPLVelocityPlot:
         ax.set_ylabel("team velocity / points per week")
 
         return fig
+
+
+def simplify_timeline_array(array_to_simplify):
+    if len(array_to_simplify) < 3:
+        return array_to_simplify
+    simplified = [array_to_simplify[0]]
+    for first, middle, last in zip(array_to_simplify[:-2], array_to_simplify[1:-1], array_to_simplify[2:]):
+        if np.all(first[1:] == middle[1:]) * np.all(middle[1:] == last[1:]):
+            continue
+        simplified.append(middle)
+    simplified.append(array_to_simplify[-1])
+    return np.array(simplified, dtype=array_to_simplify.dtype)
