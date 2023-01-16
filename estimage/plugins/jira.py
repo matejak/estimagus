@@ -71,7 +71,7 @@ def merge_jira_item(result_class, item, exported_items_by_name):
     result.description = item.get_field("description") or ""
     result.point_cost = float(item.get_field(STORY_POINTS) or 0)
     result.state = JIRA_STATUS_TO_STATE.get(str(item.get_field("status")), target.State.unknown)
-    result.tags = [f"label:{value}" for value in (item.get_field("labels") or [])]
+    result.tags = {f"label:{value}" for value in (item.get_field("labels") or [])}
     result.collaborators = []
 
     try:
@@ -81,12 +81,12 @@ def merge_jira_item(result_class, item, exported_items_by_name):
 
     try:
         if commitment_item := item.get_field(COMMITMENT):
-            result.tags.append(f"commitment:{commitment_item.value.lower()}")
+            result.tags.add(f"commitment:{commitment_item.value.lower()}")
     except AttributeError:
         pass
 
     if (epic_id := item.get_field(EPIC_LINK)) and epic_id in exported_items_by_name:
-        result.tags.extend(exported_items_by_name[epic_id].tags)
+        result.tags.update(exported_items_by_name[epic_id].tags)
         exported_items_by_name[epic_id].add_element(result)
 
     exported_items_by_name[item.key] = result
@@ -95,7 +95,7 @@ def merge_jira_item(result_class, item, exported_items_by_name):
         for subtask in subtasks:
             subtask.find(subtask.key)
             subtask_item = merge_jira_item(result_class, subtask, exported_items_by_name)
-            subtask_item.tags.extend(result.tags)
+            subtask_item.tags.update(result.tags)
             exported_items_by_name[subtask.key] = subtask_item
             exported_items_by_name[item.key].add_element(subtask_item)
 
@@ -105,10 +105,10 @@ def merge_jira_item(result_class, item, exported_items_by_name):
 def export_jira_tasks_to_targets(epics, tasks, target_class: target.BaseTarget):
     targets_by_id = dict()
     for e in epics.values():
-        epic_target = merge_jira_item(target_class, e, targets_by_id)
+        merge_jira_item(target_class, e, targets_by_id)
 
     for t in tasks.values():
-        task_target = merge_jira_item(target_class, t, targets_by_id)
+        merge_jira_item(target_class, t, targets_by_id)
 
     return targets_by_id
 

@@ -199,7 +199,7 @@ def test_target_load_and_save_values(persistent_target_class):
     one.title = "Issue One"
     one.state = target.State.in_progress
     one.collaborators = ["a", "b"]
-    one.tags = ["t1", "l2"]
+    one.tags = ["t1", "l2", "t1"]
     one.save_metadata()
 
     all_targets_by_id = persistent_target_class.get_loaded_targets_by_id()
@@ -212,7 +212,7 @@ def test_target_load_and_save_values(persistent_target_class):
     assert loaded_one.title == one.title
     assert loaded_one.state == one.state
     assert loaded_one.collaborators == ["a", "b"]
-    assert loaded_one.tags == ["t1", "l2"]
+    assert loaded_one.tags == set(["t1", "l2"])
 
 
 def create_given_target_and_dependency(cls):
