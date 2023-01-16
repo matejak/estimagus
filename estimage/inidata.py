@@ -243,9 +243,12 @@ class IniEvents(data.EventManager, IniStorage):
     def load(cls):
         result = cls()
         config = result._load_existing_config()
-        events_task_names = result._load_event_names(config)
-        for name in events_task_names:
-            result._events[name] = result._load_events(name, config)
+        for key, value in config.items():
+            if "-" not in key:
+                continue
+            name = key.split("-", 1)[1]
+            event = result._get_event_from_data(value, name)
+            result._events[name].append(event)
         return result
 
     def _load_event_names(self, config=None):
