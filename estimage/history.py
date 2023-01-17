@@ -167,6 +167,8 @@ class Repre:
         velocity_array = self.status_timeline.get_value_mask(target.State.in_progress).astype(float)
         if velocity_array.sum() == 0:
             index_of_completion = localize_date(self.start, self.get_day_of_completion())
+            if index_of_completion == 0:
+                return velocity_array
             velocity_array[index_of_completion] = 1
         velocity_array *= self.points_completed() / velocity_array.sum()
         return velocity_array

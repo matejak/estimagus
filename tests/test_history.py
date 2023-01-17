@@ -252,6 +252,12 @@ def test_repre_velocity_done_in_day(twoday_repre_done_in_day):
     assert twoday_repre_done_in_day.average_daily_velocity == 2
 
 
+def test_repre_zero_velocity_when_done_before_start(repre):
+    repre.update(repre.end, points=5, status=target.State.done)
+    repre.fill_history_from(repre.end)
+    assert repre.get_velocity_array().max() == 0
+
+
 @pytest.mark.dependency(depends=["test_repre_velocity_not_done"])
 def test_repre_velocity_done_real_quick(twoday_repre):
     twoday_repre.update(PERIOD_START, target.State.done, points=2)
@@ -262,7 +268,7 @@ def test_repre_velocity_done_real_quick(twoday_repre):
 
 @pytest.mark.dependency(depends=["test_repre_velocity_done_real_quick"])
 def test_repre_velocity_done_real_quick_array(twoday_repre):
-    twoday_repre.update(PERIOD_START, target.State.done, points=2)
+    twoday_repre.update(PERIOD_START, target.State.todo, points=2)
     twoday_repre.update(PERIOD_START + ONE_DAY, target.State.done, points=2)
     velocity_array = twoday_repre.get_velocity_array()
     assert velocity_array.sum() == 2
