@@ -110,10 +110,11 @@ def test_finished_target_is_masked(leaf_target):
         assert result.masked
 
 
-def test_subtree_properties(leaf_target, subtree_target):
+def test_subtree_properties(leaf_target, subtree_target, tree_target):
     assert subtree_target in subtree_target
     assert leaf_target in subtree_target
     assert subtree_target not in leaf_target
+    assert leaf_target in tree_target
 
     composition = subtree_target.get_tree()
     assert subtree_target.name == composition.name

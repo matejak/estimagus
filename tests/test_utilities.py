@@ -15,3 +15,4 @@ def test_set_reduction_normal():
     assert tm.reduce_subsets_from_sets(["a", "b"]) == ["a", "b"]
     assert tm.reduce_subsets_from_sets(["a", "b", "axe"]) == ["b", "axe"]
     assert tm.reduce_subsets_from_sets(["a", "axe", "b"]) == ["axe", "b"]
+    assert tm.reduce_subsets_from_sets(["a", "axe", "a"]) == ["axe"]
