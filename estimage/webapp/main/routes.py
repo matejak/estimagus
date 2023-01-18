@@ -263,13 +263,14 @@ def get_pert_in_figure(estimation, task_name):
 @flask_login.login_required
 def visualize_burndown(epic_name):
     all_targets = webdata.RetroTarget.get_loaded_targets_by_id()
+    target_tree = utilities.reduce_subsets_from_sets(list(all_targets.values()))
     all_events = webdata.EventManager.load()
 
     start = flask.current_app.config["PERIOD"]["start"]
     end = flask.current_app.config["PERIOD"]["end"]
 
     if epic_name == ".":
-        aggregation = history.Aggregation.from_targets(all_targets.values(), start, end)
+        aggregation = history.Aggregation.from_targets(target_tree, start, end)
     else:
         epic = all_targets[epic_name]
         aggregation = history.Aggregation.from_target(epic, start, end)
@@ -284,13 +285,14 @@ def visualize_burndown(epic_name):
 @flask_login.login_required
 def visualize_velocity(epic_name):
     all_targets = webdata.RetroTarget.get_loaded_targets_by_id()
+    target_tree = utilities.reduce_subsets_from_sets(list(all_targets.values()))
     all_events = webdata.EventManager.load()
 
     start = flask.current_app.config["PERIOD"]["start"]
     end = flask.current_app.config["PERIOD"]["end"]
 
     if epic_name == ".":
-        aggregation = history.Aggregation.from_targets(all_targets.values(), start, end)
+        aggregation = history.Aggregation.from_targets(target_tree, start, end)
     else:
         epic = all_targets[epic_name]
         aggregation = history.Aggregation.from_target(epic, start, end)
@@ -399,9 +401,9 @@ def executive_summary_of_points_and_velocity(targets):
 @flask_login.login_required
 def tree_view_retro():
     all_targets = webdata.RetroTarget.load_all_targets()
-    executive_summary = executive_summary_of_points_and_velocity(all_targets)
-
     targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(all_targets)
+    executive_summary = executive_summary_of_points_and_velocity(targets_tree_without_duplicates)
+
     return render_template(
         "tree_view_retrospective.html", title="Retrospective Tasks tree view",
         targets=targets_tree_without_duplicates, ** executive_summary)

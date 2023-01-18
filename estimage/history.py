@@ -400,12 +400,14 @@ class MPLVelocityPlot:
 
     def _prepare_plots(self, cutoff_date):
         start_date = self.aggregation.start
+        completed_initially = 0
         for r in self.aggregation.repres:
             self.velocity_focus += r.get_velocity_array()
+            completed_initially = r.points_completed(start_date)
 
             for days in range(self.aggregation.days):
                 date = start_date + ONE_DAY * days
-                self.velocity_estimate[days] += r.points_completed(date) / (days + 1)
+                self.velocity_estimate[days] += (r.points_completed(date) - completed_initially) / (days + 1)
 
                 if date == cutoff_date:
                     break
