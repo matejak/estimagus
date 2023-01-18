@@ -14,6 +14,6 @@ class Config:
     )
 
     PERIOD = dict(
-        start=datetime.datetime(2022, 10, 1),
-        end=datetime.datetime(2023, 1, 1),
+        start=datetime.datetime(2023, 1, 1),
+        end=datetime.datetime(2023, 3, 31),
     )
