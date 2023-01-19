@@ -10,7 +10,7 @@
     <li>
         {{ epic_link(epic, "main.view_epic_retro") }} &mdash; {{ epic.title }}
         <p>
-        Done: {{ "%.3g %%" % (model.point_estimate_of(epic.name).expected / epic.point_cost * 100) if epic.point_cost else "whatever" }}, {{ "%.2g" % model.point_estimate_of(epic.name).expected }} remaining.
+        {{ "%.2g" % model.point_estimate_of(epic.name).expected }} points remaining.
         </p>
             {% for target in epic.dependents %}
         <ul>

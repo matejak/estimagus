@@ -374,25 +374,30 @@ def executive_summary_of_points_and_velocity(targets):
     aggregation = history.Aggregation.from_targets(targets, start, end)
     aggregation.process_event_manager(all_events)
 
+    done_on_start = 0
     not_done_on_start = 0
     cutoff_data = types.SimpleNamespace(todo=0, underway=0, done=0)
     for r in aggregation.repres:
         repre_points = r.get_points_at(start)
         if r.get_status_at(start) in (data.State.todo, data.State.in_progress, data.State.review):
             not_done_on_start += repre_points
+        elif r.get_status_at(start) == data.State.done:
+            done_on_start += repre_points
+
         if r.get_status_at(cutoff_date) == data.State.todo:
             cutoff_data.todo += repre_points
         elif r.get_status_at(cutoff_date) in (data.State.in_progress, data.State.review):
             cutoff_data.underway += repre_points
-        else:
+        elif r.get_status_at(cutoff_date) == data.State.done:
             cutoff_data.done += repre_points
 
     output = dict(
         initial_todo=not_done_on_start,
+        initial_done=not_done_on_start,
         last_record=cutoff_data,
         total_days_in_period=(cutoff_date - start).days,
         total_days_while_working=sum(aggregation.get_velocity_array() > 0),
-        total_points_done=not_done_on_start - (cutoff_data.todo + cutoff_data.underway),
+        total_points_done=cutoff_data.done - done_on_start,
     )
     return output
 

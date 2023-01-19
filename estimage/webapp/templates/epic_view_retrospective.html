@@ -30,7 +30,9 @@
     <h2>Velocity</h2>
     <p>
         <ul>
+	    {% if total_days_while_working %}
             <li>Average weekly when there was work: {{ "%.02g" % (total_points_done / total_days_while_working * 7) }}</li>
+	    {% endif -%}
             <li>Average weekly across the whole period: {{ "%.02g" % (total_points_done / total_days_in_period * 7) }}</li>
         </ul>
     </p>
@@ -45,7 +47,7 @@
     <p>
         <ul>
         {% for d in epic.dependents %}
-        <li>{{ d.title }}</li>
+	{{ utils.render_whatever_retro(d, model) }}
         {% endfor %}
         </ul>
     </p>
