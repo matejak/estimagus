@@ -404,20 +404,27 @@ def tree_view_retro():
     targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(all_targets)
     executive_summary = executive_summary_of_points_and_velocity(targets_tree_without_duplicates)
 
+    user = flask_login.current_user
+    user_id = user.get_id()
+    model = get_user_model(user_id, webdata.RetroTarget, targets_tree_without_duplicates)
+
     return render_template(
         "tree_view_retrospective.html", title="Retrospective Tasks tree view",
-        targets=targets_tree_without_duplicates, ** executive_summary)
+        targets=targets_tree_without_duplicates, model=model, ** executive_summary)
 
 
 @bp.route('/retrospective/epic/<epic_name>')
 @flask_login.login_required
 def view_epic_retro(epic_name):
-
     t = retro_retrieve_task(epic_name)
     executive_summary = executive_summary_of_points_and_velocity(t.dependents)
 
+    user = flask_login.current_user
+    user_id = user.get_id()
+    model = get_user_model(user_id, webdata.RetroTarget, [t])
+
     return render_template(
-        'epic_view_retrospective.html', title='View epic', epic=t, ** executive_summary)
+        'epic_view_retrospective.html', title='View epic', epic=t, model=model, ** executive_summary)
 
 
 @bp.route('/plugins/jira', methods=("GET", "POST"))

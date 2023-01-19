@@ -39,7 +39,7 @@
     <div class="row">
     <ul>
     {% for target in targets -%}
-    {{ utils.render_whatever_retro(target) }}
+    {{ utils.render_whatever_retro(target, model) }}
     {% endfor -%}
     </ul>
     </div>

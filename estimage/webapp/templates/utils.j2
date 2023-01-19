@@ -1,20 +1,23 @@
-{% macro render_whatever_retro(target) %}
+{% macro render_whatever_retro(target, model) %}
 {% if target.dependents %}
-{{ render_epic_retro(target) }}
+{{ render_epic_retro(target, model) }}
 {% else %}
-{{ target.title }} {{ target.status }}
+{{ render_task(target, model) }}
 {% endif %}
 {% endmacro %}
 
-{% macro render_epic_retro(epic) %}
+{% macro render_epic_retro(epic, model) %}
+    <li>
         {{ epic_link(epic, "main.view_epic_retro") }} &mdash; {{ epic.title }}
+        <p>
+        Done: {{ "%.3g %%" % (model.point_estimate_of(epic.name).expected / epic.point_cost * 100) if epic.point_cost else "whatever" }}, {{ "%.2g" % model.point_estimate_of(epic.name).expected }} remaining.
+        </p>
             {% for target in epic.dependents %}
         <ul>
-            <li>
-            {{- render_whatever_retro(target) -}}
-            </li>
+            {{- render_whatever_retro(target, model) -}}
         </ul>
             {% endfor %}
+    </li>
 {% endmacro %}
 
 {% macro render_whatever(target, model) %}
