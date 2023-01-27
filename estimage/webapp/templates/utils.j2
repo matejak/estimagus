@@ -1,39 +1,43 @@
-{% macro render_whatever_retro(target, model) %}
+{% from 'bootstrap5/utils.html' import render_icon %}
+
+{% macro render_whatever_retro(target, model, recursive=true) %}
 {% if target.dependents %}
-{{ render_epic_retro(target, model) }}
+{{ render_epic_retro(target, model, recursive) }}
 {% else %}
 {{ render_task(target, model) }}
 {% endif %}
 {% endmacro %}
 
-{% macro render_epic_retro(epic, model) %}
+{% macro render_epic_retro(epic, model, recursive=true) %}
     <li>
         {{ epic_link(epic, "main.view_epic_retro") }} &mdash; {{ epic.title }}
         <p>
-        {{ "%.2g" % model.nominal_point_estimate_of(epic.name).expected }} points remaining.
+        {{ state_to_string(epic.state) }}, {{ "%.2g" % model.remaining_point_estimate_of(epic.name).expected }} points remaining.
         </p>
-            {% for target in epic.dependents %}
+        {% if recursive -%}
+        {% for target in epic.dependents %}
         <ul>
-            {{- render_whatever_retro(target, model) -}}
+            {{- render_whatever_retro(target, model, recursive=recursive) -}}
         </ul>
-            {% endfor %}
+        {% endfor %}
+        {%- endif %}
     </li>
 {% endmacro %}
 
-{% macro render_whatever(target, model) %}
+{% macro render_whatever(target, model, recursive=true) %}
 {% if target.dependents %}
-{{ render_epic(target, model) }}
+{{ render_epic(target, model, recursive=recursive) }}
 {% else %}
 {{ render_task(target, model) }}
 {% endif %}
 {% endmacro %}
 
 {% macro task_link(task) -%}
-        <a href="{{ url_for("main.view_task", task_name=task.name) }}">{{ task.name }}</a>
+        <a href="{{ url_for("main.view_task", task_name=task.name) }}">{{ task.name }}</a><a href="https://issues.redhat.com/browse/{{ task.name }}" rel="external">{{ render_icon("link") }}</a>
 {%- endmacro %}
 
 {% macro epic_link(epic, endpoint="main.view_epic") -%}
-        <a href="{{ url_for(endpoint, epic_name=epic.name) }}">{{ epic.name }}</a>
+        <a href="{{ url_for(endpoint, epic_name=epic.name) }}">{{ epic.name }}</a><a href="https://issues.redhat.com/browse/{{ epic.name }}" rel="external">{{ render_icon("link") }}</a>
 {%- endmacro %}
 
 {% macro render_state_short(state) -%}
@@ -58,17 +62,19 @@
         {{ epic_link(epic) }} &mdash; {{ epic.title }}
 {% endmacro %}
 
-{% macro render_epic(epic, model) %}
+{% macro render_epic(epic, model, recursive=true) %}
         <li>
         {{ render_epic_basic(epic) }}
         <p>
         Left to do: {{ "%.3g" % model.nominal_point_estimate_of(epic.name).expected }}, i.e. {{ "%.2g %%" % (model.nominal_point_estimate_of(epic.name).expected / model.nominal_point_estimate.expected * 100) }} of the whole
         </p>
+        {% if recursive -%}
         <ul>
             {% for target in epic.dependents %}
-            {{- render_whatever(target, model) -}}
+            {{- render_whatever(target, model, recursive=recursive) -}}
             {% endfor %}
         </ul>
+        {%- endif %}
         </li>
 {% endmacro %}
 
