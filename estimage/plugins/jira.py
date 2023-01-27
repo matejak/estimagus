@@ -20,7 +20,9 @@ JIRA_STATUS_TO_STATE = {
     "ASSIGNED": target.State.in_progress,
     "ON_DEV": target.State.in_progress,
     "POST": target.State.in_progress,
+    "MODIFIED": target.State.in_progress,
     "Needs Peer Review": target.State.review,
+    "Review": target.State.review,
     "ON_QA": target.State.review,
     "To Do": target.State.todo,
 }
@@ -45,8 +47,7 @@ class InputSpec:
         return ret
 
 
-def get_epics_and_tasks_by_id(server_url, token, epics_query):
-    jira = JIRA(server_url, token_auth=token)
+def get_epics_and_tasks_by_id(jira, epics_query):
     issues = jira.search_issues(f"type = epic AND {epics_query}")
 
     all_epics = dict()
@@ -59,7 +60,7 @@ def get_epics_and_tasks_by_id(server_url, token, epics_query):
     return all_epics, all_subtasks
 
 
-def merge_jira_item(result_class, item, exported_items_by_name):
+def merge_jira_item(jira, result_class, item, exported_items_by_name, new_subtasks_by_id):
     STORY_POINTS = "customfield_12310243"
     EPIC_LINK = "customfield_12311140"
     CONTRIBUTORS = "customfield_12315950"
@@ -93,8 +94,9 @@ def merge_jira_item(result_class, item, exported_items_by_name):
 
     if subtasks := item.get_field("subtasks"):
         for subtask in subtasks:
-            subtask.find(subtask.key)
-            subtask_item = merge_jira_item(result_class, subtask, exported_items_by_name)
+            subtask = jira.issue(subtask.key, expand="changelog")
+            new_subtasks_by_id[subtask.key] = subtask
+            subtask_item = merge_jira_item(jira, result_class, subtask, exported_items_by_name, new_subtasks_by_id)
             subtask_item.tags.update(result.tags)
             exported_items_by_name[subtask.key] = subtask_item
             exported_items_by_name[item.key].add_element(subtask_item)
@@ -102,13 +104,13 @@ def merge_jira_item(result_class, item, exported_items_by_name):
     return result
 
 
-def export_jira_tasks_to_targets(epics, tasks, target_class: target.BaseTarget):
+def export_jira_tasks_to_targets(jira, epics, tasks, target_class: target.BaseTarget, new_subtasks_by_id):
     targets_by_id = dict()
     for e in epics.values():
-        merge_jira_item(target_class, e, targets_by_id)
+        merge_jira_item(jira, target_class, e, targets_by_id, new_subtasks_by_id)
 
     for t in tasks.values():
-        merge_jira_item(target_class, t, targets_by_id)
+        merge_jira_item(jira, target_class, t, targets_by_id, new_subtasks_by_id)
 
     return targets_by_id
 
@@ -168,18 +170,20 @@ def get_task_events(task, cutoff_date, sprint_epics=frozenset()):
 def import_targets_and_events(spec, retro_target_class, proj_target_class, event_manager_class):
     targets_by_id = dict()
     all_tasks = dict()
+    new_subtasks_by_id = dict()
 
+    jira = JIRA(spec.server_url, token_auth=spec.token)
     if spec.retrospective_query:
         print("Gathering retro stuff")
-        retro_epics, retro_tasks = get_epics_and_tasks_by_id(spec.server_url, spec.token, spec.retrospective_query)
-        new_targets = export_jira_tasks_to_targets(retro_epics, retro_tasks, retro_target_class)
+        retro_epics, retro_tasks = get_epics_and_tasks_by_id(jira, spec.retrospective_query)
+        new_targets = export_jira_tasks_to_targets(jira, retro_epics, retro_tasks, retro_target_class, new_subtasks_by_id)
         targets_by_id.update(new_targets)
         all_tasks.update(retro_tasks)
 
     if spec.projective_query:
         print("Gathering proj stuff")
-        proj_epics, proj_tasks = get_epics_and_tasks_by_id(spec.server_url, spec.token, spec.projective_query)
-        new_targets = export_jira_tasks_to_targets(proj_epics, proj_tasks, proj_target_class)
+        proj_epics, proj_tasks = get_epics_and_tasks_by_id(jira, spec.projective_query)
+        new_targets = export_jira_tasks_to_targets(jira, proj_epics, proj_tasks, proj_target_class, new_subtasks_by_id)
         targets_by_id.update(new_targets)
         all_tasks.update(proj_tasks)
 
@@ -187,6 +191,7 @@ def import_targets_and_events(spec, retro_target_class, proj_target_class, event
     save_exported_jira_tasks(targets_by_id)
 
     all_events = []
+    all_tasks.update(new_subtasks_by_id)
     for t in all_tasks.values():
         all_events.extend(get_task_events(t, spec.cutoff_date))
     storer = event_manager_class()
