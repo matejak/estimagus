@@ -3,6 +3,11 @@ import dataclasses
 from .estimate import Estimate
 
 
+# decorator to skip getters
+def setterOnly(wrapped):
+    return property(None, wrapped)
+
+
 @dataclasses.dataclass(init=False)
 class TaskModel:
     name: str
@@ -22,10 +27,16 @@ class TaskModel:
         self.masked = False
 
     @property
-    def time_estimate(self):
+    def nominal_time_estimate(self):
         return self._time_estimate
 
-    @time_estimate.setter
+    @property
+    def remaining_time_estimate(self):
+        if self.masked:
+            return Estimate(0, 0)
+        return self._time_estimate
+
+    @setterOnly
     def time_estimate(self, value: Estimate):
         self._time_estimate = value
 
@@ -33,10 +44,16 @@ class TaskModel:
         self._time_estimate = Estimate.from_triple(most_likely, optimistic, pessimistic)
 
     @property
-    def point_estimate(self):
+    def nominal_point_estimate(self):
         return self._point_estimate
 
-    @point_estimate.setter
+    @property
+    def remaining_point_estimate(self):
+        if self.masked:
+            return Estimate(0, 0)
+        return self._point_estimate
+
+    @setterOnly
     def point_estimate(self, value: Estimate):
         self._point_estimate = value
 
@@ -60,7 +77,7 @@ class MemoryTaskModel(TaskModel):
 
     def save(self):
         MemoryTaskModel.RESULTS[self.name] = (
-            self.point_estimate, self.time_estimate,
+            self.nominal_point_estimate, self.nominal_time_estimate,
         )
 
     @classmethod

@@ -10,7 +10,7 @@
     <li>
         {{ epic_link(epic, "main.view_epic_retro") }} &mdash; {{ epic.title }}
         <p>
-        {{ "%.2g" % model.point_estimate_of(epic.name).expected }} points remaining.
+        {{ "%.2g" % model.nominal_point_estimate_of(epic.name).expected }} points remaining.
         </p>
             {% for target in epic.dependents %}
         <ul>
@@ -62,7 +62,7 @@
         <li>
         {{ render_epic_basic(epic) }}
         <p>
-        Left to do: {{ "%.3g" % model.point_estimate_of(epic.name).expected }}, i.e. {{ "%.2g %%" % (model.point_estimate_of(epic.name).expected / model.point_estimate.expected * 100) }} of the whole
+        Left to do: {{ "%.3g" % model.nominal_point_estimate_of(epic.name).expected }}, i.e. {{ "%.2g %%" % (model.nominal_point_estimate_of(epic.name).expected / model.nominal_point_estimate.expected * 100) }} of the whole
         </p>
         <ul>
             {% for target in epic.dependents %}
@@ -92,7 +92,7 @@
     <p>
     <ul>
     {%- for index in range(similar_sized_tasks | length) %}
-    <li>{{ render_task_basic(similar_sized_targets[index], None) }}: {{ render_estimate(similar_sized_tasks[index].point_estimate) }}</li>
+    <li>{{ render_task_basic(similar_sized_targets[index], None) }}: {{ render_estimate(similar_sized_tasks[index].nominal_point_estimate) }}</li>
     {%- endfor %}
     </ul>
     </p>

@@ -1,5 +1,6 @@
 import typing
 
+from .estimate import Estimate
 from .task import TaskModel
 from .composition import Composition
 from .target import BaseTarget
@@ -50,14 +51,27 @@ class EstiModel:
         return self.main_composition.add_element(element)
 
     @property
-    def point_estimate(self):
-        return self.main_composition.point_estimate
+    def nominal_point_estimate(self):
+        return self.main_composition.nominal_point_estimate
 
-    def point_estimate_of(self, name: str):
+    @property
+    def remaining_point_estimate(self):
+        return self.main_composition.remaining_point_estimate
+
+    def nominal_point_estimate_of(self, name: str) -> Estimate:
         if name in self.name_result_map:
-            return self.name_result_map[name].point_estimate
+            return self.name_result_map[name].nominal_point_estimate
         elif name in self.name_composition_map:
-            return self.name_composition_map[name].point_estimate
+            return self.name_composition_map[name].nominal_point_estimate
+        else:
+            msg = f"Entity '{name}' is not known."
+            raise KeyError(msg)
+
+    def remaining_point_estimate_of(self, name: str) -> Estimate:
+        if name in self.name_result_map:
+            return self.name_result_map[name].remaining_point_estimate
+        elif name in self.name_composition_map:
+            return self.name_composition_map[name].remaining_point_estimate
         else:
             msg = f"Entity '{name}' is not known."
             raise KeyError(msg)
@@ -85,6 +99,6 @@ class EstiModel:
     def export_element(self, name: str) -> BaseTarget:
         element = self.name_result_map[name]
         target = BaseTarget()
-        target.point_cost = element.point_estimate.expected
-        target.time_cost = element.time_estimate.expected
+        target.point_cost = element.nominal_point_estimate.expected
+        target.time_cost = element.nominal_time_estimate.expected
         return target

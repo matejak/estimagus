@@ -233,7 +233,7 @@ def view_epic(epic_name):
     t = projective_retrieve_task(epic_name)
 
     return render_template(
-        'epic_view.html', title='View epic', epic=t, model=model, estimate=model.point_estimate_of(epic_name))
+        'epic_view.html', title='View epic', epic=t, model=model)
 
 
 def send_figure_as_png(figure, filename):
@@ -312,9 +312,9 @@ def visualize_task(task_name):
     user_id = user.get_id()
     model = get_user_model(user_id, webdata.ProjTarget)
     if task_name == ".":
-        estimation = model.main_composition.point_estimate
+        estimation = model.nominal_point_estimate
     else:
-        estimation = model.point_estimate_of(task_name)
+        estimation = model.nominal_point_estimate_of(task_name)
 
     fig = get_pert_in_figure(estimation, task_name)
 

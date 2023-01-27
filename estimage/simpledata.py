@@ -77,15 +77,15 @@ def get_model(targets_tree_without_duplicates, cls=None):
 def order_nearby_tasks(
         reference_task: data.TaskModel, all_tasks: typing.Iterable[data.TaskModel],
         distance_threshold: float, rank_threshold: float) -> typing.List[data.TaskModel]:
-    reference_estimate = reference_task.point_estimate
+    reference_estimate = reference_task.nominal_point_estimate
     expected = reference_estimate.expected
 
     distance_task_tuples = list()
     for t in all_tasks:
         if t.name == reference_task.name:
             continue
-        distance = abs(t.point_estimate.expected - expected)
-        rank = t.point_estimate.rank_distance(reference_estimate)
+        distance = abs(t.nominal_point_estimate.expected - expected)
+        rank = t.nominal_point_estimate.rank_distance(reference_estimate)
         if (distance <= distance_threshold or rank <= rank_threshold):
             distance_task_tuples.append((distance, t))
     sorted_distance_tasks = sorted(distance_task_tuples, key=lambda x: x[0])

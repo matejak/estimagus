@@ -39,21 +39,21 @@ def test_pollster_fills_in():
     pollster = tm.MemoryPollster()
     pollster.tell_points("esti", tm.EstimInput(2))
     pollster.inform_results([result])
-    assert result.point_estimate.expected == 2
+    assert result.nominal_point_estimate.expected == 2
 
     estimodel = tm.EstiModel()
     estimodel.new_element("esti")
 
     all_results = estimodel.get_all_task_models()
     pollster.inform_results(all_results)
-    assert estimodel.point_estimate.expected == 2
+    assert estimodel.nominal_point_estimate.expected == 2
 
     estimodel.new_element("xsti")
     pollster.tell_points("xsti", tm.EstimInput(3))
 
     all_results = estimodel.get_all_task_models()
     pollster.inform_results(all_results)
-    assert estimodel.point_estimate.expected == 5
+    assert estimodel.nominal_point_estimate.expected == 5
 
 
 @pytest.fixture
@@ -164,9 +164,9 @@ def test_integrate():
 
     est.estimate_points_of(name2, user_point_input)
 
-    assert e1.point_estimate.expected == 3
-    assert e1.point_estimate.variance == 0
-    assert e2.point_estimate.expected == 5
+    assert e1.nominal_point_estimate.expected == 3
+    assert e1.nominal_point_estimate.variance == 0
+    assert e2.nominal_point_estimate.expected == 5
 
-    assert est.main_composition.point_estimate.expected == 8
-    assert est.main_composition.point_estimate.variance == 0
+    assert est.main_composition.nominal_point_estimate.expected == 8
+    assert est.main_composition.nominal_point_estimate.variance == 0

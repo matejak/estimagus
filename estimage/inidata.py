@@ -104,7 +104,7 @@ class IniTarget(data.BaseTarget, IniStorage):
             new = cls._load_metadata(n, config)
             ret.dependents.append(new)
         ret.collaborators = config[name].get("collaborators", "").split(",")
-        ret.tags = frozenset(config[name].get("tags", "").split(","))
+        ret.tags = set(config[name].get("tags", "").split(","))
         return ret
 
     def _save_point_cost(self, cost_str):

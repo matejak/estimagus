@@ -94,8 +94,8 @@ def test_leaf_properties(leaf_target):
     result = leaf_target.to_tree([leaf_target]).elements[0]
 
     assert leaf_target.name == result.name
-    assert leaf_target.point_cost == result.point_estimate.expected
-    assert leaf_target.time_cost == result.time_estimate.expected
+    assert leaf_target.point_cost == result.nominal_point_estimate.expected
+    assert leaf_target.time_cost == result.nominal_time_estimate.expected
     assert not result.masked
 
 
@@ -121,8 +121,8 @@ def test_subtree_properties(leaf_target, subtree_target, tree_target):
     assert len(composition.elements) == 1
     assert composition.elements[0].name == leaf_target.name
 
-    assert leaf_target.point_cost == composition.point_estimate.expected
-    assert leaf_target.time_cost == composition.time_estimate.expected
+    assert leaf_target.point_cost == composition.nominal_point_estimate.expected
+    assert leaf_target.time_cost == composition.nominal_time_estimate.expected
 
 
 def test_tree_properties(leaf_target, subtree_target, tree_target):
@@ -141,11 +141,11 @@ def test_empty_target_to_tree():
 
 def test_estimated_target_to_tree(leaf_target):
     simple_tree = leaf_target.get_tree()
-    assert simple_tree.point_estimate.expected == leaf_target.point_cost
-    assert simple_tree.point_estimate.sigma == 0
-    assert simple_tree.point_estimate == tm.Estimate(leaf_target.point_cost, 0)
+    assert simple_tree.nominal_point_estimate.expected == leaf_target.point_cost
+    assert simple_tree.nominal_point_estimate.sigma == 0
+    assert simple_tree.nominal_point_estimate == tm.Estimate(leaf_target.point_cost, 0)
 
-    assert simple_tree.time_estimate == tm.Estimate(leaf_target.time_cost, 0)
+    assert simple_tree.nominal_time_estimate == tm.Estimate(leaf_target.time_cost, 0)
 
 
 def test_leaf_target_to_tree(leaf_target, standalone_leaf_target):
@@ -163,8 +163,8 @@ def test_estimated_tree_considers_only_leaf_cost(leaf_target, subtree_target):
     subtree_target.point_cost = 8
     subtree_target.time_cost = 7
     composition = tm.BaseTarget.to_tree([leaf_target, subtree_target])
-    assert composition.point_estimate.expected == leaf_target.point_cost
-    assert composition.time_estimate.expected == leaf_target.time_cost
+    assert composition.nominal_point_estimate.expected == leaf_target.point_cost
+    assert composition.nominal_time_estimate.expected == leaf_target.time_cost
 
 
 def test_tree_target_to_tree(leaf_target, standalone_leaf_target, subtree_target):

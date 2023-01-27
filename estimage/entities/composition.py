@@ -28,40 +28,44 @@ class Composition:
         self.masked = False
 
     @property
-    def time_estimate(self):
+    def nominal_time_estimate(self):
+        start = Estimate(0, 0)
+        for e in self.elements:
+            start += e.nominal_time_estimate
+        for c in self.compositions:
+            start += c.nominal_time_estimate
+        return start
+
+    @property
+    def remaining_time_estimate(self):
         start = Estimate(0, 0)
         if self.masked:
             return start
         for e in self.elements:
-            if not e.masked:
-                start += e.time_estimate
+            start += e.remaining_time_estimate
         for c in self.compositions:
             start += c.remaining_time_estimate
         return start
 
     @property
-    def remaining_time_estimate(self):
-        if self.masked:
-            return Estimate(0, 0)
-        else:
-            return self.time_estimate
-
-    @property
-    def point_estimate(self):
+    def nominal_point_estimate(self):
         start = Estimate(0, 0)
         for e in self.elements:
-            if not e.masked:
-                start += e.point_estimate
+            start += e.nominal_point_estimate
         for c in self.compositions:
-            start += c.remaining_point_estimate
+            start += c.nominal_point_estimate
         return start
 
     @property
     def remaining_point_estimate(self):
+        start = Estimate(0, 0)
         if self.masked:
-            return Estimate(0, 0)
-        else:
-            return self.point_estimate
+            return start
+        for e in self.elements:
+            start += e.remaining_point_estimate
+        for c in self.compositions:
+            start += c.remaining_point_estimate
+        return start
 
     def get_pert(self):
         starting_estimate = Estimate(0, 0)

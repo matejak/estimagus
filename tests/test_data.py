@@ -230,8 +230,8 @@ def test_ability_to_deduce_source_triple_from_pert():
 
 def test_composition():
     c = tm.Composition("c")
-    assert c.time_estimate.expected == 0
-    assert c.point_estimate.expected == 0
+    assert c.nominal_time_estimate.expected == 0
+    assert c.nominal_point_estimate.expected == 0
     assert len(c.elements) == 0
 
     e1 = tm.TaskModel("foo")
@@ -239,26 +239,28 @@ def test_composition():
     e1.time_estimate = tm.Estimate(1, 1)
 
     c.add_element(e1)
-    assert c.point_estimate.expected == 2
+    assert c.nominal_point_estimate.expected == 2
 
     c2 = tm.Composition("c2")
     c2.add_element(e1)
     c2.add_element(e1)
-    assert c2.point_estimate.expected == 4
-    assert c2.point_estimate.sigma == math.sqrt(2)
+    assert c2.nominal_point_estimate.expected == 4
+    assert c2.nominal_point_estimate.sigma == math.sqrt(2)
     c.add_composition(c2)
-    assert c.point_estimate.expected == 6
-    assert c.time_estimate.expected == 3
+    assert c.nominal_point_estimate.expected == 6
+    assert c.nominal_time_estimate.expected == 3
 
     e1.mask()
-    assert c.point_estimate.expected == 0
+    assert c.remaining_point_estimate.expected == 0
+    assert c.nominal_point_estimate.expected == 6
     e1.unmask()
-    assert c.point_estimate.expected == 6
+    assert c.nominal_point_estimate.expected == 6
+    assert c.remaining_point_estimate.expected == 6
     c2.mask()
     assert c2.remaining_point_estimate.expected == 0
-    assert c.point_estimate.expected == 2
+    assert c.remaining_point_estimate.expected == 2
     c2.unmask()
-    assert c.point_estimate.expected == 6
+    assert c.remaining_point_estimate.expected == 6
 
 
 def test_input():
@@ -283,12 +285,12 @@ def test_supply():
     user_input = tm.EstimInput(1)
 
     est.estimate_points_of("foo", user_input)
-    assert est.main_composition.point_estimate.expected == 1
+    assert est.main_composition.nominal_point_estimate.expected == 1
 
     user_input = tm.EstimInput(2)
 
     est.estimate_time_of("foo", user_input)
-    assert est.main_composition.time_estimate.expected == 2
+    assert est.main_composition.nominal_time_estimate.expected == 2
 
     with pytest.raises(RuntimeError):
         est.add_element(e1)
@@ -297,15 +299,15 @@ def test_supply():
     assert target.point_cost == 1
     assert target.time_cost == 2
 
-    assert est.main_composition.time_estimate.expected == 2
+    assert est.main_composition.nominal_time_estimate.expected == 2
 
     est.complete_element("foo")
-    assert est.main_composition.point_estimate.expected == 0
-    assert est.main_composition.time_estimate.expected == 0
+    assert est.main_composition.nominal_point_estimate.expected == 0
+    assert est.main_composition.nominal_time_estimate.expected == 0
 
     est.new_element("bar")
     est.estimate_points_of("bar", user_input)
-    assert est.main_composition.point_estimate.expected == 2
+    assert est.main_composition.nominal_point_estimate.expected == 2
 
     model2 = tm.EstiModel()
     t1 = tm.TaskModel("baz")
@@ -318,10 +320,10 @@ def test_supply():
     c.add_composition(c2)
     c2.add_element(t2)
     model2.use_composition(c)
-    assert model2.point_estimate_of("bar").expected == 2
-    assert model2.point_estimate_of("baz").expected == 3
-    assert model2.point_estimate_of("2").expected == 2
-    assert model2.point_estimate.expected == 5
+    assert model2.nominal_point_estimate_of("bar").expected == 2
+    assert model2.nominal_point_estimate_of("baz").expected == 3
+    assert model2.nominal_point_estimate_of("2").expected == 2
+    assert model2.nominal_point_estimate.expected == 5
 
 
 def test_memory_types():
@@ -335,13 +337,13 @@ def test_memory_types():
     r2.save()
 
     r12 = tm.MemoryTaskModel.load("R")
-    assert r12.point_estimate.expected == 3
+    assert r12.nominal_point_estimate.expected == 3
     r1.save()
     r12 = tm.MemoryTaskModel.load("R")
-    assert r12.point_estimate.expected == r1.point_estimate.expected
+    assert r12.nominal_point_estimate.expected == r1.nominal_point_estimate.expected
 
     r22 = tm.MemoryTaskModel.load("RR")
-    assert r22.time_estimate.expected == 3
+    assert r22.nominal_time_estimate.expected == 3
 
     c1 = tm.MemoryComposition("C")
     c1.add_element(r1)
@@ -351,7 +353,7 @@ def test_memory_types():
 
     c1.save()
     c3 = tm.MemoryComposition.load("C")
-    assert c3.elements[0].point_estimate.expected == r1.point_estimate.expected
+    assert c3.elements[0].nominal_point_estimate.expected == r1.nominal_point_estimate.expected
     c4 = c3.compositions[0]
-    assert c4.elements[0].time_estimate.expected == r2.time_estimate.expected
+    assert c4.elements[0].nominal_time_estimate.expected == r2.nominal_time_estimate.expected
 
