@@ -399,18 +399,20 @@ class MPLVelocityPlot:
         self.days = np.arange(a.days)
 
     def _prepare_plots(self, cutoff_date):
-        start_date = self.aggregation.start
-        completed_initially = 0
         for r in self.aggregation.repres:
             self.velocity_focus += r.get_velocity_array()
-            completed_initially = r.points_completed(start_date)
+            self._fill_rolling_velocity(r, cutoff_date)
 
-            for days in range(self.aggregation.days):
-                date = start_date + ONE_DAY * days
-                self.velocity_estimate[days] += (r.points_completed(date) - completed_initially) / (days + 1)
+    def _fill_rolling_velocity(self, repre, cutoff_date):
+        start_date = self.aggregation.start
+        completed_from_before = repre.points_completed(start_date)
+        for days in range(self.aggregation.days):
+            date = start_date + ONE_DAY * days
+            points_completed_to_date = repre.points_completed(date) - completed_from_before
+            self.velocity_estimate[days] += points_completed_to_date / (days + 1)
 
-                if date == cutoff_date:
-                    break
+            if date >= cutoff_date:
+                break
 
     def plot_stuff(self, cutoff_date):
         import matplotlib.pyplot as plt

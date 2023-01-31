@@ -39,6 +39,30 @@ def calculate_o_p(m, E, V, lam):
     return (B + D, B - D)
 
 
+def find_optimistic_from_pert(dom, values):
+    optimistic = dom[0]
+    for index, value in enumerate(values):
+        if value > 0:
+            optimistic = dom[index]
+            break
+    return optimistic
+
+
+def find_pessimistic_from_pert(dom, values):
+    pessimistic = dom[-1]
+    for index, value in enumerate(values[::-1]):
+        if value > 0:
+            pessimistic = dom[-1 - index]
+            break
+    return pessimistic
+
+
+def find_most_likely_from_pert(dom, values):
+    most_likely_index = np.argmax(values)
+    most_likely = dom[most_likely_index]
+    return most_likely
+
+
 @dataclasses.dataclass
 class EstimInput:
     optimistic: float
@@ -79,18 +103,10 @@ class EstimInput:
 
     @classmethod
     def from_pert_only(cls, dom, values):
-        for index, value in enumerate(values):
-            if value > 0:
-                optimistic = dom[index]
-                break
+        optimistic = find_optimistic_from_pert(dom, values)
+        pessimistic = find_pessimistic_from_pert(dom, values)
+        most_likely = find_most_likely_from_pert(dom, values)
 
-        for index, value in enumerate(values[::-1]):
-            if value > 0:
-                pessimistic = dom[-1 - index]
-                break
-
-        most_likely_index = np.argmax(values)
-        most_likely = dom[most_likely_index]
         ret = cls(most_likely)
         ret.optimistic = optimistic
         ret.pessimistic = pessimistic
