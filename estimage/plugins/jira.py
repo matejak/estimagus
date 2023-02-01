@@ -114,22 +114,25 @@ def merge_jira_item_without_children(result_class, item, all_items_by_id, parent
     return result
 
 
-def resolve_inheritance_of_attributes(root_names, all_items_by_id, parents_child_keymap):
-    items = [all_items_by_id[name] for name in root_names]
-    for item in items:
-        child_names = parents_child_keymap.get(item.name, [])
-        if not child_names:
-            continue
-        for child_name in child_names:
-            item.add_element(all_items_by_id[child_name])
-        resolve_inheritance_of_attributes(child_names, all_items_by_id, parents_child_keymap)
+def inherit_attributes(parent, child):
+    parent.add_element(child)
+
+
+def resolve_inheritance_of_attributes(name, all_items_by_id, parents_child_keymap):
+    item = all_items_by_id[name]
+    child_names = parents_child_keymap.get(item.name, [])
+    for child_name in child_names:
+        child = all_items_by_id[child_name]
+        inherit_attributes(item, child)
+        resolve_inheritance_of_attributes(child_name, all_items_by_id, parents_child_keymap)
 
 
 def export_jira_epic_chain_to_targets(root_names, all_issues_by_id, parents_child_keymap, target_class):
     all_targets_by_id = dict()
     for iid, issue in all_issues_by_id.items():
         all_targets_by_id[iid] = merge_jira_item_without_children(target_class, issue, all_issues_by_id, parents_child_keymap)
-    resolve_inheritance_of_attributes(root_names, all_targets_by_id, parents_child_keymap)
+    for root_name in root_names:
+        resolve_inheritance_of_attributes(root_name, all_targets_by_id, parents_child_keymap)
     return all_targets_by_id
 
 
@@ -140,47 +143,60 @@ def save_exported_jira_tasks(targets_by_id):
         t.save_time_cost()
 
 
+def jira_datetime_to_datetime(jira_datetime):
+    date_str = jira_datetime.split("+")[0]
+    return datetime.datetime.fromisoformat(date_str)
+
+
+def import_event(event, date, related_task_name):
+    STORY_POINTS = "customfield_12310243"
+    EPIC_LINK = "customfield_12311140"
+
+    field_name = event.field
+    former_value = event.fromString
+    new_value = event.toString
+
+    evt = None
+    if field_name == "status":
+        evt = evts.Event(related_task_name, "state", date)
+        evt.value_before = JIRA_STATUS_TO_STATE.get(former_value, target.State.unknown)
+        evt.value_after = JIRA_STATUS_TO_STATE.get(new_value, target.State.unknown)
+        evt.msg = f"Status changed from '{former_value}' to '{new_value}'"
+    elif field_name == STORY_POINTS:
+        evt = evts.Event(related_task_name, "points", date)
+        evt.value_before = float(former_value or 0)
+        evt.value_after = float(new_value or 0)
+        evt.msg = f"Points changed from {former_value} to {new_value}"
+    elif field_name == EPIC_LINK:
+        evt = evts.Event(related_task_name, "project", date)
+        evt.value_before = int(former_value in sprint_epics)
+        evt.value_after = int(new_value in sprint_epics)
+        evt.msg = f"Got assigned epic {new_value}"
+
+    return evt
+
+
+def append_event_entry(events, event, date, related_task_name):
+    event = import_event(event, date, related_task_name)
+    if event is not None:
+        events.append(event)
+    return events
+
+
 def get_task_events(task, cutoff_date, sprint_epics=frozenset()):
     cutoff_datetime = None
     if cutoff_date:
         cutoff_datetime = datetime.datetime(cutoff_date.year, cutoff_date.month, cutoff_date.day)
-    STORY_POINTS = "customfield_12310243"
-    EPIC_LINK = "customfield_12311140"
 
     events = []
     for history in task.changelog.histories:
-        date_str = history.created
-        date_str = date_str.split("+")[0]
-        date = datetime.datetime.fromisoformat(date_str)
+        date = jira_datetime_to_datetime(history.created)
 
         if cutoff_datetime and date < cutoff_datetime:
             continue
 
         for event in history.items:
-
-            field_name = event.field
-            former_value = event.fromString
-            new_value = event.toString
-
-            if field_name == "status":
-                evt = evts.Event(task.key, "state", date)
-                evt.value_before = JIRA_STATUS_TO_STATE.get(former_value, target.State.unknown)
-                evt.value_after = JIRA_STATUS_TO_STATE.get(new_value, target.State.unknown)
-                evt.msg = f"Status changed from '{former_value}' to '{new_value}'"
-            elif field_name == STORY_POINTS:
-                evt = evts.Event(task.key, "points", date)
-                evt.value_before = float(former_value or 0)
-                evt.value_after = float(new_value or 0)
-                evt.msg = f"Points changed from {former_value} to {new_value}"
-            elif field_name == EPIC_LINK:
-                evt = evts.Event(task.key, "project", date)
-                evt.value_before = int(former_value in sprint_epics)
-                evt.value_after = int(new_value in sprint_epics)
-                evt.msg = f"Got assigned epic {new_value}"
-            else:
-                continue
-
-            events.append(evt)
+            append_event_entry(events, event, date, task.key)
 
     return events
 
