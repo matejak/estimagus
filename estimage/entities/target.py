@@ -2,6 +2,7 @@ import re
 import typing
 import enum
 import dataclasses
+import datetime
 
 from .estimate import Estimate
 from .task import TaskModel
@@ -31,6 +32,7 @@ class BaseTarget:
     state: State
     collaborators: typing.List[str]
     tags: typing.Set[str]
+    work_span: typing.Tuple[datetime.datetime, datetime.datetime]
 
     def __init__(self):
         self.point_cost = 0
@@ -42,6 +44,7 @@ class BaseTarget:
         self.state = State.unknown
         self.collaborators = []
         self.tags = set()
+        self.work_span = None
 
     def as_class(self, cls):
         ret = cls()
