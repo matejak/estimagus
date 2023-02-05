@@ -99,6 +99,8 @@ def oneday_repre():
     end = PERIOD_START
 
     representation = tm.Repre(start, end)
+    # representation.status_timeline.set_value_at(end, target.State.in_progress)
+    # representation.fill_history_from(end)
     return representation
 
 
@@ -106,6 +108,15 @@ def oneday_repre():
 def twoday_repre():
     start = PERIOD_START
     end = PERIOD_START + ONE_DAY
+
+    representation = tm.Repre(start, end)
+    return representation
+
+
+@pytest.fixture
+def fiveday_repre():
+    start = PERIOD_START
+    end = PERIOD_START + 4 * ONE_DAY
 
     representation = tm.Repre(start, end)
     return representation
@@ -468,6 +479,67 @@ def test_aggregation_point_velocity_array(twoday_repre_done_in_day):
     assert np.all(a.get_velocity_array() == twoday_repre_done_in_day.get_velocity_array())
 
 
+def test_repre_get_last_point_value():
+    r = tm.Repre(PERIOD_START, LONG_PERIOD_END)
+    assert r.get_last_point_value() == 0
+
+    r.points_timeline.set_value_at(PERIOD_START, 1.0)
+    assert r.get_last_point_value() == 1
+
+    r.points_timeline.set_value_at(PERIOD_START + ONE_DAY, 2.0)
+    assert r.get_last_point_value() == 2
+
+    r.points_timeline.set_value_at(PERIOD_START + 2 * ONE_DAY, 1.0)
+    assert r.get_last_point_value() == 1
+
+    r.points_timeline.set_value_at(PERIOD_START + 2 * ONE_DAY, 0)
+    assert r.get_last_point_value() == 2
+
+
+def test_repre_plan(twoday_repre_done_in_day):
+    points = twoday_repre_done_in_day.get_points_at(PERIOD_START)
+    plan = twoday_repre_done_in_day.get_plan_array()
+    assert plan[-1] == 0
+    assert plan[0] == points
+
+
+def test_irrelevant_repre():
+    r = tm.Repre(PERIOD_START, LONG_PERIOD_END)
+    assert r.always_was_irrelevant()
+
+    r.status_timeline.set_value_at(PERIOD_START, target.State.todo)
+    assert not r.always_was_irrelevant()
+
+    r.status_timeline.set_value_at(PERIOD_START + ONE_DAY, target.State.in_progress)
+    assert not r.always_was_irrelevant()
+
+    r.status_timeline.set_value_at(PERIOD_START, target.State.abandoned)
+    assert not r.always_was_irrelevant()
+
+    r.status_timeline.set_value_at(PERIOD_START + ONE_DAY, target.State.done)
+    assert r.always_was_irrelevant()
+
+    r.status_timeline.set_value_at(PERIOD_START, target.State.review)
+    assert not r.always_was_irrelevant()
+
+
+def test_aggregation_plan(twoday_repre_done_in_day):
+    a = tm.Aggregation()
+
+    a.add_repre(twoday_repre_done_in_day)
+    points = twoday_repre_done_in_day.get_points_at(PERIOD_START)
+
+    another_points = 8
+    another_repre = tm.Repre(a.start, a.end)
+    another_repre.status_timeline.set_value_at(a.start, target.State.todo)
+    another_repre.points_timeline.set_value_at(PERIOD_START, another_points)
+    a.add_repre(another_repre)
+
+    plan = a.get_plan_array()
+    assert plan[0] == points + another_points
+    assert plan[-1] == 0
+
+
 def test_aggregation_point_velocity_trivial(twoday_repre_done_in_day):
     a = tm.Aggregation()
     assert a.point_velocity.expected == 0
@@ -529,3 +601,57 @@ def test_project_events(repre, early_event, late_event):
     assert repre.get_status_at(early_event.time + ONE_DAY) == data.State.todo
     assert repre.get_points_at(late_event.time + ONE_DAY) == 0
     assert repre.get_status_at(late_event.time + ONE_DAY) == data.State.unknown
+
+
+def test_repre_has_sane_plan(oneday_repre, twoday_repre, fiveday_repre):
+    assert oneday_repre.plan_timeline.value_at(oneday_repre.end) == 0
+
+    assert twoday_repre.plan_timeline.value_at(twoday_repre.start) == 1
+    assert twoday_repre.plan_timeline.value_at(twoday_repre.end) == 0
+
+    assert fiveday_repre.plan_timeline.value_at(fiveday_repre.start) == 1
+    assert fiveday_repre.plan_timeline.value_at(fiveday_repre.start + 2 * ONE_DAY) == 0.5
+    assert fiveday_repre.plan_timeline.value_at(fiveday_repre.end) == 0
+
+
+def test_timeline_interpolation_sanity():
+    short_timeline = tm.Timeline(PERIOD_START, PERIOD_START)
+    short_timeline.set_gradient_values(PERIOD_START, 0, PERIOD_START, 0)
+    assert short_timeline.value_at(PERIOD_START) == 0
+
+    short_timeline.set_gradient_values(PERIOD_START, 0, PERIOD_START, 2)
+    assert short_timeline.value_at(PERIOD_START) == 2
+
+
+def test_timeline_interpolation():
+    END = PERIOD_START + 5 * ONE_DAY
+    reasonable_timeline = tm.Timeline(PERIOD_START, END)
+
+    reasonable_timeline.set_gradient_values(PERIOD_START, 1, END, 1)
+    assert sum(reasonable_timeline.get_value_mask(1)) == 6
+
+    reasonable_timeline.set_gradient_values(PERIOD_START, 0, PERIOD_START + 2 * ONE_DAY, 1)
+    assert reasonable_timeline.value_at(PERIOD_START) == 0
+    assert reasonable_timeline.value_at(PERIOD_START + 2 * ONE_DAY) == 1
+    assert reasonable_timeline.value_at(PERIOD_START + ONE_DAY) == 0.5
+
+
+def test_target_span_propagates():
+    END = PERIOD_START + 5 * ONE_DAY
+    t = target.BaseTarget()
+    r = tm.convert_target_to_representations_of_leaves(t, PERIOD_START, END)[0]
+
+    assert r.plan_timeline.value_at(PERIOD_START) == 1
+    assert r.plan_timeline.value_at(END) == 0
+
+    t.work_span = (PERIOD_START + 2 * ONE_DAY, END - ONE_DAY)
+    r = tm.convert_target_to_representations_of_leaves(t, PERIOD_START, END)[0]
+
+    assert r.plan_timeline.value_at(PERIOD_START) == 1
+    assert r.plan_timeline.value_at(END) == 0
+
+    assert r.plan_timeline.value_at(PERIOD_START + ONE_DAY) == 1
+    assert r.plan_timeline.value_at(END - ONE_DAY) == 0
+
+    assert r.plan_timeline.value_at(PERIOD_START + 2 * ONE_DAY) == 1
+    assert r.plan_timeline.value_at(PERIOD_START + 3 * ONE_DAY) == 0.5

@@ -32,9 +32,25 @@ class Timeline:
         period = end - start
         self._data = np.zeros(period.days + 1)
 
+    def _localize_date(self, date: datetime.datetime):
+        return (date - self.start).days
+
     def recreate_with_value(self, value, dtype=float):
         self._data = np.empty_like(self._data, dtype=dtype)
         self._data[:] = value
+
+    def set_gradient_values(self,
+                            start: datetime.datetime, start_value: float,
+                            end: datetime.datetime, end_value: float):
+        start_index = self._localize_date(start)
+        end_index = self._localize_date(end) + 1
+        values = np.linspace(start_value, end_value, end_index - start_index)
+        self._data[start_index:end_index] = values
+        self.set_value_at(start, start_value)
+        self.set_value_at(end, end_value)
+
+    def get_array(self):
+        return self._data.copy()
 
     @property
     def days(self):
@@ -79,20 +95,31 @@ class Repre:
     end: datetime.datetime
     points_timeline: Timeline
     status_timeline: Timeline
+    plan_timeline: Timeline
     time_timeline: Timeline
     relevancy_timeline: Timeline
     task_name: str
 
     def __init__(self, start, end):
+        self.start = start
+        self.end = end
+
         self.points_timeline = Timeline(start, end)
         self.status_timeline = Timeline(start, end)
         self.status_timeline.recreate_with_value(target.State.unknown)
         self.time_timeline = Timeline(start, end)
+
+        self.plan_timeline = Timeline(start, end)
+        self.calculate_plan()
+
         self.relevancy_timeline = Timeline(start, end)
         self.relevancy_timeline.recreate_with_value(1)
-        self.start = start
-        self.end = end
         self.task_name = ""
+
+    def calculate_plan(self, work_start=None, work_end=None):
+        start = work_start or self.start
+        end = work_end or self.end
+        self.plan_timeline.set_gradient_values(start, 1, end, 0)
 
     def update(self, when, status=None, points=None, time=None):
         if points is not None:
@@ -106,6 +133,21 @@ class Repre:
         if not self.relevancy_timeline.value_at(when):
             return 0
         return self.points_timeline.value_at(when)
+
+    def always_was_irrelevant(self):
+        relevant_mask = self.status_timeline.get_value_mask(target.State.todo)
+        relevant_mask |= self.status_timeline.get_value_mask(target.State.in_progress)
+        relevant_mask |= self.status_timeline.get_value_mask(target.State.review)
+        if sum(relevant_mask):
+            return False
+        return True
+
+    def get_last_point_value(self):
+        nonzero_mask = np.logical_not(self.points_timeline.get_value_mask(0))
+        if sum(nonzero_mask) == 0:
+            return 0
+        ret = self.points_timeline.get_masked_values(nonzero_mask)[-1]
+        return ret
 
     def get_status_at(self, when):
         if not self.relevancy_timeline.value_at(when):
@@ -161,6 +203,12 @@ class Repre:
         days_from_start_to_completion = indices[done_mask][0]
         return self.start + ONE_DAY * days_from_start_to_completion
 
+    def get_plan_array(self):
+        points_multiplier = self.get_last_point_value()
+        if self.always_was_irrelevant():
+            points_multiplier *= 0
+        return self.plan_timeline.get_array() * points_multiplier
+
     def get_velocity_array(self):
         if not self.is_done():
             return self.status_timeline.get_value_mask(target.State.done).astype(float)
@@ -204,6 +252,10 @@ def _convert_target_to_representation(
     repre.task_name = source.name
     repre.points_timeline.set_value_at(end, source.point_cost)
     repre.status_timeline.set_value_at(end, source.state)
+    if work_span := source.work_span:
+        repre.plan_timeline.set_gradient_values(start, 1, work_span[0], 1)
+        repre.plan_timeline.set_gradient_values(work_span[1], 0, end, 0)
+        repre.plan_timeline.set_gradient_values(work_span[0], 1, work_span[1], 0)
     repre.fill_history_from(end)
     return repre
 
@@ -254,6 +306,14 @@ class Aggregation:
         ret = np.zeros_like(self.repres[0].get_velocity_array())
         for r in self.repres:
             ret += r.get_velocity_array()
+        return ret
+
+    def get_plan_array(self):
+        if not self.repres:
+            return np.array([])
+        ret = np.zeros_like(self.repres[0].get_plan_array())
+        for r in self.repres:
+            ret += r.get_plan_array()
         return ret
 
     @property
@@ -347,27 +407,30 @@ class MPLPointPlot:
             (target.State.in_progress, empty_array.copy(), (0.1, 0.1, 0.6, 0.8)),
             (target.State.review, empty_array.copy(), (0.1, 0.2, 0.7, 0.6)),
         ]
+        self.index_of_today = localize_date(self.aggregation.start, datetime.datetime.today())
+        self.width = 1.0
 
     def _prepare_plots(self):
         for status, dest, color in self.styles:
             for r in self.aggregation.repres:
                 dest[r.status_is(status)] += r.points_of_status(status)
 
-    def _plot_bars(self, ax):
-        width = 1.0
+    def _show_plan(self, ax):
+        ax.plot(self.aggregation.get_plan_array(), color="orange", linewidth=self.width)
+
+    def _show_today(self, ax):
+        if self.aggregation.start <= datetime.datetime.today() <= self.aggregation.end:
+            ax.axvline(self.index_of_today, label="today", color="grey", linewidth=self.width * 2)
+
+    def _plot_prepared_arrays(self, ax):
         days = np.arange(self.aggregation.days)
         bottom = np.zeros_like(days, dtype=float)
-        index_of_today = localize_date(self.aggregation.start, datetime.datetime.today())
         for status, array, color in self.styles:
-            if 0 <= index_of_today <= len(days):
-                array[index_of_today:] = array[index_of_today]
+            if 0 <= self.index_of_today <= len(days):
+                array[self.index_of_today:] = array[self.index_of_today]
             ax.fill_between(days, array + bottom, bottom, label=status,
-                            color=color, edgecolor="white", linewidth=width * 0.5)
+                            color=color, edgecolor="white", linewidth=self.width * 0.5)
             bottom += array
-
-        ax.plot([days[0], days[-1]], [bottom[0], 0], color="blue", linewidth=width)
-        if 0 <= index_of_today <= len(days):
-            ax.axvline(index_of_today, label="today", color="grey", linewidth=width * 2)
 
     def get_figure(self):
         import matplotlib.pyplot as plt
@@ -375,11 +438,12 @@ class MPLPointPlot:
         ax.grid(True)
 
         self._prepare_plots()
-        self._plot_bars(ax)
+        self._plot_prepared_arrays(ax)
+        self._show_plan(ax)
+        self._show_today(ax)
         ax.legend(loc="upper right")
 
-        r = self.aggregation.repres[0]
-        x_axis_weeks_and_months(ax, r.start, r.end)
+        x_axis_weeks_and_months(ax, self.aggregation.start, self.aggregation.end)
         ax.set_ylabel("points")
 
         return fig
