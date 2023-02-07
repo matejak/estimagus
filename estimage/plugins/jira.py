@@ -90,6 +90,8 @@ def merge_jira_item_without_children(result_class, item, all_items_by_id, parent
     EPIC_LINK = "customfield_12311140"
     CONTRIBUTORS = "customfield_12315950"
     COMMITMENT = "customfield_12317404"
+    WORK_START = "customfield_12313941"
+    WORK_END = "customfield_12313942"
 
     result = result_class()
     result.name = item.key
@@ -111,11 +113,23 @@ def merge_jira_item_without_children(result_class, item, all_items_by_id, parent
     except AttributeError:
         pass
 
+    work_span = [None, None]
+    if work_end := item.get_field(WORK_END):
+        work_span[-1] = jira_date_to_datetime(work_end)
+
+    if work_start := item.get_field(WORK_START):
+        work_span[0] = jira_date_to_datetime(work_start)
+
+    if work_span[0] or work_span[-1]:
+        result.work_span = tuple(work_span)
+
     return result
 
 
 def inherit_attributes(parent, child):
     parent.add_element(child)
+    # if work_span := parent.work_span:
+        # child.work_span = work_span
 
 
 def resolve_inheritance_of_attributes(name, all_items_by_id, parents_child_keymap):
@@ -146,6 +160,10 @@ def save_exported_jira_tasks(targets_by_id):
 def jira_datetime_to_datetime(jira_datetime):
     date_str = jira_datetime.split("+")[0]
     return datetime.datetime.fromisoformat(date_str)
+
+
+def jira_date_to_datetime(jira_date):
+    return datetime.datetime.strptime(jira_date, "%Y-%m-%d")
 
 
 def import_event(event, date, related_task_name):
