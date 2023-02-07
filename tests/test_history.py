@@ -636,6 +636,38 @@ def test_timeline_interpolation():
     assert reasonable_timeline.value_at(PERIOD_START + ONE_DAY) == 0.5
 
 
+def test_target_span_propagates_to_children():
+    END = PERIOD_START + 5 * ONE_DAY
+    parent = target.BaseTarget()
+    parent.work_span = (PERIOD_START + ONE_DAY, END)
+    child = target.BaseTarget()
+    parent.add_element(child)
+
+    r = tm.convert_target_to_representations_of_leaves(parent, PERIOD_START, END)[0]
+    assert r.plan_timeline.value_at(PERIOD_START + ONE_DAY) == 1
+
+    parent.work_span = (None, END - ONE_DAY)
+    r = tm.convert_target_to_representations_of_leaves(parent, PERIOD_START, END)[0]
+    assert r.plan_timeline.value_at(PERIOD_START + ONE_DAY) == 0.75
+    assert r.plan_timeline.value_at(END - ONE_DAY) == 0
+
+    parent.work_span = (PERIOD_START + ONE_DAY, None)
+    r = tm.convert_target_to_representations_of_leaves(parent, PERIOD_START, END)[0]
+    assert r.plan_timeline.value_at(PERIOD_START + ONE_DAY) == 1.0
+    assert r.plan_timeline.value_at(END) == 0
+
+
+def test_target_span_incomplete_works():
+    END = PERIOD_START + 5 * ONE_DAY
+    t = target.BaseTarget()
+    t.work_span = (None, END)
+    r = tm.convert_target_to_representations_of_leaves(t, PERIOD_START, END)[0]
+
+
+def test_target_span_of_executive_summary():
+    assert summary.completion = "grey zone"
+
+
 def test_target_span_propagates():
     END = PERIOD_START + 5 * ONE_DAY
     t = target.BaseTarget()
@@ -655,3 +687,20 @@ def test_target_span_propagates():
 
     assert r.plan_timeline.value_at(PERIOD_START + 2 * ONE_DAY) == 1
     assert r.plan_timeline.value_at(PERIOD_START + 3 * ONE_DAY) == 0.5
+
+
+def test_target_span_starting_before_is_correctly_recalculated():
+    END = PERIOD_START + 5 * ONE_DAY
+    t = target.BaseTarget()
+    t.work_span = (PERIOD_START - ONE_DAY, END - ONE_DAY)
+    r = tm.convert_target_to_representations_of_leaves(t, PERIOD_START, END)[0]
+    assert r.plan_timeline.value_at(PERIOD_START) == 1
+
+
+def test_target_span_ending_after_is_cropped():
+    END = PERIOD_START + 5 * ONE_DAY
+    t = target.BaseTarget()
+    t.work_span = (PERIOD_START + ONE_DAY, END + ONE_DAY)
+    r = tm.convert_target_to_representations_of_leaves(t, PERIOD_START, END)[0]
+    assert r.plan_timeline.value_at(END) == 0
+

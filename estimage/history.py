@@ -253,19 +253,39 @@ def _convert_target_to_representation(
     repre.points_timeline.set_value_at(end, source.point_cost)
     repre.status_timeline.set_value_at(end, source.state)
     if work_span := source.work_span:
-        repre.plan_timeline.set_gradient_values(start, 1, work_span[0], 1)
-        repre.plan_timeline.set_gradient_values(work_span[1], 0, end, 0)
-        repre.plan_timeline.set_gradient_values(work_span[0], 1, work_span[1], 0)
+        assert work_span[1] >= work_span[0], f"Inconsistent work span in {source.name}"
+        work_start = max(start, work_span[0])
+        work_end = min(end, work_span[1])
+        repre.plan_timeline.set_gradient_values(start, 1, work_start, 1)
+        repre.plan_timeline.set_gradient_values(work_end, 0, end, 0)
+        repre.plan_timeline.set_gradient_values(work_start, 1, work_end, 0)
     repre.fill_history_from(end)
     return repre
+
+
+def resolve_span():
+    pass
+
+
+def propagate_span_to_children(parent_span, child, start, end):
+    if not parent_span:
+        return
+    good_span = [start, end]
+    if parent_span[0] is not None:
+        good_span[0] = parent_span[0]
+    if parent_span[1] is not None:
+        good_span[1] = parent_span[1]
+    child.work_span = tuple(good_span)
 
 
 def convert_target_to_representations_of_leaves(
         source: target.BaseTarget,
         start: datetime.datetime, end: datetime.datetime) -> typing.List[Repre]:
     ret = []
+
     if source.dependents:
         for d in source.dependents:
+            propagate_span_to_children(source.work_span, d, start, end)
             ret.extend(convert_target_to_representations_of_leaves(d, start, end))
     else:
         ret = [_convert_target_to_representation(source, start, end)]
