@@ -1,3 +1,5 @@
+import datetime
+
 import pytest
 
 import estimage.data as tm
@@ -200,7 +202,10 @@ def test_target_load_and_save_values(persistent_target_class):
     one.title = "Issue One"
     one.state = target.State.in_progress
     one.collaborators = ["a", "b"]
+    one.priority = 20
+    one.status_summary = "Lorem Ipsum and So On"
     one.tags = ["t1", "l2", "t1"]
+    one.work_span = (datetime.datetime(1939, 9, 1), datetime.datetime(1945, 5, 7))
     one.save_metadata()
 
     all_targets_by_id = persistent_target_class.get_loaded_targets_by_id()
@@ -213,7 +218,10 @@ def test_target_load_and_save_values(persistent_target_class):
     assert loaded_one.title == one.title
     assert loaded_one.state == one.state
     assert loaded_one.collaborators == ["a", "b"]
+    assert loaded_one.priority == one.priority
+    assert loaded_one.status_summary == one.status_summary
     assert loaded_one.tags == set(["t1", "l2"])
+    assert loaded_one.work_span == one.work_span
 
 
 def create_given_target_and_dependency(cls):

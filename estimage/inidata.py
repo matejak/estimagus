@@ -52,6 +52,8 @@ class IniTarget(data.BaseTarget, IniStorage):
             depnames=",".join([dep.name for dep in self.dependents]),
             state=str(int(self.state)),
             collaborators=",".join(self.collaborators),
+            priority=str(float(self.priority)),
+            status_summary=self.status_summary,
             tags=",".join(self.tags),
         )
         if self.work_span and self.work_span[0] is not None:
@@ -103,11 +105,11 @@ class IniTarget(data.BaseTarget, IniStorage):
         cost_str = ret._load_point_cost(config)
         ret.point_cost = ret.parse_point_cost(cost_str)
 
-        for n in our_config.get("depnames", "").split(","):
-            if not n:
-                continue
-            new = cls._load_metadata(n, config)
-            ret.dependents.append(new)
+        ret.priority = float(our_config.get("priority", ret.priority))
+        ret.status_summary = our_config.get("status_summary", "")
+        ret.collaborators = our_config.get("collaborators", "").split(",")
+        ret.tags = set(our_config.get("tags", "").split(","))
+
         span = [None, None]
         if "work_start" in our_config:
             span[0] = datetime.datetime.fromisoformat(our_config["work_start"])
@@ -115,8 +117,12 @@ class IniTarget(data.BaseTarget, IniStorage):
             span[1] = datetime.datetime.fromisoformat(our_config["work_end"])
         if span[0] or span[1]:
             ret.work_span = tuple(span)
-        ret.collaborators = our_config.get("collaborators", "").split(",")
-        ret.tags = set(our_config.get("tags", "").split(","))
+
+        for n in our_config.get("depnames", "").split(","):
+            if not n:
+                continue
+            new = cls._load_metadata(n, config)
+            ret.dependents.append(new)
         return ret
 
     def _save_point_cost(self, cost_str):
