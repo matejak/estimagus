@@ -447,7 +447,8 @@ class MPLPointPlot:
                 dest[r.status_is(status)] += r.points_of_status(status)
 
     def _show_plan(self, ax):
-        ax.plot(self.aggregation.get_plan_array(), color="orange", linewidth=self.width)
+        ax.plot(self.aggregation.get_plan_array(), color="orange",
+                linewidth=self.width, label="burndown")
 
     def _show_today(self, ax):
         if self.aggregation.start <= datetime.datetime.today() <= self.aggregation.end:
