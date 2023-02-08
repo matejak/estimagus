@@ -30,6 +30,15 @@ JIRA_STATUS_TO_STATE = {
 }
 
 
+JIRA_PRIORITY_TO_VALUE = {
+    "Blocker": 90,
+    "Critical": 80,
+    "Major": 70,
+    "Normal": 50,
+    "Minor": 30,
+}
+
+
 @dataclasses.dataclass(init=False)
 class InputSpec:
     token: str
@@ -90,6 +99,7 @@ def merge_jira_item_without_children(result_class, item, all_items_by_id, parent
     EPIC_LINK = "customfield_12311140"
     CONTRIBUTORS = "customfield_12315950"
     COMMITMENT = "customfield_12317404"
+    STATUS_SUMMARY = "customfield_12317299"
     WORK_START = "customfield_12313941"
     WORK_END = "customfield_12313942"
 
@@ -98,7 +108,9 @@ def merge_jira_item_without_children(result_class, item, all_items_by_id, parent
     result.title = item.get_field("summary") or ""
     result.description = item.get_field("description") or ""
     result.point_cost = float(item.get_field(STORY_POINTS) or 0)
-    result.state = JIRA_STATUS_TO_STATE.get(str(item.get_field("status")), target.State.unknown)
+    result.state = JIRA_STATUS_TO_STATE.get(item.get_field("status").name, target.State.unknown)
+    result.priority = JIRA_PRIORITY_TO_VALUE.get(item.get_field("priority").name, 0)
+    result.status_summary = item.get_field(STATUS_SUMMARY) or ""
     result.tags = {f"label:{value}" for value in (item.get_field("labels") or [])}
     result.collaborators = []
 
