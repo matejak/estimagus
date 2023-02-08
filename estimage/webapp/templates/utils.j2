@@ -36,11 +36,11 @@
 {% endmacro %}
 
 {% macro task_link(task) -%}
-        <a href="{{ url_for("main.view_task", task_name=task.name) }}">{{ task.name }}</a><a href="https://issues.redhat.com/browse/{{ task.name }}" rel="external">{{ render_icon("box-arrow-up-right") }}</a>
+        <a href="{{ url_for("main.view_task", task_name=task.name) }}">{{ task.name }}</a>&nbsp;<a href="https://issues.redhat.com/browse/{{ task.name }}" rel="external">{{ render_icon("box-arrow-up-right") }}</a>
 {%- endmacro %}
 
 {% macro epic_link(epic, endpoint="main.view_epic") -%}
-        <a href="{{ url_for(endpoint, epic_name=epic.name) }}">{{ epic.name }}</a><a href="https://issues.redhat.com/browse/{{ epic.name }}" rel="external">{{ render_icon("box-arrow-up-right") }}</a>
+        <a href="{{ url_for(endpoint, epic_name=epic.name) }}">{{ epic.name }}</a>&nbsp;<a href="https://issues.redhat.com/browse/{{ epic.name }}" rel="external">{{ render_icon("box-arrow-up-right") }}</a>
 {%- endmacro %}
 
 {% macro render_state_short(state) -%}
