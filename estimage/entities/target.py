@@ -31,6 +31,8 @@ class BaseTarget:
     dependents: typing.List["BaseTarget"]
     state: State
     collaborators: typing.List[str]
+    priority: float
+    status_summary: str
     tags: typing.Set[str]
     work_span: typing.Tuple[datetime.datetime, datetime.datetime]
 
@@ -43,6 +45,8 @@ class BaseTarget:
         self.dependents = []
         self.state = State.unknown
         self.collaborators = []
+        self.priority = 50.0
+        self.status_summary = ""
         self.tags = set()
         self.work_span = None
 

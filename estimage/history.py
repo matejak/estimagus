@@ -245,6 +245,20 @@ class Repre:
             timeline.process_events(events)
 
 
+def apply_span_to_timeline(timeline, span, start, end):
+    work_start = max(start, span[0])
+
+    work_end = span[1]
+    overflow_ratio = 0
+    if span[1] > end:
+        work_end = end
+        overflow_ratio = (span[1] - end) / (span[1] - span[0])
+
+    timeline.set_gradient_values(start, 1, work_start, 1)
+    timeline.set_gradient_values(work_end, overflow_ratio, end, overflow_ratio)
+    timeline.set_gradient_values(work_start, 1, work_end, overflow_ratio)
+
+
 def _convert_target_to_representation(
         source: target.BaseTarget,
         start: datetime.datetime, end: datetime.datetime) -> typing.List[Repre]:
@@ -253,19 +267,36 @@ def _convert_target_to_representation(
     repre.points_timeline.set_value_at(end, source.point_cost)
     repre.status_timeline.set_value_at(end, source.state)
     if work_span := source.work_span:
-        repre.plan_timeline.set_gradient_values(start, 1, work_span[0], 1)
-        repre.plan_timeline.set_gradient_values(work_span[1], 0, end, 0)
-        repre.plan_timeline.set_gradient_values(work_span[0], 1, work_span[1], 0)
+        work_span = produce_meaningful_span(work_span, start, end)
+        assert work_span[1] >= work_span[0], f"Inconsistent work span in {source.name}"
+        apply_span_to_timeline(repre.plan_timeline, work_span, start, end)
     repre.fill_history_from(end)
     return repre
+
+
+def produce_meaningful_span(candidate_span, start, end):
+    good_span = [start, end]
+    if candidate_span[0] is not None:
+        good_span[0] = candidate_span[0]
+    if candidate_span[1] is not None:
+        good_span[1] = candidate_span[1]
+    return tuple(good_span)
+
+
+def propagate_span_to_children(parent_span, child, start, end):
+    if not parent_span:
+        return
+    child.work_span = produce_meaningful_span(parent_span, start, end)
 
 
 def convert_target_to_representations_of_leaves(
         source: target.BaseTarget,
         start: datetime.datetime, end: datetime.datetime) -> typing.List[Repre]:
     ret = []
+
     if source.dependents:
         for d in source.dependents:
+            propagate_span_to_children(source.work_span, d, start, end)
             ret.extend(convert_target_to_representations_of_leaves(d, start, end))
     else:
         ret = [_convert_target_to_representation(source, start, end)]

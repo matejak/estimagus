@@ -46,15 +46,21 @@ class IniTarget(data.BaseTarget, IniStorage):
         if not self.name:
             msg = "Coudln't save target, because its name is blank."
             raise RuntimeError(msg)
+        metadata = dict(
+            title=self.title,
+            description=self.description,
+            depnames=",".join([dep.name for dep in self.dependents]),
+            state=str(int(self.state)),
+            collaborators=",".join(self.collaborators),
+            priority=str(float(self.priority)),
+            status_summary=self.status_summary,
+            tags=",".join(self.tags),
+        )
+        if self.work_span and self.work_span[0] is not None:
+            metadata["work_start"] = self.work_span[0].isoformat()
+        if self.work_span and self.work_span[1] is not None:
+            metadata["work_end"] = self.work_span[1].isoformat()
         with self._update_key_with_dictionary(self.name) as callback:
-            metadata = dict(
-                title=self.title,
-                description=self.description,
-                depnames=",".join([dep.name for dep in self.dependents]),
-                state=str(int(self.state)),
-                collaborators=",".join(self.collaborators),
-                tags=",".join(self.tags),
-            )
             callback(metadata)
 
     @classmethod
@@ -90,21 +96,33 @@ class IniTarget(data.BaseTarget, IniStorage):
             raise RuntimeError(msg)
         ret = cls()
         ret.name = name
-        ret.title = config[name].get("title", "")
-        ret.description = config[name].get("description", "")
-        state = config[name].get("state", data.State.unknown)
+        our_config = config[name]
+        ret.title = our_config.get("title", "")
+        ret.description = our_config.get("description", "")
+        state = our_config.get("state", data.State.unknown)
         ret.state = data.State(int(state))
 
         cost_str = ret._load_point_cost(config)
         ret.point_cost = ret.parse_point_cost(cost_str)
 
-        for n in config[name].get("depnames", "").split(","):
+        ret.priority = float(our_config.get("priority", ret.priority))
+        ret.status_summary = our_config.get("status_summary", "")
+        ret.collaborators = our_config.get("collaborators", "").split(",")
+        ret.tags = set(our_config.get("tags", "").split(","))
+
+        span = [None, None]
+        if "work_start" in our_config:
+            span[0] = datetime.datetime.fromisoformat(our_config["work_start"])
+        if "work_end" in our_config:
+            span[1] = datetime.datetime.fromisoformat(our_config["work_end"])
+        if span[0] or span[1]:
+            ret.work_span = tuple(span)
+
+        for n in our_config.get("depnames", "").split(","):
             if not n:
                 continue
             new = cls._load_metadata(n, config)
             ret.dependents.append(new)
-        ret.collaborators = config[name].get("collaborators", "").split(",")
-        ret.tags = set(config[name].get("tags", "").split(","))
         return ret
 
     def _save_point_cost(self, cost_str):
