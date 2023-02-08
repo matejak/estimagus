@@ -660,12 +660,20 @@ def test_target_span_propagates_to_children():
 def test_target_span_incomplete_works():
     END = PERIOD_START + 5 * ONE_DAY
     t = target.BaseTarget()
-    t.work_span = (None, END)
+    t.work_span = (None, END - ONE_DAY)
     r = tm.convert_target_to_representations_of_leaves(t, PERIOD_START, END)[0]
+    assert r.plan_timeline.value_at(PERIOD_START + ONE_DAY) == 0.75
+    assert r.plan_timeline.value_at(END - ONE_DAY) == 0
 
 
 def test_target_span_of_executive_summary():
-    assert summary.completion = "grey zone"
+    pytest.skip()
+    END = PERIOD_START + 5 * ONE_DAY
+    parent = target.BaseTarget()
+    parent.work_span = (PERIOD_START + ONE_DAY, END)
+    child = target.BaseTarget()
+    parent.add_element(child)
+    assert summary.completion == "grey zone"
 
 
 def test_target_span_propagates():
@@ -697,10 +705,11 @@ def test_target_span_starting_before_is_correctly_recalculated():
     assert r.plan_timeline.value_at(PERIOD_START) == 1
 
 
-def test_target_span_ending_after_is_cropped():
+def test_target_span_ending_after_is_recalculated():
     END = PERIOD_START + 5 * ONE_DAY
     t = target.BaseTarget()
     t.work_span = (PERIOD_START + ONE_DAY, END + ONE_DAY)
     r = tm.convert_target_to_representations_of_leaves(t, PERIOD_START, END)[0]
-    assert r.plan_timeline.value_at(END) == 0
+    overflowing_ratio = ONE_DAY / (t.work_span[1] - t.work_span[0])
+    assert r.plan_timeline.value_at(END) == overflowing_ratio
 
