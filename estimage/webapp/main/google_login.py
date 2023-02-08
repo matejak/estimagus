@@ -22,7 +22,7 @@ def get_google_provider_cfg():
 
 
 def encode_data_urlsafe(** kwargs):
-    unsafe_str = json.dumps(data_as_dict)
+    unsafe_str = json.dumps(kwargs)
     return urllib.parse.quote_plus(unsafe_str)
 
 
