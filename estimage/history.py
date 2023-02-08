@@ -429,6 +429,12 @@ def set_ticks_to_months(ticks, start, end):
             ticks[day] = datetime.date.strftime(the_day, "%b")
 
 
+def insert_element_into_array_after(array: np.ndarray, index: int, value: typing.Any):
+    separindex = index + 1
+    components = (array[:separindex], np.array([value]), array[separindex:])
+    return np.concatenate(components, 0)
+
+
 class MPLPointPlot:
     def __init__(self, a: Aggregation):
         self.aggregation = a
@@ -458,11 +464,17 @@ class MPLPointPlot:
         days = np.arange(self.aggregation.days)
         bottom = np.zeros_like(days, dtype=float)
         for status, array, color in self.styles:
-            if 0 <= self.index_of_today <= len(days):
-                array[self.index_of_today:] = array[self.index_of_today]
-            ax.fill_between(days, array + bottom, bottom, label=status,
-                            color=color, edgecolor="white", linewidth=self.width * 0.5)
+            self._plot_data_with_termination(ax, status, array, bottom, color)
             bottom += array
+
+    def _plot_data_with_termination(self, ax, status, array, bottom, color):
+        days = np.arange(self.aggregation.days)
+        if 0 <= self.index_of_today < len(days):
+            array = insert_element_into_array_after(array[:self.index_of_today + 1], self.index_of_today, 0)
+            bottom = insert_element_into_array_after(bottom[:self.index_of_today + 1], self.index_of_today, 0)
+            days = insert_element_into_array_after(days[:self.index_of_today + 1], self.index_of_today, self.index_of_today)
+        ax.fill_between(days, array + bottom, bottom, label=status,
+                        color=color, edgecolor="white", linewidth=self.width * 0.5)
 
     def get_figure(self):
         import matplotlib.pyplot as plt

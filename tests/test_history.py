@@ -713,3 +713,8 @@ def test_target_span_ending_after_is_recalculated():
     overflowing_ratio = ONE_DAY / (t.work_span[1] - t.work_span[0])
     assert r.plan_timeline.value_at(END) == overflowing_ratio
 
+
+def test_element_insertion():
+    a = np.array([1])
+    new_a = tm.insert_element_into_array_after(a, 0, 2)
+    np.testing.assert_array_equal(new_a, np.array([1, 2]))
