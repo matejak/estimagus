@@ -415,9 +415,11 @@ def tree_view_retro():
     user_id = user.get_id()
     model = get_user_model(user_id, webdata.RetroTarget, targets_tree_without_duplicates)
 
+    priority_sorted_targets = sorted(targets_tree_without_duplicates, key=lambda x: - x.priority)
+
     return render_template(
         "tree_view_retrospective.html", title="Retrospective Tasks tree view",
-        targets=targets_tree_without_duplicates, model=model, ** executive_summary)
+        targets=priority_sorted_targets, model=model, ** executive_summary)
 
 
 @bp.route('/retrospective/epic/<epic_name>')
