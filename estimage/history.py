@@ -478,6 +478,13 @@ class MPLPointPlot:
 
     def get_figure(self):
         import matplotlib.pyplot as plt
+        plt.rcParams['svg.fonttype'] = 'none'
+        plt.rcParams['font.sans-serif'] = (
+            "system-ui", "-apple-system", "Segoe UI", "Roboto", "Helvetica Neue", "Noto Sans", "Liberation Sans",
+            "Arial,sans-serif" ,"Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji",
+        )
+        plt.rcParams['font.size'] = 12
+
         fig, ax = plt.subplots()
         ax.grid(True)
 
@@ -530,6 +537,13 @@ class MPLVelocityPlot:
 
     def get_figure(self, cutoff_date):
         import matplotlib.pyplot as plt
+        plt.rcParams['svg.fonttype'] = 'none'
+        plt.rcParams['font.sans-serif'] = (
+            "system-ui", "-apple-system", "Segoe UI", "Roboto", "Helvetica Neue", "Noto Sans", "Liberation Sans",
+            "Arial,sans-serif" ,"Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji",
+        )
+        plt.rcParams['font.size'] = 12
+
         fig, ax = plt.subplots()
         ax.grid(True)
 
