@@ -15,7 +15,7 @@ JIRA_STATUS_TO_STATE = {
     "Refinement": target.State.todo,
     "New": target.State.todo,
     "Done": target.State.done,
-    "VERIFIED": target.State.done,
+    "Verified": target.State.done,
     "Abandoned": target.State.abandoned,
     "Closed": target.State.abandoned,
     "In Progress": target.State.in_progress,
@@ -59,7 +59,7 @@ class InputSpec:
 
 
 def identify_epic_subtasks(jira, epic, known_issues_by_id, parents_child_keymap):
-    subtasks = jira.search_issues(f'"Epic Link" = {epic.key}', expand="changelog")
+    subtasks = jira.search_issues(f'"Epic Link" = {epic.key}', expand="changelog", maxResults=0)
     for t in subtasks:
         parents_child_keymap[epic.key].add(t.key)
         if t.key in known_issues_by_id:
@@ -81,8 +81,8 @@ def recursively_identify_task_subtasks(jira, task, known_issues_by_id, parents_c
         recursively_identify_task_subtasks(jira, subtask, known_issues_by_id, parents_child_keymap)
 
 
-def get_epics_and_tasks_by_id(jira, epics_query, all_items_by_name, parents_child_keymap):
-    epics = jira.search_issues(f"type = epic AND {epics_query}", expand="changelog")
+def get_epics_and_their_tasks_by_id(jira, epics_query, all_items_by_name, parents_child_keymap):
+    epics = jira.search_issues(f"type = epic AND {epics_query}", expand="changelog", maxResults=0)
 
     new_epics_names = set()
     for epic in epics:
@@ -240,7 +240,7 @@ def import_targets_and_events(spec, retro_target_class, proj_target_class, event
     all_issues_by_name = dict()
     issue_names_requiring_events = set()
     if spec.retrospective_query:
-        retro_epic_names = get_epics_and_tasks_by_id(jira, spec.retrospective_query, all_issues_by_name, parents_child_keymap)
+        retro_epic_names = get_epics_and_their_tasks_by_id(jira, spec.retrospective_query, all_issues_by_name, parents_child_keymap)
         new_targets = export_jira_epic_chain_to_targets(retro_epic_names, all_issues_by_name, parents_child_keymap, retro_target_class)
         issue_names_requiring_events.update(new_targets.keys())
         targets_by_id.update(new_targets)
@@ -249,7 +249,7 @@ def import_targets_and_events(spec, retro_target_class, proj_target_class, event
 
     if spec.projective_query:
         print("Gathering proj stuff")
-        proj_epic_names = get_epics_and_tasks_by_id(jira, spec.projective_query, all_issues_by_name, parents_child_keymap)
+        proj_epic_names = get_epics_and_their_tasks_by_id(jira, spec.projective_query, all_issues_by_name, parents_child_keymap)
         new_targets = export_jira_epic_chain_to_targets(retro_epic_names, all_issues_by_name, parents_child_keymap, proj_target_class)
         targets_by_id.update(new_targets)
         print(f"{len(targets_by_id)} issues so far")
