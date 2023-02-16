@@ -154,10 +154,11 @@ class IniPollster(data.Pollster, IniStorage):
         keyname = f"{ns}-{name}"
         return keyname
 
-    def _ask_points(self, ns, name):
+    def _ask_points(self, ns, name, config=None):
         keyname = self._keyname(ns, name)
 
-        config = self._load_existing_config()
+        if not config:
+            config = self._load_existing_config()
         if keyname in config:
             ret = data.EstimInput()
             ret.most_likely = float(config[keyname]["most_likely"])
@@ -192,8 +193,9 @@ class IniPollster(data.Pollster, IniStorage):
         with self._manipulate_existing_config() as config:
             config.pop(keyname)
 
-    def provide_info_about(self, names: typing.Iterable[str]) -> typing.Dict[str, data.Estimate]:
-        config = self._load_existing_config()
+    def provide_info_about(self, names: typing.Iterable[str], config=None) -> typing.Dict[str, data.Estimate]:
+        if not config:
+            config = self._load_existing_config()
         ret = dict()
         for name in names:
             if self._knows_points(self._namespace, name, config=config):
