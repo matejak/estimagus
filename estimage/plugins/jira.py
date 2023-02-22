@@ -59,7 +59,7 @@ class InputSpec:
 
 
 def identify_epic_subtasks(jira, epic, known_issues_by_id, parents_child_keymap):
-    subtasks = jira.search_issues(f'"Epic Link" = {epic.key}', expand="changelog", maxResults=0)
+    subtasks = jira.search_issues(f'"Epic Link" = {epic.key}', expand="changelog,renderedFields", maxResults=0)
     for t in subtasks:
         parents_child_keymap[epic.key].add(t.key)
         if t.key in known_issues_by_id:
@@ -76,13 +76,13 @@ def recursively_identify_task_subtasks(jira, task, known_issues_by_id, parents_c
         parents_child_keymap[task.key].add(subtask.key)
         if subtask.key in known_issues_by_id:
             continue
-        subtask = jira.issue(subtask.key, expand="changelog")
+        subtask = jira.issue(subtask.key, expand="changelog,renderedFields")
         known_issues_by_id[subtask.key] = subtask
         recursively_identify_task_subtasks(jira, subtask, known_issues_by_id, parents_child_keymap)
 
 
 def get_epics_and_their_tasks_by_id(jira, epics_query, all_items_by_name, parents_child_keymap):
-    epics = jira.search_issues(f"type = epic AND {epics_query}", expand="changelog", maxResults=0)
+    epics = jira.search_issues(f"type = epic AND {epics_query}", expand="changelog,renderedFields", maxResults=0)
 
     new_epics_names = set()
     for epic in epics:
@@ -107,12 +107,23 @@ def merge_jira_item_without_children(result_class, item, all_items_by_id, parent
     result.name = item.key
     result.title = item.get_field("summary") or ""
     result.description = item.get_field("description") or ""
+    try:
+        result.description = item.renderedFields.description.replace("\r", "")
+    except Exception:
+        pass
     result.point_cost = float(item.get_field(STORY_POINTS) or 0)
     result.state = JIRA_STATUS_TO_STATE.get(item.get_field("status").name, target.State.unknown)
     result.priority = JIRA_PRIORITY_TO_VALUE.get(item.get_field("priority").name, 0)
     result.status_summary = item.get_field(STATUS_SUMMARY) or ""
+    try:
+        result.status_summary = getattr(item.renderedFields, STATUS_SUMMARY).replace("\r", "")
+    except Exception:
+        pass
     result.tags = {f"label:{value}" for value in (item.get_field("labels") or [])}
     result.collaborators = []
+
+    if assignee := item.get_field("assignee"):
+        result.assignee = assignee.key
 
     try:
         result.collaborators += [c.key for c in item.get_field(CONTRIBUTORS) or []]
@@ -181,6 +192,7 @@ def jira_date_to_datetime(jira_date):
 def import_event(event, date, related_task_name):
     STORY_POINTS = "customfield_12310243"
     EPIC_LINK = "customfield_12311140"
+    STATUS_SUMMARY = "customfield_12317299"
 
     field_name = event.field
     former_value = event.fromString
@@ -202,8 +214,36 @@ def import_event(event, date, related_task_name):
         evt.value_before = int(former_value in sprint_epics)
         evt.value_after = int(new_value in sprint_epics)
         evt.msg = f"Got assigned epic {new_value}"
+    elif field_name == "Latest Status Summary":
+        evt = evts.Event(related_task_name, "status_summary", date)
+        evt.value_before = former_value
+        evt.value_after = new_value
+        evt.msg = f"Event summary changed to {new_value}"
+        print(evt)
 
     return evt
+
+
+def extract_status_updates(all_events):
+    last_updates = dict()
+    for e in all_events:
+        if e.quantity == "status_summary":
+            if (task_name := e.task_name) in last_updates:
+                last_updates[task_name] = max(last_updates[task_name], e.time)
+            else:
+                last_updates[task_name] = e.time
+    return last_updates
+
+
+def apply_status_updates(issues_by_name, all_events):
+    last_updates_by_id = extract_status_updates(all_events)
+    print(last_updates_by_id)
+    for issue_name, date in last_updates_by_id.items():
+        issues_by_name[issue_name].status_summary_time = date
+
+
+def apply_some_events_into_issues(issues_by_name, all_events):
+    apply_status_updates(issues_by_name, all_events)
 
 
 def append_event_entry(events, event, date, related_task_name):
@@ -254,11 +294,13 @@ def import_targets_and_events(spec, retro_target_class, proj_target_class, event
         targets_by_id.update(new_targets)
         print(f"{len(targets_by_id)} issues so far")
 
-    save_exported_jira_tasks(targets_by_id)
-
     all_events = []
     for name in issue_names_requiring_events:
         all_events.extend(get_task_events(all_issues_by_name[name], spec.cutoff_date))
+
+    apply_some_events_into_issues(targets_by_id, all_events)
+    save_exported_jira_tasks(targets_by_id)
+
     storer = event_manager_class()
     for e in all_events:
         storer.add_event(e)

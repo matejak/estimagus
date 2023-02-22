@@ -52,6 +52,7 @@ class IniTarget(data.BaseTarget, IniStorage):
             depnames=",".join([dep.name for dep in self.dependents]),
             state=str(int(self.state)),
             collaborators=",".join(self.collaborators),
+            assignee=self.assignee,
             priority=str(float(self.priority)),
             status_summary=self.status_summary,
             tags=",".join(self.tags),
@@ -60,6 +61,8 @@ class IniTarget(data.BaseTarget, IniStorage):
             metadata["work_start"] = self.work_span[0].isoformat()
         if self.work_span and self.work_span[1] is not None:
             metadata["work_end"] = self.work_span[1].isoformat()
+        if self.status_summary_time:
+            metadata["status_summary_time"] = self.status_summary_time.isoformat()
         with self._update_key_with_dictionary(self.name) as callback:
             callback(metadata)
 
@@ -108,6 +111,7 @@ class IniTarget(data.BaseTarget, IniStorage):
         ret.priority = float(our_config.get("priority", ret.priority))
         ret.status_summary = our_config.get("status_summary", "")
         ret.collaborators = our_config.get("collaborators", "").split(",")
+        ret.assignee = our_config.get("assignee", "")
         ret.tags = set(our_config.get("tags", "").split(","))
 
         span = [None, None]
@@ -117,6 +121,8 @@ class IniTarget(data.BaseTarget, IniStorage):
             span[1] = datetime.datetime.fromisoformat(our_config["work_end"])
         if span[0] or span[1]:
             ret.work_span = tuple(span)
+        if "status_summary_time" in our_config:
+            ret.status_summary_time = datetime.datetime.fromisoformat(our_config["status_summary_time"])
 
         for n in our_config.get("depnames", "").split(","):
             if not n:

@@ -23,7 +23,7 @@
         </ul>
     </p>
     <p>
-    <img src="{{ url_for('main.visualize_burndown', epic_name=epic.name) }}" alt="Epic Burndown"/>
+    <img src="{{ url_for('main.visualize_burndown', epic_name=epic.name, size="normal") }}" alt="Epic Burndown"/>
     </p>
     </div>
     <div class="col">
@@ -47,7 +47,7 @@
     <p>
         <ul>
         {% for d in epic.dependents %}
-	{{ utils.render_whatever_retro(d, model) }}
+	{{ utils.render_whatever_retro(d, model, today) }}
         {% endfor %}
         </ul>
     </p>

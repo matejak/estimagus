@@ -243,6 +243,8 @@ def send_figure_as_png(figure, basename):
 
     bytesio = io.BytesIO()
     figure.savefig(bytesio, format="png", bbox_inches='tight')
+    import matplotlib.pyplot as plt
+    plt.close(figure)
     bytesio.seek(0)
 
     return flask.send_file(bytesio, download_name=filename, mimetype="image/png")
@@ -252,7 +254,9 @@ def send_figure_as_svg(figure, basename):
     filename = basename + ".svg"
 
     bytesio = io.BytesIO()
-    figure.savefig(bytesio, format="svg", bbox_inches='tight')
+    figure.savefig(bytesio, pad_inches=0, dpi="figure", format="svg", bbox_inches='tight')
+    import matplotlib.pyplot as plt
+    plt.close(figure)
     bytesio.seek(0)
 
     return flask.send_file(bytesio, download_name=filename, mimetype="image/svg+xml")
@@ -301,9 +305,10 @@ def plot_delta_pert(ax, pert, expected, task_name):
     ax.scatter(expected, 0, ec="b", fc="w", lw=2, zorder=3)
 
 
-@bp.route('/vis/<epic_name>-burndown.svg')
+@bp.route('/vis/<epic_name>-<size>-burndown.svg')
 @flask_login.login_required
-def visualize_burndown(epic_name):
+def visualize_burndown(epic_name, size):
+    assert size in ("small", "normal")
     all_targets = webdata.RetroTarget.get_loaded_targets_by_id()
     target_tree = utilities.reduce_subsets_from_sets(list(all_targets.values()))
     all_events = webdata.EventManager.load()
@@ -319,7 +324,10 @@ def visualize_burndown(epic_name):
 
     aggregation.process_event_manager(all_events)
 
-    fig = history.MPLPointPlot(aggregation).get_figure()
+    if size == "small":
+        fig = history.MPLPointPlot(aggregation).get_small_figure()
+    else:
+        fig = history.MPLPointPlot(aggregation).get_figure()
     return send_figure_as_svg(fig, epic_name)
 
 
@@ -343,6 +351,7 @@ def visualize_velocity(epic_name):
     cutoff_date = min(datetime.datetime.today(), end)
 
     fig = history.MPLVelocityPlot(aggregation).get_figure(cutoff_date)
+    fig.set_size_inches(6.0, 4.4)
     return send_figure_as_svg(fig, epic_name)
 
 
@@ -459,7 +468,7 @@ def tree_view_retro():
 
     return render_template(
         "tree_view_retrospective.html", title="Retrospective Tasks tree view",
-        targets=priority_sorted_targets, model=model, ** executive_summary)
+        targets=priority_sorted_targets, today=datetime.datetime.today(), model=model, ** executive_summary)
 
 
 @bp.route('/retrospective/epic/<epic_name>')
@@ -473,7 +482,8 @@ def view_epic_retro(epic_name):
     model = get_user_model(user_id, webdata.RetroTarget, [t])
 
     return render_template(
-        'epic_view_retrospective.html', title='View epic', epic=t, model=model, ** executive_summary)
+        'epic_view_retrospective.html', title='View epic',
+        today=datetime.datetime.today(), epic=t, model=model, ** executive_summary)
 
 
 @bp.route('/plugins/jira', methods=("GET", "POST"))

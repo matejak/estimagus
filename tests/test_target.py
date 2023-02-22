@@ -202,8 +202,10 @@ def test_target_load_and_save_values(persistent_target_class):
     one.title = "Issue One"
     one.state = target.State.in_progress
     one.collaborators = ["a", "b"]
+    one.assignee = "trubador"
     one.priority = 20
     one.status_summary = "Lorem Ipsum and So On"
+    one.status_summary_time = datetime.datetime(1918, 8, 3)
     one.tags = ["t1", "l2", "t1"]
     one.work_span = (datetime.datetime(1939, 9, 1), datetime.datetime(1945, 5, 7))
     one.save_metadata()
@@ -222,6 +224,8 @@ def test_target_load_and_save_values(persistent_target_class):
     assert loaded_one.status_summary == one.status_summary
     assert loaded_one.tags == set(["t1", "l2"])
     assert loaded_one.work_span == one.work_span
+    assert loaded_one.assignee == one.assignee
+    assert loaded_one.status_summary_time == one.status_summary_time
 
 
 def create_given_target_and_dependency(cls):

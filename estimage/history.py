@@ -497,6 +497,30 @@ class MPLPointPlot:
         x_axis_weeks_and_months(ax, self.aggregation.start, self.aggregation.end)
         ax.set_ylabel("points")
 
+        fig.set_size_inches(6.0, 4.4)
+
+        return fig
+
+    def get_small_figure(self):
+        import matplotlib.pyplot as plt
+        plt.rcParams['svg.fonttype'] = 'none'
+        plt.rcParams['font.sans-serif'] = (
+            "system-ui", "-apple-system", "Segoe UI", "Roboto", "Helvetica Neue", "Noto Sans", "Liberation Sans",
+            "Arial,sans-serif" ,"Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji",
+        )
+        plt.rcParams['font.size'] = 12
+
+        fig, ax = plt.subplots()
+
+        self._prepare_plots()
+        self._plot_prepared_arrays(ax)
+        self._show_plan(ax)
+        self._show_today(ax)
+
+        ax.set_axis_off()
+        fig.set_size_inches(2.2, 1.6)
+        fig.subplots_adjust(0, 0, 1, 1)
+
         return fig
 
     def plot_stuff(self):
