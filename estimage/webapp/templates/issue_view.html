@@ -63,7 +63,7 @@
         {{ estimation_form_in_accordion() }}
     {%- if estimate %}
         <p>Point estimate: {{ utils.render_estimate(estimate) }}</p>
-        <img src="{{ url_for('main.visualize_task', task_name=task.name) }}" alt="PERT prob density function for {{ task.name }}"/>
+        <img src="{{ url_for('vis.visualize_task', task_name=task.name) }}" alt="PERT prob density function for {{ task.name }}"/>
     {%- endif %}
     </div>
     </div>

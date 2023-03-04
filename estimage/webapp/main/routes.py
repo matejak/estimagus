@@ -1,29 +1,19 @@
-import io
 import cProfile
 import functools
+import datetime
+import types
 
 import flask
 import flask_login
 import werkzeug.urls
-import matplotlib
-import datetime
-import types
 
 from . import bp
 from . import forms
+from .. import web_utils
 from ... import data
 from ... import utilities
 from ... import simpledata as webdata
 from ... import history
-from ..users import User
-from .google_login import google_callback_dest, google_login
-
-
-matplotlib.use('Agg')
-
-import matplotlib.pyplot as plt
-NORMAL_FIGURE_SIZE = (6.0, 4.4)
-SMALL_FIGURE_SIZE = (2.2, 1.6)
 
 
 def profile(wrapped):
@@ -38,50 +28,6 @@ def profile(wrapped):
             pr.dump_stats(f"{wrapped.__name__}.pstats")
         return ret
     return wrapper
-
-
-def render_template(template_basename, title, **kwargs):
-    authenticated_user = ""
-    if flask_login.current_user.is_authenticated:
-        authenticated_user = flask_login.current_user
-    return flask.render_template(
-        template_basename, title=title, authenticated_user=authenticated_user, ** kwargs)
-
-
-@bp.route('/logout', methods=['GET'])
-def logout():
-    flask_login.logout_user()
-    return flask.redirect(flask.url_for("main.login"))
-
-
-def autologin(safe_next_page):
-    form = forms.AutoLoginForm()
-    if form.validate_on_submit():
-        user = User(form.username.data)
-        flask_login.login_user(user, remember=form.remember_me.data)
-        return flask.redirect(safe_next_page)
-    login_provider = flask.current_app.config["LOGIN_PROVIDER_NAME"]
-    return render_template(
-        'login.html', title='Sign In', login_form=form,
-        next=safe_next_page, login_provider=login_provider)
-
-
-@bp.route('/login', methods=['GET', 'POST'])
-def login():
-    config_dict = flask.current_app.config
-
-    next_page = flask.request.args.get('next')
-    if not next_page or werkzeug.urls.url_parse(next_page).netloc != '':
-        next_page = flask.url_for('main.tree_view')
-
-    match provider_name := config_dict["LOGIN_PROVIDER_NAME"]:
-        case "autologin":
-            return autologin(next_page)
-        case "google":
-            return google_login(next_page)
-        case _:
-            msg = f"Unknown login provider: {provider_name}"
-            raise ValueError(msg)
 
 
 def tell_pollster_about_obtained_data(pollster, task_id, form_data):
@@ -222,7 +168,7 @@ def view_task(task_name):
         con_input = c_pollster.ask_points(task_name)
         estimation_args["consensus"] = data.Estimate.from_input(con_input)
 
-    return render_template(
+    return web_utils.render_template(
         'issue_view.html', title='Estimate Issue',
         user=user, forms=request_forms, task=t, ** estimation_args)
 
@@ -233,169 +179,18 @@ def view_epic(epic_name):
     user = flask_login.current_user
 
     user_id = user.get_id()
-    model = get_user_model(user_id, webdata.ProjTarget)
+    model = web_utils.get_user_model(user_id, webdata.ProjTarget)
 
     t = projective_retrieve_task(epic_name)
 
-    return render_template(
+    return web_utils.render_template(
         'epic_view.html', title='View epic', epic=t, model=model)
-
-
-def send_figure_as_png(figure, basename):
-    filename = basename + ".png"
-
-    bytesio = io.BytesIO()
-    figure.savefig(bytesio, format="png", bbox_inches='tight')
-    plt.close(figure)
-    bytesio.seek(0)
-
-    return flask.send_file(bytesio, download_name=filename, mimetype="image/png")
-
-
-def send_figure_as_svg(figure, basename):
-    filename = basename + ".svg"
-
-    bytesio = io.BytesIO()
-    figure.savefig(bytesio, pad_inches=0, dpi="figure", format="svg", bbox_inches='tight')
-    plt.close(figure)
-    bytesio.seek(0)
-
-    return flask.send_file(bytesio, download_name=filename, mimetype="image/svg+xml")
-
-
-def get_pert_in_figure(estimation, task_name):
-    pert = estimation.get_pert()
-
-    plt.rcParams['svg.fonttype'] = 'none'
-    plt.rcParams['font.sans-serif'] = (
-        "system-ui", "-apple-system", "Segoe UI", "Roboto", "Helvetica Neue", "Noto Sans", "Liberation Sans",
-        "Arial,sans-serif" ,"Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji",
-    )
-    plt.rcParams['font.size'] = 12
-
-    fig, ax = plt.subplots(1, 1)
-    if estimation.sigma == 0:
-        plot_delta_pert(ax, pert, estimation.expected, task_name)
-    else:
-        plot_continuous_pert(ax, pert, estimation.expected, task_name)
-
-    ax.set_xlabel("points")
-    ax.set_ylabel("probability density")
-    ax.set_yticklabels([])
-    ax.grid()
-    ax.legend()
-
-    return fig
-
-
-def plot_continuous_pert(ax, pert, expected, task_name):
-    ax.plot(pert[0], pert[1], 'b-', lw=2, label=f'task {task_name}')
-    ax.axvline(expected, color="orange", label="expected value")
-
-
-def plot_delta_pert(ax, pert, expected, task_name):
-    dom = pert[0]
-    ax.plot(dom, 0 * dom, 'b-', lw=2, label=f'task {task_name}')
-    ax.axvline(expected, color="orange", label="expected value", zorder=2)
-    # ax.arrow(expected, 0, 0, 1, fc='b', ec="b", lw=2, width=0.01, zorder=2)
-    ax.set_ylim(-0.1, 1.1)
-    ax.set_xlim(max(dom[0], -0.1), max(dom[-1], 0))
-    ax.annotate(
-        "", xy=(expected, 1), xycoords='data', xytext=(expected, 0), textcoords='data',
-        arrowprops=dict(arrowstyle="->", connectionstyle="arc3", ec="b", lw=2), zorder=4)
-    ax.scatter(expected, 0, ec="b", fc="w", lw=2, zorder=3)
-
-
-@bp.route('/vis/<epic_name>-<size>-burndown.svg')
-@flask_login.login_required
-def visualize_burndown(epic_name, size):
-    assert size in ("small", "normal")
-    all_targets = webdata.RetroTarget.get_loaded_targets_by_id()
-    target_tree = utilities.reduce_subsets_from_sets(list(all_targets.values()))
-    all_events = webdata.EventManager.load()
-
-    start = flask.current_app.config["PERIOD"]["start"]
-    end = flask.current_app.config["PERIOD"]["end"]
-
-    if epic_name == ".":
-        aggregation = history.Aggregation.from_targets(target_tree, start, end)
-    else:
-        epic = all_targets[epic_name]
-        aggregation = history.Aggregation.from_target(epic, start, end)
-
-    aggregation.process_event_manager(all_events)
-
-    if size == "small":
-        fig = history.MPLPointPlot(aggregation).get_small_figure()
-        fig.set_size_inches(* SMALL_FIGURE_SIZE)
-    else:
-        fig = history.MPLPointPlot(aggregation).get_figure()
-        fig.set_size_inches(* NORMAL_FIGURE_SIZE)
-    return send_figure_as_svg(fig, epic_name)
-
-
-@bp.route('/vis/<epic_name>-velocity.svg')
-@flask_login.login_required
-def visualize_velocity(epic_name):
-    all_targets = webdata.RetroTarget.get_loaded_targets_by_id()
-    target_tree = utilities.reduce_subsets_from_sets(list(all_targets.values()))
-    all_events = webdata.EventManager.load()
-
-    start = flask.current_app.config["PERIOD"]["start"]
-    end = flask.current_app.config["PERIOD"]["end"]
-
-    if epic_name == ".":
-        aggregation = history.Aggregation.from_targets(target_tree, start, end)
-    else:
-        epic = all_targets[epic_name]
-        aggregation = history.Aggregation.from_target(epic, start, end)
-
-    aggregation.process_event_manager(all_events)
-    cutoff_date = min(datetime.datetime.today(), end)
-
-    fig = history.MPLVelocityPlot(aggregation).get_figure(cutoff_date)
-    fig.set_size_inches(* NORMAL_FIGURE_SIZE)
-    return send_figure_as_svg(fig, epic_name)
-
-
-@bp.route('/vis/<task_name>-pert.svg')
-@flask_login.login_required
-def visualize_task(task_name):
-    user = flask_login.current_user
-
-    user_id = user.get_id()
-    model = get_user_model(user_id, webdata.ProjTarget)
-    if task_name == ".":
-        estimation = model.nominal_point_estimate
-    else:
-        estimation = model.nominal_point_estimate_of(task_name)
-
-    fig = get_pert_in_figure(estimation, task_name)
-
-    return send_figure_as_svg(fig, task_name)
-
-
-def get_target_tree_with_no_double_occurence(cls):
-    all_targets = cls.load_all_targets()
-    targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(all_targets)
-    return targets_tree_without_duplicates
-
-
-def get_user_model(user_id, cls, targets_tree_without_duplicates=None):
-    if targets_tree_without_duplicates is None:
-        targets_tree_without_duplicates = get_target_tree_with_no_double_occurence(cls)
-    authoritative_pollster = webdata.AuthoritativePollster()
-    user_pollster = webdata.UserPollster(user_id)
-    model = webdata.get_model(targets_tree_without_duplicates)
-    authoritative_pollster.inform_results(model.get_all_task_models())
-    user_pollster.inform_results(model.get_all_task_models())
-    return model
 
 
 def get_similar_tasks(user_id, task_name):
     all_tasks = []
     for cls in (webdata.RetroTarget, webdata.ProjTarget):
-        model = get_user_model(user_id, cls)
+        model = web_utils.get_user_model(user_id, cls)
         all_tasks.extend(model.get_all_task_models())
     return webdata.order_nearby_tasks(model.get_element(task_name), all_tasks, 0.5, 2)
 
@@ -413,8 +208,8 @@ def tree_view():
 
     all_targets = webdata.ProjTarget.load_all_targets()
     targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(all_targets)
-    model = get_user_model(user_id, webdata.ProjTarget, targets_tree_without_duplicates)
-    return render_template(
+    model = web_utils.get_user_model(user_id, webdata.ProjTarget, targets_tree_without_duplicates)
+    return web_utils.render_template(
         "tree_view.html", title="Tasks tree view",
         targets=targets_tree_without_duplicates, model=model)
 
@@ -465,11 +260,11 @@ def tree_view_retro():
 
     user = flask_login.current_user
     user_id = user.get_id()
-    model = get_user_model(user_id, webdata.RetroTarget, targets_tree_without_duplicates)
+    model = web_utils.get_user_model(user_id, webdata.RetroTarget, targets_tree_without_duplicates)
 
     priority_sorted_targets = sorted(targets_tree_without_duplicates, key=lambda x: - x.priority)
 
-    return render_template(
+    return web_utils.render_template(
         "tree_view_retrospective.html", title="Retrospective Tasks tree view",
         targets=priority_sorted_targets, today=datetime.datetime.today(), model=model, ** executive_summary)
 
@@ -482,9 +277,9 @@ def view_epic_retro(epic_name):
 
     user = flask_login.current_user
     user_id = user.get_id()
-    model = get_user_model(user_id, webdata.RetroTarget, [t])
+    model = web_utils.get_user_model(user_id, webdata.RetroTarget, [t])
 
-    return render_template(
+    return web_utils.render_template(
         'epic_view_retrospective.html', title='View epic',
         today=datetime.datetime.today(), epic=t, model=model, ** executive_summary)
 
@@ -500,5 +295,5 @@ def jira_plugin():
         task_spec = plugins.jira.InputSpec.from_dict(form)
         plugins.jira.do_stuff(task_spec)
 
-    return render_template(
+    return web_utils.render_template(
         'jira.html', title='Jira Plugin', plugin_form=form, )
