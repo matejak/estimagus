@@ -20,7 +20,10 @@ from .google_login import google_callback_dest, google_login
 
 
 matplotlib.use('Agg')
+
 import matplotlib.pyplot as plt
+NORMAL_FIGURE_SIZE = (6.0, 4.4)
+SMALL_FIGURE_SIZE = (2.2, 1.6)
 
 
 def profile(wrapped):
@@ -243,7 +246,6 @@ def send_figure_as_png(figure, basename):
 
     bytesio = io.BytesIO()
     figure.savefig(bytesio, format="png", bbox_inches='tight')
-    import matplotlib.pyplot as plt
     plt.close(figure)
     bytesio.seek(0)
 
@@ -255,7 +257,6 @@ def send_figure_as_svg(figure, basename):
 
     bytesio = io.BytesIO()
     figure.savefig(bytesio, pad_inches=0, dpi="figure", format="svg", bbox_inches='tight')
-    import matplotlib.pyplot as plt
     plt.close(figure)
     bytesio.seek(0)
 
@@ -326,8 +327,10 @@ def visualize_burndown(epic_name, size):
 
     if size == "small":
         fig = history.MPLPointPlot(aggregation).get_small_figure()
+        fig.set_size_inches(* SMALL_FIGURE_SIZE)
     else:
         fig = history.MPLPointPlot(aggregation).get_figure()
+        fig.set_size_inches(* NORMAL_FIGURE_SIZE)
     return send_figure_as_svg(fig, epic_name)
 
 
@@ -351,7 +354,7 @@ def visualize_velocity(epic_name):
     cutoff_date = min(datetime.datetime.today(), end)
 
     fig = history.MPLVelocityPlot(aggregation).get_figure(cutoff_date)
-    fig.set_size_inches(6.0, 4.4)
+    fig.set_size_inches(* NORMAL_FIGURE_SIZE)
     return send_figure_as_svg(fig, epic_name)
 
 
