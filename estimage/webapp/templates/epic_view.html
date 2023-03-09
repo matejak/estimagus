@@ -22,7 +22,7 @@
     <h3>Sum of subtasks</h3>
         <div class="col">
             <p>Remaining point cost: {{ utils.render_estimate(model.get_nominal_estimate_of(epic.name)) }}</p>
-            <img src="{{ url_for('main.visualize_task', task_name=epic.name) }}" alt="PERT prob density function for {{ epic.name }}"/>
+            <img src="{{ url_for('vis.visualize_task', task_name=epic.name) }}" alt="PERT prob density function for {{ epic.name }}"/>
         </div>
         <div class="col">
             <h3>Nominal values</h3>

@@ -1,29 +1,53 @@
 {% from 'bootstrap5/utils.html' import render_icon %}
 
-{% macro render_whatever_retro(target, model, recursive=true) %}
+{% macro render_whatever_retro(target, model, today, recursive=true) %}
 {% if target.dependents %}
-{{ render_epic_retro(target, model, recursive) }}
+{{ render_epic_retro(target, model, today, recursive) }}
 {% else %}
 {{ render_task(target, model) }}
 {% endif %}
 {% endmacro %}
 
-{% macro render_epic_retro(epic, model, recursive=true) %}
+{% macro render_epic_retro(epic, model, today, recursive=true) %}
     <li>
         {{ epic_link(epic, "main.view_epic_retro") }} &mdash; {{ epic.title }}
+        <div class="container-md">
+           <div class="row">
+              <div class="col">
+
         <p>
         {{ state_to_string(epic.state) }}, {{ "%.2g" % model.remaining_point_estimate_of(epic.name).expected }} points remaining.
         </p>
+        <p>
+	Owner:
+        {%- if epic.assignee -%}
+	{{ " " ~ epic.assignee }}
+        {%- else -%}
+	{{ " nobody" }}
+        {%- endif %}
+        </p>
         {% if epic.status_summary -%}
-        <p>{{ epic.status_summary }}</p>
+        <p>
+	Summary
+        {%- if epic.status_summary_time -%}
+	{{ " " ~ (today - epic.status_summary_time).days }} days old
+        {%- endif -%}
+	: {{ epic.status_summary | safe }}</p>
         {%- endif %}
         {% if recursive -%}
         {% for target in epic.dependents %}
         <ul>
-            {{- render_whatever_retro(target, model, recursive=recursive) -}}
+            {{- render_whatever_retro(target, model, today, recursive=recursive) -}}
         </ul>
         {% endfor %}
         {%- endif %}
+
+              </div>
+              <div class="col">
+    <img src="{{ url_for('vis.visualize_burndown', epic_name=epic.name, size="small") }}" alt="Epic Burndown"/>
+              </div>
+           </div>
+        </div>
     </li>
 {% endmacro %}
 
@@ -91,7 +115,7 @@
 <h2>{{ task.title }}</h2>
 <div>State: {{ task.state  }}</div>
 <h3>Description</h3>
-<div>{{ (task.description | escape) or "No description" }}</div>
+<div>{{ (task.description | safe) or "No description" }}</div>
 {%- endmacro %}
 
 

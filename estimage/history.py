@@ -11,6 +11,17 @@ from . import data
 ONE_DAY = datetime.timedelta(days=1)
 
 
+def get_standard_pyplot():
+    import matplotlib.pyplot as plt
+    plt.rcParams['svg.fonttype'] = 'none'
+    plt.rcParams['font.sans-serif'] = (
+        "system-ui", "-apple-system", "Segoe UI", "Roboto", "Helvetica Neue", "Noto Sans", "Liberation Sans",
+        "Arial,sans-serif" ,"Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji",
+    )
+    plt.rcParams['font.size'] = 12
+    return plt
+
+
 def get_period(start: datetime.datetime, end: datetime.datetime):
     period = end - start
     return np.zeros(period.days)
@@ -477,13 +488,7 @@ class MPLPointPlot:
                         color=color, edgecolor="white", linewidth=self.width * 0.5)
 
     def get_figure(self):
-        import matplotlib.pyplot as plt
-        plt.rcParams['svg.fonttype'] = 'none'
-        plt.rcParams['font.sans-serif'] = (
-            "system-ui", "-apple-system", "Segoe UI", "Roboto", "Helvetica Neue", "Noto Sans", "Liberation Sans",
-            "Arial,sans-serif" ,"Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji",
-        )
-        plt.rcParams['font.size'] = 12
+        plt = get_standard_pyplot()
 
         fig, ax = plt.subplots()
         ax.grid(True)
@@ -499,8 +504,23 @@ class MPLPointPlot:
 
         return fig
 
+    def get_small_figure(self):
+        plt = get_standard_pyplot()
+
+        fig, ax = plt.subplots()
+
+        self._prepare_plots()
+        self._plot_prepared_arrays(ax)
+        self._show_plan(ax)
+        self._show_today(ax)
+
+        ax.set_axis_off()
+        fig.subplots_adjust(0, 0, 1, 1)
+
+        return fig
+
     def plot_stuff(self):
-        import matplotlib.pyplot as plt
+        plt = get_standard_pyplot()
         self.get_figure()
 
         plt.show()
@@ -530,19 +550,13 @@ class MPLVelocityPlot:
                 break
 
     def plot_stuff(self, cutoff_date):
-        import matplotlib.pyplot as plt
+        plt = get_standard_pyplot()
         self.get_figure(cutoff_date)
 
         plt.show()
 
     def get_figure(self, cutoff_date):
-        import matplotlib.pyplot as plt
-        plt.rcParams['svg.fonttype'] = 'none'
-        plt.rcParams['font.sans-serif'] = (
-            "system-ui", "-apple-system", "Segoe UI", "Roboto", "Helvetica Neue", "Noto Sans", "Liberation Sans",
-            "Arial,sans-serif" ,"Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji",
-        )
-        plt.rcParams['font.size'] = 12
+        plt = get_standard_pyplot()
 
         fig, ax = plt.subplots()
         ax.grid(True)
