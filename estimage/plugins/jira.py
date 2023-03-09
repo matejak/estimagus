@@ -123,7 +123,7 @@ def merge_jira_item_without_children(result_class, item, all_items_by_id, parent
     result.collaborators = []
 
     if assignee := item.get_field("assignee"):
-        result.assignee = assignee.key
+        result.assignee = assignee.name.split("@", 1)[0]
 
     try:
         result.collaborators += [c.key for c in item.get_field(CONTRIBUTORS) or []]
@@ -219,7 +219,6 @@ def import_event(event, date, related_task_name):
         evt.value_before = former_value
         evt.value_after = new_value
         evt.msg = f"Event summary changed to {new_value}"
-        print(evt)
 
     return evt
 
@@ -237,7 +236,6 @@ def extract_status_updates(all_events):
 
 def apply_status_updates(issues_by_name, all_events):
     last_updates_by_id = extract_status_updates(all_events)
-    print(last_updates_by_id)
     for issue_name, date in last_updates_by_id.items():
         issues_by_name[issue_name].status_summary_time = date
 
@@ -290,7 +288,7 @@ def import_targets_and_events(spec, retro_target_class, proj_target_class, event
     if spec.projective_query:
         print("Gathering proj stuff")
         proj_epic_names = get_epics_and_their_tasks_by_id(jira, spec.projective_query, all_issues_by_name, parents_child_keymap)
-        new_targets = export_jira_epic_chain_to_targets(retro_epic_names, all_issues_by_name, parents_child_keymap, proj_target_class)
+        new_targets = export_jira_epic_chain_to_targets(proj_epic_names, all_issues_by_name, parents_child_keymap, proj_target_class)
         targets_by_id.update(new_targets)
         print(f"{len(targets_by_id)} issues so far")
 
