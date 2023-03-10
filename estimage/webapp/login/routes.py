@@ -1,5 +1,6 @@
 import flask
 import flask_login
+import werkzeug.urls
 
 from . import bp
 from . import forms
