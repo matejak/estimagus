@@ -8,16 +8,19 @@ class PromotionMixin(FlaskForm):
         super().__init__(* args, ** kwargs)
         self.i_kid_you_not.id = id_prefix + self.i_kid_you_not.id
         self.submit.id = id_prefix + self.submit.id
+        self.submit.render_kw = dict(disabled="disabled")
 
 
 class ConsensusForm(PromotionMixin):
     def __init__(self, * args, ** kwargs):
         id_prefix = "consensus_"
         super().__init__(* args, id_prefix=id_prefix, ** kwargs)
+        self.delete.render_kw = dict(disabled="disabled")
 
     i_kid_you_not = BooleanField("Own Estimate Represents the Consensus")
     forget_own_estimate = BooleanField("Also Forget Own Estimate", default=True)
     submit = SubmitField("Promote Own Estimate")
+    delete = SubmitField("Forget Consensus")
 
 
 class AuthoritativeForm(PromotionMixin):
@@ -33,10 +36,14 @@ FIB = [0, 1, 2, 3, 5, 8, 13, 21, 34]
 
 
 class NumberEstimationForm(FlaskForm):
+    def __init__(self, * args, ** kwargs):
+        super().__init__(* args, ** kwargs)
+        self.delete.render_kw = dict(disabled="disabled")
     optimistic = wtforms.DecimalField("Optimistic")
     most_likely = wtforms.DecimalField("Most Likely")
     pessimistic = wtforms.DecimalField("Pessimistic")
     submit = SubmitField("Save Estimate")
+    delete = SubmitField("Forget Estimate")
 
 
 class PointEstimationForm(FlaskForm):

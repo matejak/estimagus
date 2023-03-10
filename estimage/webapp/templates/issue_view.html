@@ -16,16 +16,16 @@
 {%- endmacro %}
 
 
-{% macro estimation_form_in_accordion() -%}
+{% macro estimation_form_in_accordion(estimate_exists) -%}
 <div class="accordion-item">
 	<h4 class="accordion-header" id="headingTwo">
 		<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
-			Create or modify the estimate
+			{{ "Modify" if estimate_exists else "Create" }} the estimate
 		</button>
 	</h4>
 	<div id="collapseTwo" class="accordion-collapse collapse" aria-labelledby="headingTwo" data-bs-parent="#accordionExample">
 		<div class="accordion-body">
-			{{ render_form(forms["estimation"], action=url_for("main.estimate", task_name=task.name)) }}
+			{{ render_form(forms["estimation"], button_map={"submit": "primary", "delete": "danger"}, action=url_for("main.estimate", task_name=task.name)) }}
 		</div>
 	</div>
 </div>
@@ -55,12 +55,12 @@
 	<p>Point cost: {{ utils.render_estimate(consensus) }}</p>
 	{% endif %}
 	{% if "consensus" in forms %}
-        {{ render_form(forms["consensus"], action=url_for("main.move_issue_estimate_to_consensus", task_name=task.name)) }}
+        {{ render_form(forms["consensus"], button_map={"submit": "primary", "delete": "danger"}, action=url_for("main.move_issue_estimate_to_consensus", task_name=task.name)) }}
 	{% endif %}
     </div>
     <div class="col">
     <h3>Our values</h3>
-        {{ estimation_form_in_accordion() }}
+        {{ estimation_form_in_accordion(own_estimation_exists) }}
     {%- if estimate %}
         <p>Point estimate: {{ utils.render_estimate(estimate) }}</p>
         <img src="{{ url_for('vis.visualize_task', task_name=task.name) }}" alt="PERT prob density function for {{ task.name }}"/>

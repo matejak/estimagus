@@ -75,18 +75,25 @@ def move_issue_estimate_to_consensus(task_name):
     user = flask_login.current_user
     user_id = user.get_id()
     form = forms.ConsensusForm()
-    if form.validate_on_submit() and form.i_kid_you_not.data:
-        pollster_user = webdata.UserPollster(user_id)
-        pollster_cons = webdata.AuthoritativePollster()
+    if form.validate_on_submit():
+        if form.submit.data and form.i_kid_you_not.data:
+            pollster_user = webdata.UserPollster(user_id)
+            pollster_cons = webdata.AuthoritativePollster()
 
-        user_point = pollster_user.ask_points(task_name)
-        pollster_cons.tell_points(task_name, user_point)
+            user_point = pollster_user.ask_points(task_name)
+            pollster_cons.tell_points(task_name, user_point)
 
-        if form.forget_own_estimate.data:
-            pollster_user.forget_points(task_name)
+            if form.forget_own_estimate.data:
+                pollster_user.forget_points(task_name)
+        elif form.delete.data:
+            pollster_cons = webdata.AuthoritativePollster()
 
-    else:
-        flask.flash("Consensus not updated, request was not serious")
+            if pollster_cons.knows_points(task_name):
+                pollster_cons.forget_points(task_name)
+            else:
+                flask.flash("Told to forget something that we don't know")
+        else:
+            flask.flash("Consensus not updated, request was not serious")
 
     return flask.redirect(
         flask.url_for("main.view_task", task_name=task_name))
@@ -129,7 +136,13 @@ def estimate(task_name):
     pollster = webdata.UserPollster(user_id)
 
     if form.validate_on_submit():
-        tell_pollster_about_obtained_data(pollster, task_name, form)
+        if form.submit.data:
+            tell_pollster_about_obtained_data(pollster, task_name, form)
+        elif form.delete.data:
+            if pollster.knows_points(task_name):
+                pollster.forget_points(task_name)
+            else:
+                flask.flash("Told to forget something that we don't know")
         return flask.redirect(
             flask.url_for("main.view_task", task_name=task_name))
 
@@ -146,6 +159,11 @@ def view_task(task_name):
         consensus=forms.ConsensusForm(),
         authoritative=forms.AuthoritativeForm(),
     )
+    own_estimation_exists = False
+    if pollster.knows_points(task_name):
+        request_forms["estimation"].delete.render_kw.pop("disabled")
+        request_forms["consensus"].submit.render_kw.pop("disabled")
+        own_estimation_exists = True
 
     t = projective_retrieve_task(task_name)
     estimation_args = dict()
@@ -164,11 +182,14 @@ def view_task(task_name):
         ]
 
         c_pollster = webdata.AuthoritativePollster()
+        if c_pollster.knows_points(task_name):
+            request_forms["consensus"].delete.render_kw.pop("disabled")
+            request_forms["authoritative"].submit.render_kw.pop("disabled")
         con_input = c_pollster.ask_points(task_name)
         estimation_args["consensus"] = data.Estimate.from_input(con_input)
 
     return web_utils.render_template(
-        'issue_view.html', title='Estimate Issue',
+        'issue_view.html', title='Estimate Issue', own_estimation_exists=own_estimation_exists,
         user=user, forms=request_forms, task=t, ** estimation_args)
 
 
