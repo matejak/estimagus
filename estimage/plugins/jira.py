@@ -164,17 +164,19 @@ def resolve_inheritance_of_attributes(name, all_items_by_id, parents_child_keyma
         resolve_inheritance_of_attributes(child_name, all_items_by_id, parents_child_keymap)
 
 
-def export_jira_epic_chain_to_targets(root_names, all_issues_by_id, parents_child_keymap, target_class):
+def export_jira_epic_chain_to_targets(root_names, all_issues_by_id, parents_child_keymap):
     all_targets_by_id = dict()
     for iid, issue in all_issues_by_id.items():
-        all_targets_by_id[iid] = merge_jira_item_without_children(target_class, issue, all_issues_by_id, parents_child_keymap)
+        all_targets_by_id[iid] = merge_jira_item_without_children(
+            target.BaseTarget, issue, all_issues_by_id, parents_child_keymap)
     for root_name in root_names:
         resolve_inheritance_of_attributes(root_name, all_targets_by_id, parents_child_keymap)
     return all_targets_by_id
 
 
-def save_exported_jira_tasks(targets_by_id):
-    for t in targets_by_id.values():
+def save_exported_jira_tasks(all_targets_by_id, id_selection, target_class):
+    for tid in id_selection:
+        t = all_targets_by_id[tid].as_class(target_class)
         t.save_metadata()
         t.save_point_cost()
         t.save_time_cost()
@@ -277,18 +279,22 @@ def import_targets_and_events(spec, retro_target_class, proj_target_class, event
     parents_child_keymap = collections.defaultdict(set)
     all_issues_by_name = dict()
     issue_names_requiring_events = set()
+    retro_targets = set()
     if spec.retrospective_query:
         retro_epic_names = get_epics_and_their_tasks_by_id(jira, spec.retrospective_query, all_issues_by_name, parents_child_keymap)
         new_targets = export_jira_epic_chain_to_targets(retro_epic_names, all_issues_by_name, parents_child_keymap, retro_target_class)
+        retro_targets.update(new_targets.keys())
         issue_names_requiring_events.update(new_targets.keys())
         targets_by_id.update(new_targets)
         print("Gathering retro stuff")
         print(f"{len(targets_by_id)} issues so far")
 
+    projective_targets = set()
     if spec.projective_query:
         print("Gathering proj stuff")
         proj_epic_names = get_epics_and_their_tasks_by_id(jira, spec.projective_query, all_issues_by_name, parents_child_keymap)
         new_targets = export_jira_epic_chain_to_targets(proj_epic_names, all_issues_by_name, parents_child_keymap, proj_target_class)
+        projective_targets.update(new_targets.keys())
         targets_by_id.update(new_targets)
         print(f"{len(targets_by_id)} issues so far")
 
@@ -297,7 +303,8 @@ def import_targets_and_events(spec, retro_target_class, proj_target_class, event
         all_events.extend(get_task_events(all_issues_by_name[name], spec.cutoff_date))
 
     apply_some_events_into_issues(targets_by_id, all_events)
-    save_exported_jira_tasks(targets_by_id)
+    save_exported_jira_tasks(targets_by_id, retro_targets, retro_target_class)
+    save_exported_jira_tasks(targets_by_id, projective_targets, proj_target_class)
 
     storer = event_manager_class()
     for e in all_events:

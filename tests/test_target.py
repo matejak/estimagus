@@ -191,47 +191,57 @@ def test_target_load_all(persistent_target_class):
     assert all_targets_by_id["one"].name == one.name
 
 
+def fill_target_instance_with_stuff(t):
+    t.point_cost = 5
+    t.time_cost = 8
+    t.title = "Issue One"
+    t.state = target.State.in_progress
+    t.collaborators = ["a", "b"]
+    t.assignee = "trubador"
+    t.priority = 20
+    t.status_summary = "Lorem Ipsum and So On"
+    t.status_summary_time = datetime.datetime(1918, 8, 3)
+    t.tags = ["t1", "l2", "t1"]
+    t.work_span = (datetime.datetime(1939, 9, 1), datetime.datetime(1945, 5, 7))
+
+
+def assert_targets_are_equal(lhs, rhs):
+    assert lhs.name == rhs.name
+    assert lhs.point_cost == rhs.point_cost
+    assert lhs.time_cost == rhs.time_cost
+    assert lhs.title == rhs.title
+    assert lhs.state == rhs.state
+    assert lhs.collaborators == rhs.collaborators
+    assert lhs.priority == rhs.priority
+    assert lhs.status_summary == rhs.status_summary
+    assert set(lhs.tags) == set(rhs.tags)
+    assert lhs.work_span == rhs.work_span
+    assert lhs.assignee == rhs.assignee
+    assert lhs.status_summary_time == rhs.status_summary_time
+
+
 def test_target_load_and_save_values(persistent_target_class):
     persistent_target_class.TIME_UNIT = "week"
     one = persistent_target_class()
     one.name = "one"
-    one.point_cost = 5
-    one.time_cost = 8
+    fill_target_instance_with_stuff(one)
     one.save_point_cost()
     one.save_time_cost()
-    one.title = "Issue One"
-    one.state = target.State.in_progress
-    one.collaborators = ["a", "b"]
-    one.assignee = "trubador"
-    one.priority = 20
-    one.status_summary = "Lorem Ipsum and So On"
-    one.status_summary_time = datetime.datetime(1918, 8, 3)
-    one.tags = ["t1", "l2", "t1"]
-    one.work_span = (datetime.datetime(1939, 9, 1), datetime.datetime(1945, 5, 7))
     one.save_metadata()
 
     all_targets_by_id = persistent_target_class.get_loaded_targets_by_id()
     loaded_one = all_targets_by_id["one"]
     loaded_one.load_point_cost()
-    assert one.point_cost == loaded_one.point_cost
     loaded_one.load_time_cost()
-    assert one.time_cost == loaded_one.time_cost
     loaded_one.load_metadata(loaded_one.name)
-    assert loaded_one.title == one.title
-    assert loaded_one.state == one.state
-    assert loaded_one.collaborators == ["a", "b"]
-    assert loaded_one.priority == one.priority
-    assert loaded_one.status_summary == one.status_summary
-    assert loaded_one.tags == set(["t1", "l2"])
-    assert loaded_one.work_span == one.work_span
-    assert loaded_one.assignee == one.assignee
-    assert loaded_one.status_summary_time == one.status_summary_time
+    assert_targets_are_equal(one, loaded_one)
 
 
 def create_given_target_and_dependency(cls):
     bottom = cls()
     bottom.TIME_UNIT = "pw"
     bottom.name = "pwt"
+    fill_target_instance_with_stuff(bottom)
     bottom.description = "desc"
     bottom.time_cost = 1.2
     bottom.state = tm.State.todo

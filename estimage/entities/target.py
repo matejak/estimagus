@@ -59,6 +59,8 @@ class BaseTarget:
         ret.TIME_UNIT = self.TIME_UNIT
         for fieldname in (
             "point_cost", "time_cost", "name", "title", "description", "state",
+            "collaborators", "assignee", "priority", "status_summary", "status_summary_time",
+            "tags", "work_span",
         ):
             setattr(ret, fieldname, getattr(self, fieldname))
         ret.dependents = [d.as_class(cls) for d in self.dependents]
