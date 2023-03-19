@@ -37,6 +37,9 @@ class BaseTarget:
     status_summary_time: datetime.datetime
     tags: typing.Set[str]
     work_span: typing.Tuple[datetime.datetime, datetime.datetime]
+    tier: int
+    uri: str
+    loading_plugin: str
 
     def __init__(self):
         self.point_cost = 0
@@ -53,6 +56,9 @@ class BaseTarget:
         self.status_summary_time = None
         self.tags = set()
         self.work_span = None
+        self.tier = 0
+        self.uri = ""
+        self.loading_plugin = ""
 
     def as_class(self, cls):
         ret = cls()
@@ -60,7 +66,7 @@ class BaseTarget:
         for fieldname in (
             "point_cost", "time_cost", "name", "title", "description", "state",
             "collaborators", "assignee", "priority", "status_summary", "status_summary_time",
-            "tags", "work_span",
+            "tags", "work_span", "tier", "uri", "loading_plugin",
         ):
             setattr(ret, fieldname, getattr(self, fieldname))
         ret.dependents = [d.as_class(cls) for d in self.dependents]
