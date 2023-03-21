@@ -143,8 +143,8 @@ def estimate(task_name):
                 pollster.forget_points(task_name)
             else:
                 flask.flash("Told to forget something that we don't know")
-        return flask.redirect(
-            flask.url_for("main.view_task", task_name=task_name))
+    return flask.redirect(
+        flask.url_for("main.view_task", task_name=task_name))
 
 
 @bp.route('/projective/task/<task_name>')
@@ -201,10 +201,12 @@ def view_epic(epic_name):
     user_id = user.get_id()
     model = web_utils.get_user_model(user_id, webdata.ProjTarget)
 
+    estimate = model.nominal_point_estimate_of(epic_name)
+
     t = projective_retrieve_task(epic_name)
 
     return web_utils.render_template(
-        'epic_view.html', title='View epic', epic=t, model=model)
+        'epic_view.html', title='View epic', epic=t, estimate=estimate, model=model)
 
 
 def get_similar_tasks(user_id, task_name):
