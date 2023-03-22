@@ -59,8 +59,8 @@
 {% endif %}
 {% endmacro %}
 
-{% macro task_link(task) -%}
-        <a href="{{ url_for("main.view_task", task_name=task.name) }}">{{ task.name }}</a>&nbsp;<a href="https://issues.redhat.com/browse/{{ task.name }}" rel="external">{{ render_icon("box-arrow-up-right") }}</a>
+{% macro task_link(task_name) -%}
+        <a href="{{ url_for("main.view_task", task_name=task_name) }}">{{ task_name }}</a>&nbsp;<a href="https://issues.redhat.com/browse/{{ task_name }}" rel="external">{{ render_icon("box-arrow-up-right") }}</a>
 {%- endmacro %}
 
 {% macro epic_link(epic, endpoint="main.view_epic") -%}
@@ -76,7 +76,7 @@
 {%- endmacro %}
 
 {% macro render_task_basic(task, model) -%}
-        {{ task_link(task) }} &mdash; <span class="task-state">{{ state_to_string(task.state) }}</span><span class="task-points {{- " uncounted_points" if model and model.get_element(task.name).masked }}">{{ "%.2g" % task.point_cost }}</span><span class="d-inline-block text-truncate" style="max-width: 350pt;">{{ task.title }}</span>
+        {{ task_link(task.name) }} &mdash; <span class="task-state">{{ state_to_string(task.state) }}</span><span class="task-points {{- " uncounted_points" if model and model.get_element(task.name).masked }}">{{ "%.2g" % task.point_cost }}</span><span class="d-inline-block text-truncate" style="max-width: 350pt;">{{ task.title }}</span>
 {%- endmacro %}
 
 {% macro render_task(task, model) %}
