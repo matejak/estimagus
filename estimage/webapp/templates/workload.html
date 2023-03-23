@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% import "utils.j2" as utils %}
+
+
+{% block content %}
+<div class="container">
+    <div class="row">
+    <h1>Workloads</h1>
+    {% for name in all_persons %}
+    <h2>{{ name }}</h2>
+    Proportion of the work: {{ "%.2g" % workloads[name].points }}
+    <ul>
+    {% for task in workloads[name].targets %}
+    <li>{{ utils.task_link(task) }} &mdash; {{ "%.2g" % workloads[name].point_parts[task] }} &nbsp; pts., {{ "%i" % (100 * workloads[name].proportions[task]) }} &nbsp; %</li>
+    {% endfor %}
+    </ul>
+    {% endfor %}
+    </div>
+</div>
+{% endblock %}
