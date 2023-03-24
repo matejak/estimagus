@@ -181,6 +181,11 @@ def test_generate_equality_matrix():
     assert Aeq[-1, -2] == 1
     assert Aeq[-1, -1] == -1
 
+    labor_cost = np.ones((len(persons_potential), len(task_sizes)))
+    labor_cost[1, 1] = np.inf
+    Aeq = tm.gen_Aeq(task_sizes, persons_potential, labor_cost)
+    assert Aeq[-1, len(task_sizes) + 1] == 1
+
 
 def test_generate_equality_rhs():
     task_sizes = [1]
@@ -197,26 +202,66 @@ def test_generate_equality_rhs():
     assert sum(beq) == sum(task_sizes)
     assert np.all(beq[len(task_sizes):] == 0)
 
+    labor_cost = np.ones((len(persons_potential), len(task_sizes)))
+    labor_cost[1, 1] = np.inf
+    beq = tm.gen_beq(task_sizes, persons_potential, labor_cost)
+    assert len(beq) == (len(task_sizes) + len(persons_potential) + 1)
+
+
+def evaluate_solution(solution, task_sizes, persons_potential, labor_cost=None):
+    assert solution.shape == (len(persons_potential), len(task_sizes))
+    workloads_per_person = np.sum(solution, 1)
+    normalized_workloads = workloads_per_person / np.array(persons_potential)
+    normalized_workloads *= len(normalized_workloads) / sum(normalized_workloads) 
+    np.testing.assert_almost_equal(normalized_workloads, 1)
+    assert sum(solution.flat) == pytest.approx(sum(task_sizes))
+    for task_index, task_size in enumerate(task_sizes):
+        assert sum(solution[:, task_index]) == pytest.approx(task_size)
+    if labor_cost is not None:
+        assert np.all(solution[labor_cost == np.inf] == 0)
+
 
 def test_optimization():
     task_sizes = [1]
     persons_potential = [1]
     solution = tm.solve(task_sizes, persons_potential)
-    assert solution.shape == (len(persons_potential), len(task_sizes))
+    evaluate_solution(solution, task_sizes, persons_potential)
     assert solution[0, 0] == 1
 
     task_sizes = [1, 5]
     persons_potential = [1]
     solution = tm.solve(task_sizes, persons_potential)
-    assert solution.shape == (len(persons_potential), len(task_sizes))
+    evaluate_solution(solution, task_sizes, persons_potential)
     assert solution[0, 0] == 1
     assert solution[0, 1] == 5
 
     task_sizes = [1, 2]
     persons_potential = [1, 3]
     solution = tm.solve(task_sizes, persons_potential)
-    assert solution.shape == (len(persons_potential), len(task_sizes))
-    assert persons_potential[1] * sum(solution[0]) == persons_potential[0] * sum(solution[1])
-    assert sum(solution.flat) == sum(task_sizes)
-    assert sum(solution[:, 0]) == task_sizes[0]
-    assert sum(solution[:, 1]) == task_sizes[1]
+    evaluate_solution(solution, task_sizes, persons_potential)
+
+    task_sizes = [1, 4, 2]
+    persons_potential = [1, 0.5]
+    solution = tm.solve(task_sizes, persons_potential)
+    evaluate_solution(solution, task_sizes, persons_potential)
+
+    labor_cost = np.ones((len(persons_potential), len(task_sizes)))
+    labor_cost[1, 1] = np.inf
+    labor_cost[0, 2] = np.inf
+    solution = tm.solve(task_sizes, persons_potential, labor_cost)
+    evaluate_solution(solution, task_sizes, persons_potential, labor_cost)
+
+
+def test_workloads(exclusive_target, shared_target):
+    targets = [exclusive_target]
+    workloads = tm.Workloads(targets)
+    assert workloads.targets_by_name[exclusive_target.name] == exclusive_target
+    assert workloads.collaborators_potential["associate"] == 1
+    assert workloads.zmatrix()[0, 0] == 1
+
+    targets = [exclusive_target, shared_target]
+    workloads = tm.Workloads(targets)
+    assert workloads.targets_by_name[exclusive_target.name] == exclusive_target
+    assert workloads.zmatrix()[workloads.collab_indices["parallel_associate"], workloads.target_indices[exclusive_target.name]] == np.inf
+    assert sum(workloads.zmatrix()[workloads.collab_indices["associate"], :]) == 2
+    workloads.solve_problem()
