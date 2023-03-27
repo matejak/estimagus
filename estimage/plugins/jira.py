@@ -94,6 +94,10 @@ def get_epics_and_their_tasks_by_id(jira, epics_query, all_items_by_name, parent
     return new_epics_names
 
 
+def name_from_field(field_contents):
+    return field_contents.name.split("@", 1)[0]
+
+
 def merge_jira_item_without_children(result_class, item, all_items_by_id, parents_child_keymap):
     STORY_POINTS = "customfield_12310243"
     EPIC_LINK = "customfield_12311140"
@@ -105,6 +109,8 @@ def merge_jira_item_without_children(result_class, item, all_items_by_id, parent
 
     result = result_class()
     result.name = item.key
+    result.uri = item.permalink()
+    result.loading_plugin = "jira"
     result.title = item.get_field("summary") or ""
     result.description = item.get_field("description") or ""
     try:
@@ -113,6 +119,8 @@ def merge_jira_item_without_children(result_class, item, all_items_by_id, parent
         pass
     result.point_cost = float(item.get_field(STORY_POINTS) or 0)
     result.state = JIRA_STATUS_TO_STATE.get(item.get_field("status").name, target.State.unknown)
+    if item.fields.issuetype.name == "Epic" and result.state == target.State.abandoned:
+        result.state = target.State.done
     result.priority = JIRA_PRIORITY_TO_VALUE.get(item.get_field("priority").name, 0)
     result.status_summary = item.get_field(STATUS_SUMMARY) or ""
     try:
@@ -123,16 +131,19 @@ def merge_jira_item_without_children(result_class, item, all_items_by_id, parent
     result.collaborators = []
 
     if assignee := item.get_field("assignee"):
-        result.assignee = assignee.name.split("@", 1)[0]
+        result.assignee = name_from_field(assignee)
 
     try:
-        result.collaborators += [c.key for c in item.get_field(CONTRIBUTORS) or []]
+        result.collaborators += [name_from_field(c) for c in item.get_field(CONTRIBUTORS) or []]
     except AttributeError:
         pass
 
+    result.tier = 0
     try:
         if commitment_item := item.get_field(COMMITMENT):
             result.tags.add(f"commitment:{commitment_item.value.lower()}")
+            if commitment_item.value.lower() == "planned":
+                result.tier = 1
     except AttributeError:
         pass
 
@@ -282,7 +293,7 @@ def import_targets_and_events(spec, retro_target_class, proj_target_class, event
     retro_targets = set()
     if spec.retrospective_query:
         retro_epic_names = get_epics_and_their_tasks_by_id(jira, spec.retrospective_query, all_issues_by_name, parents_child_keymap)
-        new_targets = export_jira_epic_chain_to_targets(retro_epic_names, all_issues_by_name, parents_child_keymap, retro_target_class)
+        new_targets = export_jira_epic_chain_to_targets(retro_epic_names, all_issues_by_name, parents_child_keymap)
         retro_targets.update(new_targets.keys())
         issue_names_requiring_events.update(new_targets.keys())
         targets_by_id.update(new_targets)
@@ -293,7 +304,7 @@ def import_targets_and_events(spec, retro_target_class, proj_target_class, event
     if spec.projective_query:
         print("Gathering proj stuff")
         proj_epic_names = get_epics_and_their_tasks_by_id(jira, spec.projective_query, all_issues_by_name, parents_child_keymap)
-        new_targets = export_jira_epic_chain_to_targets(proj_epic_names, all_issues_by_name, parents_child_keymap, proj_target_class)
+        new_targets = export_jira_epic_chain_to_targets(proj_epic_names, all_issues_by_name, parents_child_keymap)
         projective_targets.update(new_targets.keys())
         targets_by_id.update(new_targets)
         print(f"{len(targets_by_id)} issues so far")

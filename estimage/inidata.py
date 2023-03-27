@@ -56,6 +56,9 @@ class IniTarget(data.BaseTarget, IniStorage):
             priority=str(float(self.priority)),
             status_summary=self.status_summary,
             tags=",".join(self.tags),
+            tier=str(self.tier),
+            uri=self.uri,
+            loading_plugin=self.loading_plugin,
         )
         if self.work_span and self.work_span[0] is not None:
             metadata["work_start"] = self.work_span[0].isoformat()
@@ -113,6 +116,9 @@ class IniTarget(data.BaseTarget, IniStorage):
         ret.collaborators = our_config.get("collaborators", "").split(",")
         ret.assignee = our_config.get("assignee", "")
         ret.tags = set(our_config.get("tags", "").split(","))
+        ret.tier = int(our_config.get("tier", "0"))
+        ret.uri = our_config.get("uri", "")
+        ret.loading_plugin = our_config.get("loading_plugin", "")
 
         span = [None, None]
         if "work_start" in our_config:

@@ -35,7 +35,7 @@
 	: {{ epic.status_summary | safe }}</p>
         {%- endif %}
         {% if recursive -%}
-        {% for target in epic.dependents %}
+        {% for target in (epic.dependents | sort(attribute="name")) %}
         <ul>
             {{- render_whatever_retro(target, model, today, recursive=recursive) -}}
         </ul>
@@ -60,11 +60,11 @@
 {% endmacro %}
 
 {% macro task_link(task) -%}
-        <a href="{{ url_for("main.view_task", task_name=task.name) }}">{{ task.name }}</a>&nbsp;<a href="https://issues.redhat.com/browse/{{ task.name }}" rel="external">{{ render_icon("box-arrow-up-right") }}</a>
+        <a href="{{ url_for("main.view_task", task_name=task.name) }}">{{ task.name }}</a>&nbsp;<a href="{{ task.uri }}" rel="external">{{ render_icon("box-arrow-up-right") }}</a>
 {%- endmacro %}
 
 {% macro epic_link(epic, endpoint="main.view_epic") -%}
-        <a href="{{ url_for(endpoint, epic_name=epic.name) }}">{{ epic.name }}</a>&nbsp;<a href="https://issues.redhat.com/browse/{{ epic.name }}" rel="external">{{ render_icon("box-arrow-up-right") }}</a>
+        <a href="{{ url_for(endpoint, epic_name=epic.name) }}">{{ epic.name }}</a>&nbsp;<a href="{{ epic.uri }}" rel="external">{{ render_icon("box-arrow-up-right") }}</a>
 {%- endmacro %}
 
 {% macro render_state_short(state) -%}
@@ -97,7 +97,7 @@
         </p>
         {% if recursive -%}
         <ul>
-            {% for target in epic.dependents %}
+            {% for target in (epic.dependents | sort(attribute="name")) %}
             {{- render_whatever(target, model, recursive=recursive) -}}
             {% endfor %}
         </ul>

@@ -8,6 +8,7 @@ from estimage import data
 from .main import bp as main_bp
 from .vis import bp as vis_bp
 from .login import bp as login_bp
+from .persons import bp as persons_bp
 
 login = LoginManager()
 
@@ -20,6 +21,7 @@ def create_app(config_class=config.Config):
     app.register_blueprint(main_bp)
     app.register_blueprint(vis_bp, url_prefix="/vis")
     app.register_blueprint(login_bp)
+    app.register_blueprint(persons_bp)
     Bootstrap5(app)
 
     login.init_app(app)

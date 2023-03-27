@@ -199,6 +199,9 @@ def fill_target_instance_with_stuff(t):
     t.collaborators = ["a", "b"]
     t.assignee = "trubador"
     t.priority = 20
+    t.loading_plugin = "estimage"
+    t.tier = 1
+    t.uri = "http://localhost/issue"
     t.status_summary = "Lorem Ipsum and So On"
     t.status_summary_time = datetime.datetime(1918, 8, 3)
     t.tags = ["t1", "l2", "t1"]
@@ -218,6 +221,9 @@ def assert_targets_are_equal(lhs, rhs):
     assert lhs.work_span == rhs.work_span
     assert lhs.assignee == rhs.assignee
     assert lhs.status_summary_time == rhs.status_summary_time
+    assert lhs.tier == rhs.tier
+    assert lhs.loading_plugin == rhs.loading_plugin
+    assert lhs.uri == rhs.uri
 
 
 def test_target_load_and_save_values(persistent_target_class):
