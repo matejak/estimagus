@@ -15,7 +15,7 @@
     Proportion of the work: {{ "%.2g" % optimized_workload.points }}
     <ul>
     {% for task in workloads[name].targets %}
-    <li>{{ utils.task_link(task) }} &mdash; {{ "%.2g" % simple_workload.point_parts[task] }} &nbsp; pts., {{ "%i" % (100 * simple_workload.proportions[task]) }} &nbsp; %</li>
+    <li>{{ utils.task_link(task) }} &mdash; {{ "%.2g" % simple_workload.point_parts[task] }} &nbsp; pts., {{ "%i" % (100 * simple_workload.proportions[task.name]) }} &nbsp; %</li>
     {% endfor %}
     </ul>
     </div>
@@ -31,7 +31,7 @@
     </p>
     <ul>
     {% for task in optimized_workload.targets %}
-    <li>{{ utils.task_link(task) }} &mdash; {{ "%.2g" % optimized_workload.point_parts[task] }} &nbsp; pts., {{ "%i" % (100 * optimized_workload.proportions[task]) }} &nbsp; %</li>
+    <li>{{ utils.task_link(task) }} &mdash; {{ "%.2g" % optimized_workload.point_parts[task] }} &nbsp; pts., {{ "%i" % (100 * optimized_workload.proportions[task.name]) }} &nbsp; %</li>
     {% endfor %}
     </ul>
     </div>

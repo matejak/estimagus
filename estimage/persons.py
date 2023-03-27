@@ -5,7 +5,6 @@ import collections
 import numpy as np
 import scipy as sp
 
-import estimage.simpledata
 import estimage.data as data
 
 
@@ -13,7 +12,7 @@ import estimage.data as data
 class Workload:
     name: str = ""
     points: float = 0
-    targets: typing.List[str] = dataclasses.field(default_factory=list)
+    targets: typing.List[data.BaseTarget] = dataclasses.field(default_factory=list)
     point_parts: typing.Dict[str, float] = dataclasses.field(default_factory=dict)
     proportions: typing.Dict[str, float] = dataclasses.field(default_factory=dict)
 
@@ -87,7 +86,7 @@ class SimpleWorkloads(Workloads):
         ret.points += points_contribution
         ret.point_parts[target.name] = points_contribution
         ret.proportions[target.name] = proportion
-        ret.targets.append(target.name)
+        ret.targets.append(target)
 
 
 class OptimizedWorkloads(Workloads):
@@ -132,7 +131,7 @@ class OptimizedWorkloads(Workloads):
             projection = self._solution[person_index, task_index]
             if projection == 0:
                 continue
-            ret.targets.append(task_name)
+            ret.targets.append(self.targets_by_name[task_name])
             ret.point_parts[task_name] = projection
             ret.proportions[task_name] = projection / self.task_totals[task_index]
         return ret

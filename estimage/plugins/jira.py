@@ -109,6 +109,8 @@ def merge_jira_item_without_children(result_class, item, all_items_by_id, parent
 
     result = result_class()
     result.name = item.key
+    result.uri = item.permalink()
+    result.loading_plugin = "jira"
     result.title = item.get_field("summary") or ""
     result.description = item.get_field("description") or ""
     try:
@@ -134,9 +136,12 @@ def merge_jira_item_without_children(result_class, item, all_items_by_id, parent
     except AttributeError:
         pass
 
+    result.tier = 0
     try:
         if commitment_item := item.get_field(COMMITMENT):
             result.tags.add(f"commitment:{commitment_item.value.lower()}")
+            if commitment_item.value.lower() == "planned":
+                result.tier = 1
     except AttributeError:
         pass
 
