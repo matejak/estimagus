@@ -8,30 +8,34 @@
     <div class="row">
     <h1>Workloads</h1>
     {% for name in all_persons %}
+    {% set simple_workload = simple.of_person(name) %}
     <h2>{{ name }}</h2>
     <div class="col">
     <h2>Simple distribution of work</h2>
-    Proportion of the work: {{ "%.2g" % workloads[name].points }}
+    Proportion of the work: {{ "%.2g" % optimized_workload.points }}
     <ul>
     {% for task in workloads[name].targets %}
-    <li>{{ utils.task_link(task) }} &mdash; {{ "%.2g" % workloads[name].point_parts[task] }} &nbsp; pts., {{ "%i" % (100 * workloads[name].proportions[task]) }} &nbsp; %</li>
+    <li>{{ utils.task_link(task) }} &mdash; {{ "%.2g" % simple_workload.point_parts[task] }} &nbsp; pts., {{ "%i" % (100 * simple_workload.proportions[task]) }} &nbsp; %</li>
     {% endfor %}
     </ul>
     </div>
+    {% if optimized_workload %}
+    {% set optimized_workload = optimized.of_person(name) %}
     <div class="col">
     <h2>Equalized distribution of work</h2>
     <p>
-    Proportion of the work: {{ "%.2g" % modeled_workloads.export_person(name).points }}
+    Proportion of the work: {{ "%.2g" % optimized_workload.points }}
     </p>
     <p>
-    Expected work potential: {{ ("%i&nbsp;%%" % (modeled_workloads.collaborators_potential[name] * 100)) | safe }}
+    Expected work potential: {{ ("%i&nbsp;%%" % (optimized_workloads.persons_potential[name] * 100)) | safe }}
     </p>
     <ul>
-    {% for task in modeled_workloads.export_person(name).targets %}
-    <li>{{ utils.task_link(task) }} &mdash; {{ "%.2g" % modeled_workloads.export_person(name).point_parts[task] }} &nbsp; pts., {{ "%i" % (100 * modeled_workloads.export_person(name).proportions[task]) }} &nbsp; %</li>
+    {% for task in optimized_workload.targets %}
+    <li>{{ utils.task_link(task) }} &mdash; {{ "%.2g" % optimized_workload.point_parts[task] }} &nbsp; pts., {{ "%i" % (100 * optimized_workload.proportions[task]) }} &nbsp; %</li>
     {% endfor %}
     </ul>
     </div>
+    {% endif %}
     {% endfor %}
     </div>
 </div>

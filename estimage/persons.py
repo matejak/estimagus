@@ -6,88 +6,130 @@ import numpy as np
 import scipy as sp
 
 import estimage.simpledata
+import estimage.data as data
 
 
 @dataclasses.dataclass
 class Workload:
+    name: str = ""
     points: float = 0
     targets: typing.List[str] = dataclasses.field(default_factory=list)
     point_parts: typing.Dict[str, float] = dataclasses.field(default_factory=dict)
     proportions: typing.Dict[str, float] = dataclasses.field(default_factory=dict)
 
-    @classmethod
-    def of_person(cls, person_name, targets, model=None):
-        ret = cls()
-        if not model:
-            model = estimage.simpledata.get_model(targets)
-        for target in targets:
-            if person_name in target.collaborators:
-                ret._apply_target(target, model)
-        return ret
+
+def get_people_associaged_with(target: data.BaseTarget) -> typing.Set[str]:
+    associated_people = set()
+    associated_people.add(target.assignee)
+    associated_people.update(set(target.collaborators))
+    associated_people.discard("")
+    return associated_people
 
 
-    def _apply_target(self, target, model):
-        collaborating_group = set(target.collaborators)
-        collaborating_group.add(target.assignee)
-        proportion = 1.0 / len(target.collaborators)
-        points_contribution = model.remaining_point_estimate_of(target.name).expected
-        points_contribution *= proportion
-        self.points += points_contribution
-        self.point_parts[target.name] = points_contribution
-        self.proportions[target.name] = proportion
-        self.targets.append(target.name)
-
-
+@dataclasses.dataclass
 class Workloads:
-    def __init__(self, targets, model=None):
-        self.targets_by_name = collections.OrderedDict()
+    points: float = 0
+    targets: typing.List[data.BaseTarget] = dataclasses.field(default_factory=list)
+    persons_potential: typing.Dict[str, float] = dataclasses.field(
+        default_factory=lambda: collections.defaultdict(lambda: 0))
+
+    def __init__(self,
+                 targets: typing.Iterable[data.BaseTarget],
+                 model: data.EstiModel,
+                 * args, ** kwargs):
+        super().__init__(* args, ** kwargs)
+
         self.model = model
-        if not model:
-            self.model = estimage.simpledata.get_model(targets)
-        self.target_indices = dict()
-        self.collab_indices = dict()
+        self.targets_by_name = collections.OrderedDict()
+        self.targets = targets
+        self.persons_potential = dict()
         for i, t in enumerate(targets):
             self.targets_by_name[t.name] = t
-            self.target_indices[t.name] = i
-        self.collaborators_potential = collections.OrderedDict()
-        self._target_collab_map = dict()
+        self._target_persons_map = dict()
         self._fill_in_collaborators()
-        self.solved = None
 
-    # TODO: Extract to a function that returns all associated persons with a set of targets
     def _fill_in_collaborators(self):
         all_collaborators = set()
         for name, t in self.targets_by_name.items():
-            associated_people = set()
-            associated_people.add(t.assignee)
-            associated_people.update(set(t.collaborators))
-            associated_people.discard("")
-            self._target_collab_map[name] = associated_people
+            self.points += self.model.remaining_point_estimate_of(name).expected
+
+            associated_people = get_people_associaged_with(t)
+            self._target_persons_map[name] = associated_people
             all_collaborators.update(associated_people)
-        for i, c in enumerate(all_collaborators):
-            self.collaborators_potential[c] = 1
-            self.collab_indices[c] = i
+
+        for c in all_collaborators:
+            self.persons_potential[c] = 1.0
+
+    def get_who_works_on(self, target_name: str) -> typing.Set[str]:
+        return self._target_persons_map.get(target_name, set())
+
+    def of_person(self, person_name: str) -> Workload:
+        raise NotImplementedError()
+
+
+class SimpleWorkloads(Workloads):
+
+    def of_person(self, person_name: str) -> Workload:
+        ret = Workload(name=person_name)
+        for target in self.targets:
+            if person_name in target.collaborators:
+                self._apply_target(ret, person_name, target)
+        return ret
+
+    def _apply_target(self, ret, who, target):
+        collaborating_group = self.get_who_works_on(target.name)
+        own_potential = self.persons_potential[who]
+        target_potential = sum([self.persons_potential.get(name) for name in collaborating_group])
+
+        proportion = own_potential / target_potential
+        points_contribution = self.model.remaining_point_estimate_of(target.name).expected
+        points_contribution *= proportion
+        ret.points += points_contribution
+        ret.point_parts[target.name] = points_contribution
+        ret.proportions[target.name] = proportion
+        ret.targets.append(target.name)
+
+
+class OptimizedWorkloads(Workloads):
+    def __init__(self,
+                 targets: typing.Iterable[data.BaseTarget],
+                 model: data.EstiModel,
+                 * args, ** kwargs):
+        super().__init__(targets, model, * args, ** kwargs)
+        self._solution = None
+        self.task_totals = np.zeros(len(targets))
+        self.persons_indices = dict()
+        self.targets_indices = dict()
+        self._create_indices()
+
+    def _create_indices(self):
+        for index, person_name in enumerate(self.persons_potential):
+            self.persons_indices[person_name] = index
+        for index, target in enumerate(self.targets):
+            self.targets_indices[target.name] = index
 
     def zmatrix(self):
-        ret = np.ones((len(self.collaborators_potential), len(self.targets_by_name)))
+        ret = np.ones((len(self.persons_potential), len(self.targets_by_name)))
         ret *= np.inf
-        for collab_idx, collab_name in enumerate(self.collaborators_potential.keys()):
+        for collab_idx, collab_name in enumerate(self.persons_potential.keys()):
             for task_idx, task_name in enumerate(self.targets_by_name.keys()):
-                if collab_name in self._target_collab_map[task_name]:
+                if collab_name in self._target_persons_map[task_name]:
                     ret[collab_idx, task_idx] = 1
         return ret
 
     def solve_problem(self):
-        task_sizes = [self.model.remaining_point_estimate_of(t.name).expected for t in self.targets_by_name.values()]
-        self.solved = solve(task_sizes, self.collaborators_potential.values(), self.zmatrix())
-        self.task_totals = np.sum(self.solved, axis=0)
+        task_sizes = [
+            self.model.remaining_point_estimate_of(t.name).expected
+            for t in self.targets_by_name.values()]
+        self._solution = solve(task_sizes, self.persons_potential.values(), self.zmatrix())
+        self.task_totals = np.sum(self._solution, axis=0)
 
-    def export_person(self, name):
-        person_index = self.collab_indices[name]
+    def of_person(self, person_name):
+        person_index = self.persons_indices[person_name]
         ret = Workload()
-        ret.points = sum(self.solved[person_index])
+        ret.points = sum(self._solution[person_index])
         for task_index, task_name in enumerate(self.targets_by_name.keys()):
-            projection = self.solved[person_index, task_index]
+            projection = self._solution[person_index, task_index]
             if projection == 0:
                 continue
             ret.targets.append(task_name)
@@ -103,14 +145,6 @@ def get_all_collaborators(targets):
         ret.add(t.assignee)
     if "" in ret:
         ret.remove("")
-    return ret
-
-
-def get_all_workloads(targets, model=None):
-    all_collaborators = get_all_collaborators(targets)
-    ret = dict()
-    for name in all_collaborators:
-        ret[name] = Workload.of_person(name, targets, model)
     return ret
 
 
@@ -157,7 +191,7 @@ def gen_Aeq(task_sizes, persons_potential, labor_cost=None):
     for perso_idx in range(num_persons):
         ret[num_tasks + perso_idx, num_persons * num_tasks + 2 * perso_idx] = 1
         ret[num_tasks + perso_idx, num_persons * num_tasks + 2 * perso_idx + 1] = -1
-    zeros_start = num_tasks + perso_idx + 1
+    zeros_start = num_tasks + num_persons
     for idx, zero_idx in enumerate(indices_of_zeros):
         ret[zeros_start + idx, zero_idx] = 1
     return ret
@@ -176,6 +210,11 @@ def gen_beq(task_sizes, persons_potential, labor_cost=None):
 
 
 def solve(task_sizes, persons_potential, labor_cost=None):
+    if len(task_sizes) == 0:
+        return []
+    if len(persons_potential) == 0:
+        msg = "No persons to assign tasks to."
+        raise ValueError(msg)
     num_tasks = len(task_sizes)
     num_persons = len(persons_potential)
     interesting_solution_len = num_tasks * num_persons

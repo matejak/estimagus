@@ -20,18 +20,16 @@ def projective_workload():
     targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(list(all_targets.values()))
     model = web_utils.get_user_model(user_id, webdata.ProjTarget)
 
-    workloads = persons.get_all_workloads(targets_tree_without_duplicates, model)
-    if "" in workloads:
-        workloads.pop("")
-    all_persons = sorted(workloads.keys())
+    simple_workloads = persons.SimpleWorkloads(targets_tree_without_duplicates, model)
+    all_persons = sorted(simple_workloads.persons_potential.keys())
 
-    workloadss = persons.Workloads(targets_tree_without_duplicates, model)
-    workloadss.collaborators_potential["ggasparb"] = 0.2
-    workloadss.collaborators_potential["mmarhefk"] = 0.2
-    workloadss.collaborators_potential["jjaburek"] = 0.6
-    workloadss.collaborators_potential["matyc"] = 0.4
-    workloadss.collaborators_potential["rh-ee-acortes"] = 0.6
-    workloadss.solve_problem()
+    optimized_workloads = persons.OptimizedWorkloads(targets_tree_without_duplicates, model)
+    try:
+        optimized_workloads.solve_problem()
+    except ValueError as exc:
+        optimized_workloads = None
+        flask.flash(f"Error optimizing workload: {exc}")
 
     return web_utils.render_template(
-        'workload.html', title='Projective Workloads', all_persons=all_persons, workloads=workloads, modeled_workloads=workloadss)
+        'workload.html', title='Projective Workloads', all_persons=all_persons,
+        simple=simple_workloads, optimized=optimized_workloads)
