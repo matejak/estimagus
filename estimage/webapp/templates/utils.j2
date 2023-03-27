@@ -35,7 +35,7 @@
 	: {{ epic.status_summary | safe }}</p>
         {%- endif %}
         {% if recursive -%}
-        {% for target in epic.dependents %}
+        {% for target in (epic.dependents | sort(attribute="name")) %}
         <ul>
             {{- render_whatever_retro(target, model, today, recursive=recursive) -}}
         </ul>
@@ -97,7 +97,7 @@
         </p>
         {% if recursive -%}
         <ul>
-            {% for target in epic.dependents %}
+            {% for target in (epic.dependents | sort(attribute="name")) %}
             {{- render_whatever(target, model, recursive=recursive) -}}
             {% endfor %}
         </ul>

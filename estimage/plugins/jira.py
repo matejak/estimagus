@@ -119,6 +119,8 @@ def merge_jira_item_without_children(result_class, item, all_items_by_id, parent
         pass
     result.point_cost = float(item.get_field(STORY_POINTS) or 0)
     result.state = JIRA_STATUS_TO_STATE.get(item.get_field("status").name, target.State.unknown)
+    if item.fields.issuetype.name == "Epic" and result.state == target.State.abandoned:
+        result.state = target.State.done
     result.priority = JIRA_PRIORITY_TO_VALUE.get(item.get_field("priority").name, 0)
     result.status_summary = item.get_field(STATUS_SUMMARY) or ""
     try:
