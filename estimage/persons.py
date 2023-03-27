@@ -107,12 +107,13 @@ class OptimizedWorkloads(Workloads):
         for index, target in enumerate(self.targets):
             self.targets_indices[target.name] = index
 
-    def zmatrix(self):
+    def cost_matrix(self):
         ret = np.ones((len(self.persons_potential), len(self.targets_by_name)))
         ret *= np.inf
-        for collab_idx, collab_name in enumerate(self.persons_potential.keys()):
-            for task_idx, task_name in enumerate(self.targets_by_name.keys()):
-                if collab_name in self._target_persons_map[task_name]:
+        for collab_idx, collab_name in enumerate(self.persons_potential):
+            for task_idx, task_name in enumerate(self.targets_by_name):
+                task_collaborators = self._target_persons_map[task_name]
+                if collab_name in task_collaborators:
                     ret[collab_idx, task_idx] = 1
         return ret
 
@@ -120,7 +121,7 @@ class OptimizedWorkloads(Workloads):
         task_sizes = [
             self.model.remaining_point_estimate_of(t.name).expected
             for t in self.targets_by_name.values()]
-        self._solution = solve(task_sizes, self.persons_potential.values(), self.zmatrix())
+        self._solution = solve(task_sizes, self.persons_potential.values(), self.cost_matrix())
         self.task_totals = np.sum(self._solution, axis=0)
 
     def of_person(self, person_name):

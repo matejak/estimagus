@@ -72,7 +72,7 @@ def test_persons_workload(exclusive_target, shared_target):
     persons_workload = workloads.of_person("associate")
     assert persons_workload.points == exclusive_target.point_cost
     assert len(persons_workload.targets) == 1
-    assert persons_workload.targets[0] == exclusive_target.name
+    assert persons_workload.targets[0] == exclusive_target
     assert workloads.persons_potential["associate"] == 1.0
 
     targets = [shared_target]
@@ -82,7 +82,7 @@ def test_persons_workload(exclusive_target, shared_target):
     persons_workload = workloads.of_person("associate")
     assert persons_workload.points == shared_target.point_cost / 2.0
     assert len(persons_workload.targets) == 1
-    assert persons_workload.targets[0] == shared_target.name
+    assert persons_workload.targets[0] == shared_target
 
     targets = [shared_target, exclusive_target]
     model = estimage.simpledata.get_model(targets)
@@ -308,13 +308,13 @@ def test_workloads(exclusive_target, shared_target):
     workloads = tm.OptimizedWorkloads(targets, model)
     assert workloads.targets_by_name[exclusive_target.name] == exclusive_target
     assert workloads.persons_potential["associate"] == 1
-    assert workloads.zmatrix()[0, 0] == 1
+    assert workloads.cost_matrix()[0, 0] == 1
     workloads.solve_problem()
 
     targets = [exclusive_target, shared_target]
     model = estimage.simpledata.get_model(targets)
     workloads = tm.OptimizedWorkloads(targets, model)
     assert workloads.targets_by_name[exclusive_target.name] == exclusive_target
-    assert workloads.zmatrix()[workloads.persons_indices["parallel_associate"], workloads.targets_indices[exclusive_target.name]] == np.inf
-    assert sum(workloads.zmatrix()[workloads.persons_indices["associate"], :]) == 2
+    assert workloads.cost_matrix()[workloads.persons_indices["parallel_associate"], workloads.targets_indices[exclusive_target.name]] == np.inf
+    assert sum(workloads.cost_matrix()[workloads.persons_indices["associate"], :]) == 2
     workloads.solve_problem()
