@@ -10,7 +10,7 @@ from .. import utilities
 
 # Don't set to 0, as the variance calculation tends to lose information
 # when only the corresponding algorithm calculates the variance from the triple
-SIGMA_LAMBDA = 0.1
+SIGMA_LAMBDA = 0.2
 
 
 def calculate_o_p(m, E, V, lam):
@@ -184,9 +184,13 @@ class Estimate:
             raise ValueError(msg)
 
         if dom is None:
+            buffer_samples = 0
+            span = self.source.pessimistic - self.source.optimistic
+            inflated_density = span / num_samples * 1.02
             dom = np.linspace(
-                self.source.optimistic - 1, self.source.pessimistic + 1, num_samples + 2)
-            dom = dom[1:-1]
+                self.source.optimistic - inflated_density * buffer_samples,
+                self.source.pessimistic + inflated_density * buffer_samples,
+                num_samples + 2 * buffer_samples)
         values = self._get_pert(dom)
         if len(dom) > 1:
             utilities.norm_pdf(values, dom[1] - dom[0])
