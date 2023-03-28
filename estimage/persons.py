@@ -118,10 +118,15 @@ class OptimizedWorkloads(Workloads):
         return ret
 
     def solve_problem(self):
-        task_sizes = [
+        task_sizes = np.array([
             self.model.remaining_point_estimate_of(t.name).expected
-            for t in self.targets_by_name.values()]
-        self._solution = solve(task_sizes, self.persons_potential.values(), self.cost_matrix())
+            for t in self.targets_by_name.values()])
+        costs = self.cost_matrix()
+        if len(indices := np.where(np.logical_and(np.min(costs, axis=0) == np.inf, task_sizes > 0))[0]):
+            task_names = [self.targets[i].name for i in indices]
+            msg = f"Nobody wants to work on some tasks: {task_names}"
+            raise ValueError(msg)
+        self._solution = solve(task_sizes, self.persons_potential.values(), costs)
         self.task_totals = np.sum(self._solution, axis=0)
 
     def of_person(self, person_name):
@@ -224,5 +229,8 @@ def solve(task_sizes, persons_potential, labor_cost=None):
     Aeq = gen_Aeq(task_sizes, persons_potential, labor_cost)
     beq = gen_beq(task_sizes, persons_potential, labor_cost)
     solution = sp.optimize.linprog(c, Aub, bub, Aeq, beq)
+    if not solution.success:
+        msg = solution.message
+        raise ValueError(msg)
     ret = solution.x[:interesting_solution_len].reshape(num_persons, num_tasks)
     return ret
