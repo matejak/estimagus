@@ -1,6 +1,6 @@
 from flask_wtf import FlaskForm
 import wtforms
-from wtforms import StringField, BooleanField, SubmitField
+from wtforms import StringField, BooleanField, SubmitField, PasswordField
 
 
 class PromotionMixin(FlaskForm):
@@ -55,7 +55,7 @@ class PointEstimationForm(FlaskForm):
 
 class JiraForm(FlaskForm):
     server = StringField('Server URL', default="https://")
-    token = StringField('Token')
+    token = PasswordField('Token')
     retroQuery = StringField('Retrospective Query')
     projQuery = StringField('Projective Query')
     cutoffDate = wtforms.DateField("History Cutoff date")
