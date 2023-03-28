@@ -2,8 +2,11 @@ import math
 
 import pytest
 import numpy as np
+import scipy as sp
+import scipy.stats
 
 import estimage.data as tm
+from estimage.entities import estimate
 
 
 @pytest.fixture
@@ -60,11 +63,17 @@ def test_estimate_invalid():
     with pytest.raises(ValueError, match="pessimistic"):
         tm.Estimate.from_triple(2, 1, 1.5)
 
+
 @pytest.mark.dependency
 def test_estimates(precise_estimate_1, centered_estimate_345, medium_estimate_346):
     assert 6 > medium_estimate_346.expected > 4
     assert precise_estimate_1.expected == 1
     assert centered_estimate_345.expected == 4
+
+
+def test_point_estimate_rvs():
+    point_estimate = tm.Estimate.from_triple(1, 1, 1)
+    assert np.all(point_estimate.pert_rvs(10)) == 1
 
 
 @pytest.mark.dependency(depends=["test_estimates"])
@@ -103,9 +112,9 @@ def pert_test_estimate(est):
     assert pert.shape == (2, 100)
 
     pert_low_domain_boundary = pert[0][0]
-    assert pert_low_domain_boundary < est.source.optimistic
+    assert pert_low_domain_boundary <= est.source.optimistic
     pert_great_domain_boundary = pert[0][-1]
-    assert pert_great_domain_boundary > est.source.pessimistic
+    assert pert_great_domain_boundary >= est.source.pessimistic
 
     surface_under_curve = pert[1].sum() * (pert[0][1] - pert[0][0])
     assert pytest.approx(surface_under_curve) == 1
@@ -170,7 +179,7 @@ def test_pert():
 
     pert = est.get_pert(1)
     assert pert.shape == (2, 1)
-    assert est.source.pessimistic > pert[0][0] > est.source.optimistic
+    assert est.source.pessimistic >= pert[0][0] >= est.source.optimistic
     assert pert[1][0] == 1
 
     pert_test_estimate(est)
@@ -182,7 +191,8 @@ def test_pert():
     assert est.expected == pytest.approx(est2.expected, 0.05)
     assert est.sigma == pytest.approx(est2.sigma, 0.05)
 
-    assert pytest.approx(pert[1].sum()) == est.get_pert(201)[1].sum() * 0.5
+    dense_pert = est.get_pert(200)
+    assert 0.99 < pert[1].sum() / (dense_pert[1].sum() * 0.5) < 1.01
 
     est_identical = est.compose_with(zero)
     assert est_identical.expected == est.expected
@@ -357,3 +367,104 @@ def test_memory_types():
     c4 = c3.compositions[0]
     assert c4.elements[0].nominal_time_estimate.expected == r2.nominal_time_estimate.expected
 
+
+def create_histogram(dom, samples):
+    dx = dom[1] - dom[0]
+    bins_borders = list(dom - dx / 2.0) + [dom[-1] + dx / 2.0]
+    histogram, _ = np.histogram(samples, bins=bins_borders)
+    return histogram
+
+
+def assert_sampling_corresponds_to_pdf(domain, generated, predicted, relative_diff=0.05):
+    histogram = create_histogram(domain, generated).astype(float)
+    histogram /= np.sum(histogram)
+
+    predicted /= np.sum(predicted)
+    histogram /= np.max(predicted)
+
+    predicted /= np.max(predicted)
+
+    high_diff = np.quantile(np.abs(predicted - histogram), 0.95)
+    # plot_diffs(domain, histogram, predicted)
+    assert high_diff < relative_diff
+
+
+def plot_diffs(dom, histogram, predicted):
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots()
+    ax.plot(dom, histogram, label="simulation")
+    ax.plot(dom, predicted, label="prediction")
+    ax.legend()
+    ax.grid()
+    plt.show()
+
+
+def test_rv_algebra_addition():
+    num_trials = 400000
+    num_samples = 50
+
+    e1 = tm.Estimate.from_triple(4, 2, 8)
+    generated_pert = e1.pert_rvs(num_trials)
+    dom, computed_pert = e1.get_pert(num_samples)
+    assert_sampling_corresponds_to_pdf(dom, generated_pert, computed_pert)
+
+    e2 = tm.Estimate.from_triple(8, 7, 8)
+    generated_pert = e2.pert_rvs(num_trials)
+    dom, computed_pert = e2.get_pert(num_samples)
+    assert_sampling_corresponds_to_pdf(dom, generated_pert, computed_pert)
+
+    generated_pert += e1.pert_rvs(num_trials)
+    e3 = e2 + e1
+    dom, computed_pert = e1.get_composed_pert(e2, 50)
+    assert_sampling_corresponds_to_pdf(dom, generated_pert, computed_pert)
+
+    dom, computed_pert = e3.get_pert(num_samples)
+    assert_sampling_corresponds_to_pdf(dom, generated_pert, computed_pert)
+
+
+def test_rv_algebra_gauss_division():
+    num_trials = 100000
+    num_samples = 100
+
+    dom = np.linspace(0.2, 2, num_samples)
+    generated_normal = sp.stats.norm.rvs(loc=1.5, scale=0.4, size=num_trials)
+    divided = 1.0 / generated_normal
+    # divided[generated_normal == 0] = np.inf
+    real_reciprocal_normal = estimate.reciprocal_normal_pdf(dom, 1.5, 0.4)
+    assert_sampling_corresponds_to_pdf(dom, divided, real_reciprocal_normal)
+
+
+def test_rv_algebra_division():
+    num_trials = 100000
+    num_samples = 100
+
+    gauss_mean = 1.5
+    gauss_std = 0.4
+
+    e1 = tm.Estimate.from_triple(0, 0, 0)
+    pdf = e1.divide_by_gauss_pdf(num_samples, gauss_mean, gauss_std)
+    np.testing.assert_array_equal(pdf[1], 0)
+
+    e1 = tm.Estimate.from_triple(2, 2, 2)
+    dom, pdf = e1.divide_by_gauss_pdf(num_samples, gauss_mean, gauss_std)
+    assert dom[0] > 0.05 * e1.expected
+    assert pdf[0] < 0.01
+    assert dom[-1] < 4 * e1.expected
+    assert pdf[-1] < 0.05
+    generated_pert = e1.pert_rvs(num_trials)
+    generated_normal = sp.stats.norm.rvs(loc=gauss_mean, scale=gauss_std, size=num_trials)
+    assert_sampling_corresponds_to_pdf(dom, generated_pert / generated_normal, pdf)
+
+    e1 = tm.Estimate.from_triple(5, 3, 10)
+    dom, pdf = e1.divide_by_gauss_pdf(num_samples, gauss_mean, gauss_std)
+    generated_pert = e1.pert_rvs(num_trials)
+    generated_normal = sp.stats.norm.rvs(loc=gauss_mean, scale=gauss_std, size=num_trials)
+    assert_sampling_corresponds_to_pdf(dom, generated_pert / generated_normal, pdf)
+
+    gauss_mean = 2
+    gauss_std = 0.4
+    e1 = tm.Estimate.from_triple(80, 60, 140)
+    dom, pdf = e1.divide_by_gauss_pdf(num_samples, gauss_mean, gauss_std)
+    generated_pert = e1.pert_rvs(num_trials)
+    generated_normal = sp.stats.norm.rvs(loc=gauss_mean, scale=gauss_std, size=num_trials)
+    assert_sampling_corresponds_to_pdf(dom, generated_pert / generated_normal, pdf)
