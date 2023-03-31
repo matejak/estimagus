@@ -40,6 +40,32 @@
     <h1>Estimate</h1>
     {{ utils.task_metadata(task) | indent(4) }}
     <h2>Estimates</h2>
+    <div class="col-md">
+    {%- if estimate %}
+        <div class="row">
+        <div class="col-md">
+        <p>Point estimate: {{ utils.render_estimate(estimate) }}</p>
+        <img src="{{ url_for('vis.visualize_task', task_name=task.name) }}" alt="PERT prob density function for {{ task.name }}"/>
+        </div>
+        </div>
+	{%- if context.estimation_source == "own" %}
+        <p>The estimate is based on your personal estimate that is not visible to others.</p>
+	{%- endif %}
+	{%- if context.estimation_source == "global" %}
+        <p>The estimate is based on the consensus estimate.</p>
+	{%- endif %}
+	{%- if context.estimation_source == "none" %}
+        <p>The estimate is based on the data from the issue's tracker.</p>
+	{%- endif %}
+	{%- if context.estimate_status == "duplicate" %}
+        <p>Your personal estimate and consensus are the same. Remove the redundant personal estimate.</p>
+	{%- elif context.estimate_status == "contradictory" %}
+        <p>Your personal estimate is different than the global consensus, and overrides it.</p>
+	{%- endif %}
+    {%- else %}
+        <p>There is no estimation associated with the task.</p>
+    {%- endif %}
+    </div>
     </div>
     <div class="row">
     <div class="col">
@@ -63,10 +89,6 @@
     <div class="col">
     <h3>Our values</h3>
         {{ estimation_form_in_accordion(own_estimation_exists) }}
-    {%- if estimate %}
-        <p>Point estimate: {{ utils.render_estimate(estimate) }}</p>
-        <img src="{{ url_for('vis.visualize_task', task_name=task.name) }}" alt="PERT prob density function for {{ task.name }}"/>
-    {%- endif %}
     </div>
     </div>
     {%- if similar_sized_tasks %}

@@ -1,5 +1,6 @@
 import typing
 import pathlib
+import dataclasses
 
 import flask
 
@@ -57,6 +58,54 @@ class Pollster(inidata.IniPollster):
     def _keyname(self, ns, name):
         keyname = f"{ns}{name}"
         return keyname
+
+
+@dataclasses.dataclass
+class Context:
+    own_estimation_exists: bool = False
+    global_estimation_exists: bool = False
+
+    def __init__(self, of_task):
+        self._task_name = of_task
+        self._own_estimate = None
+        self._global_estimate = None
+
+    def process_own_pollster(self, pollster: data.Pollster):
+        if pollster.knows_points(self._task_name):
+            self.own_estimation_exists = True
+            self._own_estimate = pollster.ask_points(self._task_name)
+        else:
+            self.own_estimation_exists = False
+            self._own_estimate = None
+
+    def process_global_pollster(self, pollster: data.Pollster):
+        if pollster.knows_points(self._task_name):
+            self.global_estimation_exists = True
+            self._global_estimate = pollster.ask_points(self._task_name)
+        else:
+            self.global_estimation_exists = False
+            self._global_estimate = None
+
+    @property
+    def estimate_status(self) -> str:
+        ret = "absent"
+        if self.own_estimation_exists != self.global_estimation_exists:
+            ret = "single"
+        elif self.own_estimation_exists and self.global_estimation_exists:
+            if self._own_estimate == self._global_estimate:
+                ret = "duplicate"
+            else:
+                ret = "contradictory"
+        return ret
+
+    @property
+    def estimation_source(self) -> str:
+        ret = "none"
+        if self.global_estimation_exists:
+            ret = "global"
+        if self.own_estimation_exists:
+            ret = "own"
+        return ret
 
 
 class EventManager(IniInDirMixin, inidata.IniEvents):

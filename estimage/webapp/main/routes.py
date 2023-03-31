@@ -187,6 +187,10 @@ def view_task(task_name):
             request_forms["authoritative"].submit.render_kw.pop("disabled")
         con_input = c_pollster.ask_points(task_name)
         estimation_args["consensus"] = data.Estimate.from_input(con_input)
+        context = webdata.Context(t.name)
+        context.process_own_pollster(pollster)
+        context.process_global_pollster(c_pollster)
+        estimation_args["context"] = context
 
     return web_utils.render_template(
         'issue_view.html', title='Estimate Issue', own_estimation_exists=own_estimation_exists,
