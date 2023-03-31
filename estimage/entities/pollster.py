@@ -63,20 +63,20 @@ class MemoryPollster(Pollster):
 
     def _knows_points(self, ns, name):
         prefix = self._prefix(ns, name)
-        return f"{prefix}points" in MemoryPollster._memory
+        return f"{prefix}points" in self._memory
 
     def _ask_points(self, ns, name):
         prefix = self._prefix(ns, name)
         key = f"{prefix}points"
-        ret = MemoryPollster._memory.get(key, EstimInput())
+        ret = self._memory.get(key, EstimInput())
         return ret
 
     def _tell_points(self, ns, name, points):
         prefix = self._prefix(ns, name)
         key = f"{prefix}points"
-        MemoryPollster._memory[key] = points
+        self._memory[key] = points
 
     def _forget_points(self, ns, name):
         prefix = self._prefix(ns, name)
         key = f"{prefix}points"
-        MemoryPollster._memory.pop(key)
+        self._memory.pop(key)
