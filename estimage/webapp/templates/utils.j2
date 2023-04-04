@@ -93,7 +93,7 @@
         <li>
         {{ render_epic_basic(epic) }}
         <p>
-        Left to do: {{ "%.3g" % model.nominal_point_estimate_of(epic.name).expected }}, i.e. {{ "%.2g %%" % (model.nominal_point_estimate_of(epic.name).expected / model.nominal_point_estimate.expected * 100) }} of the whole
+        Left to do: {{ "%.3g" % model.remaining_point_estimate_of(epic.name).expected }}, i.e. {{ "%i %%" % (model.remaining_point_estimate_of(epic.name).expected / model.remaining_point_estimate.expected * 100) }} of the whole
         </p>
         {% if recursive -%}
         <ul>

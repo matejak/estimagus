@@ -143,10 +143,7 @@ def estimate(task_name):
                 flask.flash("Told to forget something that we don't know")
     else:
         msg = "There were following errors: "
-        all_errors = set()
-        for field_errors in form.errors.values():
-            all_errors.update(set(field_errors))
-        msg += ", ".join(all_errors)
+        msg += ", ".join(form.get_all_errors())
         flask.flash(msg)
     return flask.redirect(
         flask.url_for("main.view_task", task_name=task_name))

@@ -63,7 +63,7 @@
 	{%- endif %}
         </div>
         <div class="col">
-        <img src="{{ url_for('vis.visualize_task', task_name=task.name) }}" alt="PERT prob density function for {{ task.name }}"/>
+        <img src="{{ url_for('vis.visualize_task', task_name=task.name, nominal_or_remaining='nominal') }}" alt="PERT prob density function for {{ task.name }}"/>
         </div>
     </div>
     <div class="row">
@@ -91,7 +91,7 @@
     </div>
     </div>
     {%- if similar_sized_targets %}
-        {{ utils.render_similar_sized_tasks(similar_sized_targets) }}
+        {{ utils.render_similar_sized_tasks(similar_sized_targets[:8]) }}
     {%- endif %}
 </div>
 {% endblock %}
