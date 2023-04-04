@@ -110,6 +110,11 @@
 		expected=estimate.expected, sigma=estimate.sigma, unit_with_space=" " ~ unit) }}
 {%- endmacro %}
 
+{% macro render_precise_estimate(number, unit="") -%}
+	{{ "{expected:.3g}{unit_with_space}".format(
+		expected=number, unit_with_space=" " ~ unit) }}
+{%- endmacro %}
+
 
 {% macro task_metadata(task) -%}
 <h2>{{ task.title }}</h2>
@@ -119,13 +124,13 @@
 {%- endmacro %}
 
 
-{% macro render_similar_sized_tasks(similar_sized_tasks, similar_sized_targets) -%}
+{% macro render_similar_sized_tasks(similar_sized_targets) -%}
     <div class="row">
     <h4>Tasks of similar sizes</h4>
     <p>
     <ul>
-    {%- for index in range(similar_sized_tasks | length) %}
-    <li>{{ render_task_basic(similar_sized_targets[index], None) }}: {{ render_estimate(similar_sized_tasks[index].nominal_point_estimate) }}</li>
+    {%- for target in similar_sized_targets %}
+    <li>{{ render_task_basic(target, None) }}: {{ render_estimate(target.point_estimate) }}</li>
     {%- endfor %}
     </ul>
     </p>
