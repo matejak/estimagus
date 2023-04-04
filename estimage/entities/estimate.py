@@ -10,7 +10,7 @@ from .. import utilities
 
 # Don't set to 0, as the variance calculation tends to lose information
 # when only the corresponding algorithm calculates the variance from the triple
-SIGMA_LAMBDA = 0.1
+SIGMA_LAMBDA = 0.2
 
 
 def calculate_o_p(m, E, V, lam):
@@ -184,9 +184,13 @@ class Estimate:
             raise ValueError(msg)
 
         if dom is None:
+            buffer_samples = 0
+            span = self.source.pessimistic - self.source.optimistic
+            inflated_density = span / num_samples * 1.02
             dom = np.linspace(
-                self.source.optimistic - 1, self.source.pessimistic + 1, num_samples + 2)
-            dom = dom[1:-1]
+                self.source.optimistic - inflated_density * buffer_samples,
+                self.source.pessimistic + inflated_density * buffer_samples,
+                num_samples + 2 * buffer_samples)
         values = self._get_pert(dom)
         if len(dom) > 1:
             utilities.norm_pdf(values, dom[1] - dom[0])
@@ -202,7 +206,7 @@ class Estimate:
 
     def compose_using_pert_values(self, rhs: "Estimate", samples_per_unit=30):
         if self.sigma > 0 and rhs.sigma > 0:
-            pert = self._compose_using_pert(rhs, samples_per_unit)
+            pert = self.get_composed_pert(rhs, samples_per_unit)
             value_estimate = self.compose_using_simple_values(rhs)
             inp = EstimInput.from_pert_and_data(
                 pert[0], pert[1], value_estimate.expected, value_estimate.sigma)
@@ -227,7 +231,7 @@ class Estimate:
             ret.source.pessimistic += rhs.source.pessimistic
         return ret
 
-    def _compose_using_pert(self, rhs: "Estimate", samples_per_unit=20):
+    def get_composed_pert(self, rhs: "Estimate", samples_per_unit=20):
         dom_len_self = round((self.source.pessimistic - self.source.optimistic) * samples_per_unit)
         dom_len_rhs = round((rhs.source.pessimistic - rhs.source.optimistic) * samples_per_unit)
         composed_pert = self.compose_perts_of_same_scale(
@@ -243,17 +247,38 @@ class Estimate:
         )
         return np.array([domain, convolution])
 
+    @property
+    def width(self):
+        return self.source.pessimistic - self.source.optimistic
+
+    @property
+    def pert_beta_a(self):
+        return 1 + 4 * (self.source.most_likely - self.source.optimistic) / self.width
+
+    @property
+    def pert_beta_b(self):
+        return 1 + 4 * (self.source.pessimistic - self.source.most_likely) / self.width
+
     def _get_pert(self, domain):
-        width = self.source.pessimistic - self.source.optimistic
-        if width == 0:
+        if self.width == 0:
             right_spot = np.argmin(np.abs(domain - self.source.most_likely))
             ret = np.zeros_like(domain)
             ret[right_spot] = 1.0
             return ret
-        beta_a = 1 + 4 * (self.source.most_likely - self.source.optimistic) / width
-        beta_b = 1 + 4 * (self.source.pessimistic - self.source.most_likely) / width
-        values = sp.stats.beta.pdf(domain, beta_a, beta_b, scale=width, loc=self.source.optimistic)
+        values = sp.stats.beta.pdf(
+            domain, self.pert_beta_a, self.pert_beta_b,
+            scale=self.width, loc=self.source.optimistic)
         return values
+
+    def pert_rvs(self, size):
+        if self.width > 0:
+            ret = sp.stats.beta.rvs(
+                self.pert_beta_a, self.pert_beta_b,
+                scale=self.width, loc=self.source.optimistic,
+                size=size)
+        else:
+            ret = np.ones(size) * self.source.most_likely
+        return ret
 
     def rank_distance(self, estimate):
         """
@@ -271,3 +296,38 @@ class Estimate:
         if diff_of_expected == 0:
             return 0
         return diff_of_expected / sum_of_sigmas
+
+    def divide_by_gauss_pdf(self, num_samples, mean, stdev):
+        ret = np.zeros((2, num_samples))
+        ret[0, :] = np.linspace(
+            self.source.optimistic / (mean + 6 * stdev),
+            self.source.pessimistic / (mean - 3 * stdev),
+            num_samples)
+        if self.width == 0:
+            ret[1, :] = self._divide_by_gauss_point_estimate(ret[0], mean, stdev)
+        else:
+            ret[1, :] = self._divide_by_gauss_general_estimate(ret[0], mean, stdev)
+        return ret
+
+    def _divide_by_gauss_general_estimate(self, dom, mean, stdev):
+        values = np.zeros_like(dom)
+        inner_resolution = len(dom) * 2
+        inner_domain, pert = self.get_pert(inner_resolution)
+        inner_constant = pert / np.abs(inner_domain)
+        for i, z in enumerate(dom):
+            val = np.sum(inner_constant * reciprocal_normal_pdf(z / inner_domain, mean, stdev))
+            values[i] = val
+        return values
+
+    def _divide_by_gauss_point_estimate(self, dom, mean, stdev):
+        if self.expected > 0:
+            return reciprocal_normal_pdf(dom / self.expected, mean, stdev)
+        else:
+            return np.zeros_like(dom)
+
+
+def reciprocal_normal_pdf(dom, mean, stdev):
+    ret = np.exp(-0.5 * ((1 / dom - mean) / stdev)**2)
+    ret /= np.sqrt(2) * np.pi * stdev * dom**2
+    ret[dom == 0] = 0
+    return ret

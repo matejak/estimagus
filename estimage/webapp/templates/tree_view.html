@@ -6,12 +6,26 @@
 <div class="container">
     <div class="row">
     <h1>Tree View</h1>
+        <div class="col">
+    <h2>Remaining</h2>
+    <p>
+        Grand total: {{ "%.3g" % model.remaining_point_estimate.expected }}
+    </p>
+    <p>
+    <img src="{{ url_for('vis.visualize_task', task_name='.', nominal_or_remaining='remaining') }}" alt="PERT prob density function for everything"/>
+    </p>
+        </div>
+        <div class="col">
+    <h2>Nominal</h2>
     <p>
         Grand total: {{ "%.3g" % model.nominal_point_estimate.expected }}
     </p>
     <p>
-    <img src="{{ url_for('vis.visualize_task', task_name='.') }}" alt="PERT prob density function for everything"/>
+    <img src="{{ url_for('vis.visualize_task', task_name='.', nominal_or_remaining='nominal') }}" alt="PERT prob density function for everything"/>
     </p>
+        </div>
+    </div>
+    <div class="row">
     <ul>
     {% for target in targets -%}
     {{ utils.render_whatever(target, model) }}

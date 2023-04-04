@@ -49,12 +49,10 @@ def ask_pollster_of_existing_data(pollster, task_id):
     return est
 
 
-def feed_estimation_to_form_and_arg_dict(estimation, form_data, arg_dict):
+def feed_estimation_to_form(estimation, form_data):
     form_data.optimistic.data = estimation.source.optimistic
     form_data.most_likely.data = estimation.source.most_likely
     form_data.pessimistic.data = estimation.source.pessimistic
-
-    arg_dict["estimate"] = estimation
 
 
 def projective_retrieve_task(task_id):
@@ -143,8 +141,44 @@ def estimate(task_name):
                 pollster.forget_points(task_name)
             else:
                 flask.flash("Told to forget something that we don't know")
+    else:
+        msg = "There were following errors: "
+        msg += ", ".join(form.get_all_errors())
+        flask.flash(msg)
     return flask.redirect(
         flask.url_for("main.view_task", task_name=task_name))
+
+
+def tell_of_bad_estimation_input(task_name, task_category, message):
+    msg = f"Task '{task_name}' has a bad {task_category} estimation record: {message}"
+    return msg
+
+
+def give_data_to_context(context, user_pollster, global_pollster):
+    task_name = context.task_name
+    try:
+        context.process_own_pollster(user_pollster)
+    except ValueError as exc:
+        msg = tell_of_bad_estimation_input(task_name, "own", str(exc))
+        flask.flash(msg)
+    try:
+        context.process_global_pollster(global_pollster)
+    except ValueError as exc:
+        msg = tell_of_bad_estimation_input(task_name, "global", str(exc))
+        flask.flash(msg)
+
+
+def get_similar_targets_with_estimations(user_id, task_name):
+    similar_targets = []
+    similar_tasks = get_similar_tasks(user_id, task_name)
+
+    all_targets = webdata.ProjTarget.get_loaded_targets_by_id()
+    all_targets.update(webdata.RetroTarget.get_loaded_targets_by_id())
+    for task in similar_tasks:
+        target = all_targets[task.name]
+        target.point_estimate = task.nominal_point_estimate
+        similar_targets.append(target)
+    return similar_targets
 
 
 @bp.route('/projective/task/<task_name>')
@@ -159,38 +193,32 @@ def view_task(task_name):
         consensus=forms.ConsensusForm(),
         authoritative=forms.AuthoritativeForm(),
     )
-    own_estimation_exists = False
-    if pollster.knows_points(task_name):
-        request_forms["estimation"].delete.render_kw.pop("disabled")
-        request_forms["consensus"].submit.render_kw.pop("disabled")
-        own_estimation_exists = True
 
     t = projective_retrieve_task(task_name)
-    estimation_args = dict()
-    estimation = ask_pollster_of_existing_data(pollster, task_name)
-    if estimation:
-        eform = request_forms["estimation"]
-        feed_estimation_to_form_and_arg_dict(estimation, eform, estimation_args)
 
-    if "estimate" in estimation_args:
-        similar_tasks = get_similar_tasks(user_id, task_name)
-        estimation_args["similar_sized_tasks"] = similar_tasks
-        all_targets = webdata.ProjTarget.get_loaded_targets_by_id()
-        all_targets.update(webdata.RetroTarget.get_loaded_targets_by_id())
-        estimation_args["similar_sized_targets"] = [
-            all_targets[task.name] for task in similar_tasks
-        ]
+    c_pollster = webdata.AuthoritativePollster()
+    context = webdata.Context(t.name)
+    give_data_to_context(context, pollster, c_pollster)
 
-        c_pollster = webdata.AuthoritativePollster()
-        if c_pollster.knows_points(task_name):
-            request_forms["consensus"].delete.render_kw.pop("disabled")
-            request_forms["authoritative"].submit.render_kw.pop("disabled")
-        con_input = c_pollster.ask_points(task_name)
-        estimation_args["consensus"] = data.Estimate.from_input(con_input)
+    if context.own_estimation_exists:
+        request_forms["estimation"].enable_delete_button()
+        request_forms["consensus"].enable_submit_button()
+    if context.global_estimation_exists:
+        request_forms["consensus"].enable_delete_button()
+        request_forms["authoritative"].enable_submit_button()
+
+    similar_targets = []
+    if context.estimation_source == "none":
+        fallback_estimation = data.Estimate.from_input(data.EstimInput(t.point_cost))
+        feed_estimation_to_form(fallback_estimation, request_forms["estimation"])
+    else:
+        feed_estimation_to_form(context.estimation, request_forms["estimation"])
+
+        similar_targets = get_similar_targets_with_estimations(user_id, task_name)
 
     return web_utils.render_template(
-        'issue_view.html', title='Estimate Issue', own_estimation_exists=own_estimation_exists,
-        user=user, forms=request_forms, task=t, ** estimation_args)
+        'issue_view.html', title='Estimate Issue',
+        user=user, forms=request_forms, task=t, context=context, similar_sized_targets=similar_targets)
 
 
 @bp.route('/projective/epic/<epic_name>')

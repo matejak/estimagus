@@ -46,12 +46,26 @@ class Pollster:
                 ret[name] = self.ask_points(name)
         return ret
 
-    def inform_results(self, results: typing.List[TaskModel]):
-        all_names = set(r.name for r in results)
-        known_estimates = self.provide_info_about(all_names)
-        for r in results:
-            if r.name in known_estimates:
-                r.point_estimate = Estimate.from_input(known_estimates[r.name])
+    def supply_valid_estimations_to_tasks(self, tasks: typing.List[TaskModel]):
+        tasks_by_name = {t.name: t for t in tasks}
+        known_estimates = self.provide_info_about(tasks_by_name.keys())
+        defective_tasks = self.supply_known_estimates_to_tasks_and_get_failed_task_names(
+            known_estimates, tasks_by_name)
+        if defective_tasks:
+            msg = "There was a problem with following tasks: "
+            msg += ", ".join(defective_tasks)
+            raise ValueError(msg)
+
+    def supply_known_estimates_to_tasks_and_get_failed_task_names(
+            self, known_estimates, tasks_by_name):
+        defective_tasks = set()
+        for task_name, estimate_source in known_estimates.items():
+            try:
+                estimate = Estimate.from_input(estimate_source)
+                tasks_by_name[task_name].point_estimate = estimate
+            except ValueError:
+                defective_tasks.add(task_name)
+        return defective_tasks
 
 
 class MemoryPollster(Pollster):
@@ -63,20 +77,20 @@ class MemoryPollster(Pollster):
 
     def _knows_points(self, ns, name):
         prefix = self._prefix(ns, name)
-        return f"{prefix}points" in MemoryPollster._memory
+        return f"{prefix}points" in self._memory
 
     def _ask_points(self, ns, name):
         prefix = self._prefix(ns, name)
         key = f"{prefix}points"
-        ret = MemoryPollster._memory.get(key, EstimInput())
+        ret = self._memory.get(key, EstimInput())
         return ret
 
     def _tell_points(self, ns, name, points):
         prefix = self._prefix(ns, name)
         key = f"{prefix}points"
-        MemoryPollster._memory[key] = points
+        self._memory[key] = points
 
     def _forget_points(self, ns, name):
         prefix = self._prefix(ns, name)
         key = f"{prefix}points"
-        MemoryPollster._memory.pop(key)
+        self._memory.pop(key)

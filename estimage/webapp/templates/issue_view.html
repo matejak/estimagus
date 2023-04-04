@@ -40,6 +40,31 @@
     <h1>Estimate</h1>
     {{ utils.task_metadata(task) | indent(4) }}
     <h2>Estimates</h2>
+    <div class="row">
+        <div class="col">
+	{%- if context.estimation_source == "none" %}
+        <p>Point estimate: {{ utils.render_precise_estimate(task.point_cost) }}</p>
+	{%- else %}
+        <p>Point estimate: {{ utils.render_estimate(context.estimation) }}</p>
+	{%- endif %}
+	{%- if context.estimation_source == "own" %}
+        <p>The estimate is based on your personal estimate that is not visible to others.</p>
+	{%- endif %}
+	{%- if context.estimation_source == "global" %}
+        <p>The estimate is based on the consensus estimate.</p>
+	{%- endif %}
+	{%- if context.estimation_source == "none" %}
+        <p>The estimate is based on the data from the issue's tracker.</p>
+	{%- endif %}
+	{%- if context.estimate_status == "duplicate" %}
+        <p>Your personal estimate and consensus are the same. Remove the redundant personal estimate.</p>
+	{%- elif context.estimate_status == "contradictory" %}
+        <p>Your personal estimate is different than the global consensus, and overrides it.</p>
+	{%- endif %}
+        </div>
+        <div class="col">
+        <img src="{{ url_for('vis.visualize_task', task_name=task.name, nominal_or_remaining='nominal') }}" alt="PERT prob density function for {{ task.name }}"/>
+        </div>
     </div>
     <div class="row">
     <div class="col">
@@ -53,8 +78,8 @@
     </div>
     <div class="col">
     <h3>Consensus values</h3>
-	{% if consensus.expected %}
-	<p>Point cost: {{ utils.render_estimate(consensus) }}</p>
+	{% if context.global_estimate_exists %}
+	<p>Point cost: {{ utils.render_estimate(context.global_estimate) }}</p>
 	{% endif %}
 	{% if "consensus" in forms %}
         {{ render_form(forms["consensus"], button_map={"submit": "primary", "delete": "danger"}, action=url_for("main.move_issue_estimate_to_consensus", task_name=task.name)) }}
@@ -63,14 +88,10 @@
     <div class="col">
     <h3>Our values</h3>
         {{ estimation_form_in_accordion(own_estimation_exists) }}
-    {%- if estimate %}
-        <p>Point estimate: {{ utils.render_estimate(estimate) }}</p>
-        <img src="{{ url_for('vis.visualize_task', task_name=task.name) }}" alt="PERT prob density function for {{ task.name }}"/>
-    {%- endif %}
     </div>
     </div>
-    {%- if similar_sized_tasks %}
-        {{ utils.render_similar_sized_tasks(similar_sized_tasks, similar_sized_targets) }}
+    {%- if similar_sized_targets %}
+        {{ utils.render_similar_sized_tasks(similar_sized_targets[:8]) }}
     {%- endif %}
 </div>
 {% endblock %}

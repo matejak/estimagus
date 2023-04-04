@@ -1,5 +1,6 @@
 import typing
 import pathlib
+import dataclasses
 
 import flask
 
@@ -57,6 +58,84 @@ class Pollster(inidata.IniPollster):
     def _keyname(self, ns, name):
         keyname = f"{ns}{name}"
         return keyname
+
+
+@dataclasses.dataclass
+class Context:
+    task_name: str
+    own_estimation_exists: bool = False
+    global_estimation_exists: bool = False
+
+    def __init__(self, of_task):
+        self.task_name = of_task
+        self._own_estimate = None
+        self._global_estimate = None
+
+    def process_own_pollster(self, pollster: data.Pollster):
+        self.own_estimation_exists = False
+        self._own_estimate = None
+        if pollster.knows_points(self.task_name):
+            points = pollster.ask_points(self.task_name)
+            self._own_estimate = data.Estimate.from_input(points)
+            self.own_estimation_exists = True
+
+    def process_global_pollster(self, pollster: data.Pollster):
+        self.global_estimation_exists = False
+        self._global_estimate = None
+        if pollster.knows_points(self.task_name):
+            self.global_estimation_exists = False
+            points = pollster.ask_points(self.task_name)
+            self._global_estimate = data.Estimate.from_input(points)
+            self.global_estimation_exists = True
+
+    @property
+    def estimation(self) -> data.Estimate:
+        if self.estimation_source == "none":
+            msg = "No estimation exists"
+            raise ValueError(msg)
+        elif self.estimation_source == "own":
+            return self.own_estimation
+        elif self.estimation_source == "global":
+            return self.global_estimation
+
+    @property
+    def own_estimation(self) -> data.Estimate:
+        if not self.own_estimation_exists:
+            msg = "Own estimation doesn't exist"
+            raise ValueError(msg)
+        return self._own_estimate
+
+    @property
+    def global_estimation(self) -> data.Estimate:
+        if not self.global_estimation_exists:
+            msg = "Global estimation doesn't exist"
+            raise ValueError(msg)
+        return self._global_estimate
+
+    @property
+    def estimate_status(self) -> str:
+        ret = "absent"
+        if self.own_estimation_exists != self.global_estimation_exists:
+            ret = "single"
+        elif self.own_estimation_exists and self.global_estimation_exists:
+            ret = self._get_status_of_existing_estimation()
+        return ret
+
+    def _get_status_of_existing_estimation(self):
+        if self._own_estimate == self._global_estimate:
+            ret = "duplicate"
+        else:
+            ret = "contradictory"
+        return ret
+
+    @property
+    def estimation_source(self) -> str:
+        ret = "none"
+        if self.global_estimation_exists:
+            ret = "global"
+        if self.own_estimation_exists:
+            ret = "own"
+        return ret
 
 
 class EventManager(IniInDirMixin, inidata.IniEvents):

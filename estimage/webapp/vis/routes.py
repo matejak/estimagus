@@ -75,6 +75,7 @@ def get_pert_in_figure(estimation, task_name):
     ax.set_yticklabels([])
     ax.grid()
     ax.legend()
+    fig.set_size_inches(* NORMAL_FIGURE_SIZE)
 
     return fig
 
@@ -103,17 +104,32 @@ def visualize_velocity(epic_name):
     return send_figure_as_svg(fig, epic_name)
 
 
-@bp.route('/<task_name>-pert.svg')
+@bp.route('/<task_name>-<nominal_or_remaining>-pert.svg')
 @flask_login.login_required
-def visualize_task(task_name):
+def visualize_task(task_name, nominal_or_remaining):
+    allowed_modes = ("nominal", "remaining")
+    if nominal_or_remaining not in allowed_modes:
+        msg = (
+            f"Attempt to visualize {task_name} "
+            "and not setting mode to one of {allowed_modes}, "
+            f"but to '{nominal_or_remaining}'."
+        )
+        flask.flash(msg)
+        raise ValueError(msg)
     user = flask_login.current_user
 
     user_id = user.get_id()
     model = web_utils.get_user_model(user_id, webdata.ProjTarget)
     if task_name == ".":
-        estimation = model.nominal_point_estimate
+        if nominal_or_remaining == "nominal":
+            estimation = model.nominal_point_estimate
+        else:
+            estimation = model.remaining_point_estimate
     else:
-        estimation = model.nominal_point_estimate_of(task_name)
+        if nominal_or_remaining == "nominal":
+            estimation = model.nominal_point_estimate_of(task_name)
+        else:
+            estimation = model.remaining_point_estimate_of(task_name)
 
     fig = get_pert_in_figure(estimation, task_name)
 
@@ -123,7 +139,10 @@ def visualize_task(task_name):
 @bp.route('/<epic_name>-<size>-burndown.svg')
 @flask_login.login_required
 def visualize_burndown(epic_name, size):
-    assert size in ("small", "normal")
+    allowed_sizes = ("small", "normal")
+    if size not in allowed_sizes:
+        msg = "Figure size must be one of {allowed_sizes}, got '{size}' instead."
+        raise ValueError(msg)
     all_targets = webdata.RetroTarget.get_loaded_targets_by_id()
     target_tree = utilities.reduce_subsets_from_sets(list(all_targets.values()))
     all_events = webdata.EventManager.load()
