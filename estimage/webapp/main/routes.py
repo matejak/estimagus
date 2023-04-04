@@ -168,6 +168,19 @@ def give_data_to_context(context, user_pollster, global_pollster):
         flask.flash(msg)
 
 
+def get_similar_targets_with_estimations(user_id, task_name):
+    similar_targets = []
+    similar_tasks = get_similar_tasks(user_id, task_name)
+
+    all_targets = webdata.ProjTarget.get_loaded_targets_by_id()
+    all_targets.update(webdata.RetroTarget.get_loaded_targets_by_id())
+    for task in similar_tasks:
+        target = all_targets[task.name]
+        target.point_estimate = task.nominal_point_estimate
+        similar_targets.append(target)
+    return similar_targets
+
+
 @bp.route('/projective/task/<task_name>')
 @flask_login.login_required
 def view_task(task_name):
@@ -201,14 +214,7 @@ def view_task(task_name):
     else:
         feed_estimation_to_form(context.estimation, request_forms["estimation"])
 
-        similar_tasks = get_similar_tasks(user_id, task_name)
-
-        all_targets = webdata.ProjTarget.get_loaded_targets_by_id()
-        all_targets.update(webdata.RetroTarget.get_loaded_targets_by_id())
-        for task in similar_tasks:
-            target = all_targets[task.name]
-            target.point_estimate = task.nominal_point_estimate
-            similar_targets.append(target)
+        similar_targets = get_similar_targets_with_estimations(user_id, task_name)
 
     return web_utils.render_template(
         'issue_view.html', title='Estimate Issue',

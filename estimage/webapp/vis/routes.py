@@ -107,11 +107,12 @@ def visualize_velocity(epic_name):
 @bp.route('/<task_name>-<nominal_or_remaining>-pert.svg')
 @flask_login.login_required
 def visualize_task(task_name, nominal_or_remaining):
-    if nominal_or_remaining not in ("nominal", "remaining"):
+    allowed_modes = ("nominal", "remaining")
+    if nominal_or_remaining not in allowed_modes:
         msg = (
             f"Attempt to visualize {task_name} "
-            "and not setting either 'nominal' or 'remaining' mode, "
-            f"but '{nominal_or_remaining}'."
+            "and not setting mode to one of {allowed_modes}, "
+            f"but to '{nominal_or_remaining}'."
         )
         flask.flash(msg)
         raise ValueError(msg)
@@ -138,7 +139,10 @@ def visualize_task(task_name, nominal_or_remaining):
 @bp.route('/<epic_name>-<size>-burndown.svg')
 @flask_login.login_required
 def visualize_burndown(epic_name, size):
-    assert size in ("small", "normal")
+    allowed_sizes = ("small", "normal")
+    if size not in allowed_sizes:
+        msg = "Figure size must be one of {allowed_sizes}, got '{size}' instead."
+        raise ValueError(msg)
     all_targets = webdata.RetroTarget.get_loaded_targets_by_id()
     target_tree = utilities.reduce_subsets_from_sets(list(all_targets.values()))
     all_events = webdata.EventManager.load()

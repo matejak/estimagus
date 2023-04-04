@@ -118,10 +118,14 @@ class Context:
         if self.own_estimation_exists != self.global_estimation_exists:
             ret = "single"
         elif self.own_estimation_exists and self.global_estimation_exists:
-            if self._own_estimate == self._global_estimate:
-                ret = "duplicate"
-            else:
-                ret = "contradictory"
+            ret = self._get_status_of_existing_estimation()
+        return ret
+
+    def _get_status_of_existing_estimation(self):
+        if self._own_estimate == self._global_estimate:
+            ret = "duplicate"
+        else:
+            ret = "contradictory"
         return ret
 
     @property
