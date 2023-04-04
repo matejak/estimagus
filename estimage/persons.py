@@ -121,6 +121,8 @@ class OptimizedWorkloads(Workloads):
         task_sizes = np.array([
             self.model.remaining_point_estimate_of(t.name).expected
             for t in self.targets_by_name.values()])
+        if len(task_sizes) == 0 or len(self.persons_potential) == 0:
+            return
         costs = self.cost_matrix()
         if len(indices := np.where(np.logical_and(np.min(costs, axis=0) == np.inf, task_sizes > 0))[0]):
             task_names = [self.targets[i].name for i in indices]
