@@ -17,8 +17,16 @@ def get_user_model(user_id, cls, targets_tree_without_duplicates=None):
     authoritative_pollster = webdata.AuthoritativePollster()
     user_pollster = webdata.UserPollster(user_id)
     model = webdata.get_model(targets_tree_without_duplicates)
-    authoritative_pollster.inform_results(model.get_all_task_models())
-    user_pollster.inform_results(model.get_all_task_models())
+    try:
+        authoritative_pollster.supply_valid_estimations_to_tasks(model.get_all_task_models())
+    except ValueError as exc:
+        msg = f"There were errors processing own inputs: {str(exc)}"
+        flask.flash(msg)
+    try:
+        user_pollster.supply_valid_estimations_to_tasks(model.get_all_task_models())
+    except ValueError as exc:
+        msg = f"There were errors processing consensus inputs: {str(exc)}"
+        flask.flash(msg)
     return model
 
 

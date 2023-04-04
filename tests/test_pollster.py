@@ -38,22 +38,29 @@ def test_pollster_fills_in():
     result = tm.TaskModel("esti")
     pollster = tm.MemoryPollster()
     pollster.tell_points("esti", tm.EstimInput(2))
-    pollster.inform_results([result])
+    pollster.supply_valid_estimations_to_tasks([result])
     assert result.nominal_point_estimate.expected == 2
 
     estimodel = tm.EstiModel()
     estimodel.new_element("esti")
 
     all_results = estimodel.get_all_task_models()
-    pollster.inform_results(all_results)
+    pollster.supply_valid_estimations_to_tasks(all_results)
     assert estimodel.nominal_point_estimate.expected == 2
 
     estimodel.new_element("xsti")
     pollster.tell_points("xsti", tm.EstimInput(3))
 
     all_results = estimodel.get_all_task_models()
-    pollster.inform_results(all_results)
+    pollster.supply_valid_estimations_to_tasks(all_results)
     assert estimodel.nominal_point_estimate.expected == 5
+
+    defective_input = tm.EstimInput(3)
+    defective_input.pessimistic = 2
+
+    pollster.tell_points("esti", defective_input)
+    with pytest.raises(ValueError, match="esti"):
+        pollster.supply_valid_estimations_to_tasks([result])
 
 
 @pytest.fixture

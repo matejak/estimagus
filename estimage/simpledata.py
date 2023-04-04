@@ -62,29 +62,55 @@ class Pollster(inidata.IniPollster):
 
 @dataclasses.dataclass
 class Context:
+    task_name: str
     own_estimation_exists: bool = False
     global_estimation_exists: bool = False
 
     def __init__(self, of_task):
-        self._task_name = of_task
+        self.task_name = of_task
         self._own_estimate = None
         self._global_estimate = None
 
     def process_own_pollster(self, pollster: data.Pollster):
-        if pollster.knows_points(self._task_name):
+        self.own_estimation_exists = False
+        self._own_estimate = None
+        if pollster.knows_points(self.task_name):
+            points = pollster.ask_points(self.task_name)
+            self._own_estimate = data.Estimate.from_input(points)
             self.own_estimation_exists = True
-            self._own_estimate = pollster.ask_points(self._task_name)
-        else:
-            self.own_estimation_exists = False
-            self._own_estimate = None
 
     def process_global_pollster(self, pollster: data.Pollster):
-        if pollster.knows_points(self._task_name):
-            self.global_estimation_exists = True
-            self._global_estimate = pollster.ask_points(self._task_name)
-        else:
+        self.global_estimation_exists = False
+        self._global_estimate = None
+        if pollster.knows_points(self.task_name):
             self.global_estimation_exists = False
-            self._global_estimate = None
+            points = pollster.ask_points(self.task_name)
+            self._global_estimate = data.Estimate.from_input(points)
+            self.global_estimation_exists = True
+
+    @property
+    def estimation(self) -> data.Estimate:
+        if self.estimation_source == "none":
+            msg = "No estimation exists"
+            raise ValueError(msg)
+        elif self.estimation_source == "own":
+            return self.own_estimation
+        elif self.estimation_source == "global":
+            return self.global_estimation
+
+    @property
+    def own_estimation(self) -> data.Estimate:
+        if not self.own_estimation_exists:
+            msg = "Own estimation doesn't exist"
+            raise ValueError(msg)
+        return self._own_estimate
+
+    @property
+    def global_estimation(self) -> data.Estimate:
+        if not self.global_estimation_exists:
+            msg = "Global estimation doesn't exist"
+            raise ValueError(msg)
+        return self._global_estimate
 
     @property
     def estimate_status(self) -> str:

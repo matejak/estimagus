@@ -46,12 +46,22 @@ class Pollster:
                 ret[name] = self.ask_points(name)
         return ret
 
-    def inform_results(self, results: typing.List[TaskModel]):
+    def supply_valid_estimations_to_tasks(self, results: typing.List[TaskModel]):
+        defective_tasks = set()
         all_names = set(r.name for r in results)
         known_estimates = self.provide_info_about(all_names)
         for r in results:
-            if r.name in known_estimates:
-                r.point_estimate = Estimate.from_input(known_estimates[r.name])
+            if r.name not in known_estimates:
+                continue
+            try:
+                estimate = Estimate.from_input(known_estimates[r.name])
+                r.point_estimate = estimate
+            except ValueError:
+                defective_tasks.add(r.name)
+        if defective_tasks:
+            msg = "There was a problem with following tasks: "
+            msg += ", ".join(defective_tasks)
+            raise ValueError(msg)
 
 
 class MemoryPollster(Pollster):
