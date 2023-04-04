@@ -1,6 +1,6 @@
 from flask_wtf import FlaskForm
 import wtforms
-from wtforms import StringField, BooleanField, SubmitField, PasswordField
+from wtforms import StringField, BooleanField, SubmitField, PasswordField, ValidationError
 
 
 class SubmitMixin:
@@ -67,6 +67,22 @@ class NumberEstimationForm(FlaskForm, SubmitMixin, DeleteMixin):
     def __init__(self, * args, ** kwargs):
         super().__init__(* args, ** kwargs)
         self.disable_delete_button()
+
+    def validate_optimistic(self, field):
+        if field.data and field.data > self.most_likely.data:
+            msg = "The optimistic value mustn't exceed the most likely value"
+            raise ValidationError(msg)
+
+    def validate_pessimistic(self, field):
+        if field.data and field.data < self.most_likely.data:
+            msg = "The pessimistic value mustn't go below the most likely value"
+            raise ValidationError(msg)
+
+    def get_all_errors(self):
+        all_errors = set()
+        for field_errors in self.errors.values():
+            all_errors.update(set(field_errors))
+        return all_errors
 
 
 class PointEstimationForm(FlaskForm):
