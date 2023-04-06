@@ -279,7 +279,9 @@ def _convert_target_to_representation(
     repre.status_timeline.set_value_at(end, source.state)
     if work_span := source.work_span:
         work_span = produce_meaningful_span(work_span, start, end)
-        assert work_span[1] >= work_span[0], f"Inconsistent work span in {source.name}"
+        if  work_span[1] < work_span[0]:
+            msg = f"Inconsistent work span in {source.name}"
+            raise ValueError(msg)
         apply_span_to_timeline(repre.plan_timeline, work_span, start, end)
     repre.fill_history_from(end)
     return repre
@@ -291,6 +293,7 @@ def produce_meaningful_span(candidate_span, start, end):
         good_span[0] = candidate_span[0]
     if candidate_span[1] is not None:
         good_span[1] = candidate_span[1]
+    good_span[1] = max(good_span[0], good_span[1])
     return tuple(good_span)
 
 

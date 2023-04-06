@@ -665,6 +665,9 @@ def test_target_span_incomplete_works():
     assert r.plan_timeline.value_at(PERIOD_START + ONE_DAY) == 0.75
     assert r.plan_timeline.value_at(END - ONE_DAY) == 0
 
+    t.work_span = (None, PERIOD_START - ONE_DAY)
+    r = tm.convert_target_to_representations_of_leaves(t, PERIOD_START, END)[0]
+
 
 def test_target_span_of_executive_summary():
     pytest.skip()
