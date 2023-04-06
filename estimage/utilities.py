@@ -24,4 +24,6 @@ def reduce_subsets_from_sets(sets: typing.Iterable[typing.Container]):
 
 
 def norm_pdf(values, dx):
-    values[:] /= values.sum() * dx
+    norming_factor = values.sum() * dx
+    if norming_factor:
+        values[:] /= norming_factor
