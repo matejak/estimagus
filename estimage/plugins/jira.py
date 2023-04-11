@@ -59,7 +59,8 @@ class InputSpec:
 
 
 def identify_epic_subtasks(jira, epic, known_issues_by_id, parents_child_keymap):
-    subtasks = jira.search_issues(f'"Epic Link" = {epic.key}', expand="changelog,renderedFields", maxResults=0)
+    subtasks = jira.search_issues(
+        f'"Epic Link" = {epic.key}', expand="changelog,renderedFields", maxResults=0)
     for t in subtasks:
         parents_child_keymap[epic.key].add(t.key)
         if t.key in known_issues_by_id:
@@ -98,68 +99,6 @@ def name_from_field(field_contents):
     return field_contents.name.split("@", 1)[0]
 
 
-def merge_jira_item_without_children(result_class, item, all_items_by_id, parents_child_keymap):
-    STORY_POINTS = "customfield_12310243"
-    EPIC_LINK = "customfield_12311140"
-    CONTRIBUTORS = "customfield_12315950"
-    COMMITMENT = "customfield_12317404"
-    STATUS_SUMMARY = "customfield_12317299"
-    WORK_START = "customfield_12313941"
-    WORK_END = "customfield_12313942"
-
-    result = result_class()
-    result.name = item.key
-    result.uri = item.permalink()
-    result.loading_plugin = "jira"
-    result.title = item.get_field("summary") or ""
-    result.description = item.get_field("description") or ""
-    try:
-        result.description = item.renderedFields.description.replace("\r", "")
-    except Exception:
-        pass
-    result.point_cost = float(item.get_field(STORY_POINTS) or 0)
-    result.state = JIRA_STATUS_TO_STATE.get(item.get_field("status").name, target.State.unknown)
-    if item.fields.issuetype.name == "Epic" and result.state == target.State.abandoned:
-        result.state = target.State.done
-    result.priority = JIRA_PRIORITY_TO_VALUE.get(item.get_field("priority").name, 0)
-    result.status_summary = item.get_field(STATUS_SUMMARY) or ""
-    try:
-        result.status_summary = getattr(item.renderedFields, STATUS_SUMMARY).replace("\r", "")
-    except Exception:
-        pass
-    result.tags = {f"label:{value}" for value in (item.get_field("labels") or [])}
-    result.collaborators = []
-
-    if assignee := item.get_field("assignee"):
-        result.assignee = name_from_field(assignee)
-
-    try:
-        result.collaborators += [name_from_field(c) for c in item.get_field(CONTRIBUTORS) or []]
-    except AttributeError:
-        pass
-
-    result.tier = 0
-    try:
-        if commitment_item := item.get_field(COMMITMENT):
-            result.tags.add(f"commitment:{commitment_item.value.lower()}")
-            if commitment_item.value.lower() == "planned":
-                result.tier = 1
-    except AttributeError:
-        pass
-
-    work_span = [None, None]
-    if work_end := item.get_field(WORK_END):
-        work_span[-1] = jira_date_to_datetime(work_end)
-
-    if work_start := item.get_field(WORK_START):
-        work_span[0] = jira_date_to_datetime(work_start)
-
-    if work_span[0] or work_span[-1]:
-        result.work_span = tuple(work_span)
-
-    return result
-
-
 def inherit_attributes(parent, child):
     parent.add_element(child)
     # if work_span := parent.work_span:
@@ -173,16 +112,6 @@ def resolve_inheritance_of_attributes(name, all_items_by_id, parents_child_keyma
         child = all_items_by_id[child_name]
         inherit_attributes(item, child)
         resolve_inheritance_of_attributes(child_name, all_items_by_id, parents_child_keymap)
-
-
-def export_jira_epic_chain_to_targets(root_names, all_issues_by_id, parents_child_keymap):
-    all_targets_by_id = dict()
-    for iid, issue in all_issues_by_id.items():
-        all_targets_by_id[iid] = merge_jira_item_without_children(
-            target.BaseTarget, issue, all_issues_by_id, parents_child_keymap)
-    for root_name in root_names:
-        resolve_inheritance_of_attributes(root_name, all_targets_by_id, parents_child_keymap)
-    return all_targets_by_id
 
 
 def save_exported_jira_tasks(all_targets_by_id, id_selection, target_class):
@@ -282,48 +211,86 @@ def get_task_events(task, cutoff_date, sprint_epics=frozenset()):
     return events
 
 
-def import_targets_and_events(spec, retro_target_class, proj_target_class, event_manager_class):
-    targets_by_id = dict()
-    new_subtasks_by_id = dict()
+class Importer:
+    def __init__(self, spec):
+        self._targets_by_id = dict()
+        self._all_issues_by_name = dict()
+        self._parents_child_keymap = collections.defaultdict(set)
 
-    jira = JIRA(spec.server_url, token_auth=spec.token)
-    parents_child_keymap = collections.defaultdict(set)
-    all_issues_by_name = dict()
-    issue_names_requiring_events = set()
-    retro_targets = set()
-    if spec.retrospective_query:
-        retro_epic_names = get_epics_and_their_tasks_by_id(jira, spec.retrospective_query, all_issues_by_name, parents_child_keymap)
-        new_targets = export_jira_epic_chain_to_targets(retro_epic_names, all_issues_by_name, parents_child_keymap)
-        retro_targets.update(new_targets.keys())
-        issue_names_requiring_events.update(new_targets.keys())
-        targets_by_id.update(new_targets)
-        print("Gathering retro stuff")
-        print(f"{len(targets_by_id)} issues so far")
+        jira = JIRA(spec.server_url, token_auth=spec.token)
+        issue_names_requiring_events = set()
+        self._retro_targets = set()
+        if spec.retrospective_query:
+            retro_epic_names = get_epics_and_their_tasks_by_id(
+                jira, spec.retrospective_query, self._all_issues_by_name,
+                self._parents_child_keymap)
+            new_targets = export_jira_epic_chain_to_targets(retro_epic_names)
+            self._retro_targets.update(new_targets.keys())
+            issue_names_requiring_events.update(new_targets.keys())
+            self._targets_by_id.update(new_targets)
+            print("Gathering retro stuff")
+            print(f"{len(self._retro_targets)} issues so far")
 
-    projective_targets = set()
-    if spec.projective_query:
-        print("Gathering proj stuff")
-        proj_epic_names = get_epics_and_their_tasks_by_id(jira, spec.projective_query, all_issues_by_name, parents_child_keymap)
-        new_targets = export_jira_epic_chain_to_targets(proj_epic_names, all_issues_by_name, parents_child_keymap)
-        projective_targets.update(new_targets.keys())
-        targets_by_id.update(new_targets)
-        print(f"{len(targets_by_id)} issues so far")
+        self._projective_targets = set()
+        if spec.projective_query:
+            print("Gathering proj stuff")
+            proj_epic_names = get_epics_and_their_tasks_by_id(
+                jira, spec.projective_query, self._all_issues_by_name, self._parents_child_keymap)
+            new_targets = self.export_jira_epic_chain_to_targets(proj_epic_names)
+            self._projective_targets.update(new_targets.keys())
+            self._targets_by_id.update(new_targets)
+            print("Gathering projective stuff")
+            print(f"{len(self._projective_targets)} issues so far")
 
-    all_events = []
-    for name in issue_names_requiring_events:
-        all_events.extend(get_task_events(all_issues_by_name[name], spec.cutoff_date))
+        self._all_events = []
+        for name in issue_names_requiring_events:
+            self._all_events.extend(get_task_events(self._all_issues_by_name[name], spec.cutoff_date))
+        print(f"Collected {len(self._all_events)} events")
 
-    apply_some_events_into_issues(targets_by_id, all_events)
-    save_exported_jira_tasks(targets_by_id, retro_targets, retro_target_class)
-    save_exported_jira_tasks(targets_by_id, projective_targets, proj_target_class)
+    def export_jira_epic_chain_to_targets(self, root_names):
+        all_targets_by_id = dict()
+        for iid, issue in self._all_issues_by_name.items():
+            all_targets_by_id[iid] = self.merge_jira_item_without_children(issue)
+        for root_name in root_names:
+            resolve_inheritance_of_attributes(
+                root_name, all_targets_by_id, self._parents_child_keymap)
+        return all_targets_by_id
 
-    storer = event_manager_class()
-    for e in all_events:
-        storer.add_event(e)
-    storer.save()
-    print(f"Got about {len(all_events)} events")
+    def merge_jira_item_without_children(self, item):
+        result = target.BaseTarget()
+        result.name = item.key
+        result.uri = item.permalink()
+        result.loading_plugin = "jira"
+        result.title = item.get_field("summary") or ""
+        result.description = item.get_field("description") or ""
+        try:
+            result.description = item.renderedFields.description.replace("\r", "")
+        except Exception:
+            pass
+        result.state = JIRA_STATUS_TO_STATE.get(item.get_field("status").name, target.State.unknown)
+        if item.fields.issuetype.name == "Epic" and result.state == target.State.abandoned:
+            result.state = target.State.done
+        result.priority = JIRA_PRIORITY_TO_VALUE.get(item.get_field("priority").name, 0)
+        result.tags = {f"label:{value}" for value in (item.get_field("labels") or [])}
+        result.collaborators = []
+
+        if assignee := item.get_field("assignee"):
+            result.assignee = name_from_field(assignee)
+
+        return result
+
+    def save(self, retro_target_class, proj_target_class, event_manager_class):
+        apply_some_events_into_issues(self._targets_by_id, self._all_events)
+        save_exported_jira_tasks(self._targets_by_id, self._retro_targets, retro_target_class)
+        save_exported_jira_tasks(self._targets_by_id, self._projective_targets, proj_target_class)
+
+        storer = event_manager_class()
+        for e in self._all_events:
+            storer.add_event(e)
+        storer.save()
+        print(f"Got about {len(self._all_events)} events")
 
 
-def do_stuff(spec):
-    import_targets_and_events(
-        spec, simpledata.RetroTarget, simpledata.ProjTarget, simpledata.EventManager)
+def do_stuff(spec, cls=Importer):
+    importer = cls(spec)
+    importer.save(simpledata.RetroTarget, simpledata.ProjTarget, simpledata.EventManager)
