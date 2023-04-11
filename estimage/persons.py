@@ -156,14 +156,26 @@ def get_all_collaborators(targets):
 
 
 # For a naming reference, see https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.linprog.html
+# bub:
+# 0..num_persons * 2:
+#   Either person works less than their potential, or they work more
+#   odd(leading) rows represent + work - difference <= (positive) potential
+#   even rows represent - work - difference <= - (positive) potential
 def gen_bub(task_sizes, persons_potential):
     ret = np.ones(2 * len(persons_potential)) * sum(task_sizes) / sum(persons_potential)
     for i, pot in enumerate(persons_potential):
-        ret[2 * i] *= pot
-        ret[2 * i + 1] *= -pot
+        coeff_when_person_working_less = -1
+        person_working_more_index = i * 2
+        person_working_less_index = person_working_more_index + 1
+
+        ret[person_working_more_index] *= pot
+        ret[person_working_less_index] *= pot * coeff_when_person_working_less
     return ret
 
 
+# 0..num_tasks * num_persons: The same meaning as cost matrix that is flattened
+# +0..2 * num_persons: Pairs of identical values, represent absolute values
+#  of diff between work done by a person and their work potential
 def gen_c(task_sizes, persons_potential):
     num_tasks = len(task_sizes)
     num_persons = len(persons_potential)
@@ -173,18 +185,55 @@ def gen_c(task_sizes, persons_potential):
     return ret
 
 
+# Aub rows:
+# 0..num_persons * 2:
+#   Either person works less than their potential, or they work more
+#   The sum of their work minus their potential, their work difference, is defined here
 def gen_Aub(task_sizes, persons_potential):
     num_tasks = len(task_sizes)
     num_persons = len(persons_potential)
     ret = np.zeros((num_persons * 2, num_tasks * num_persons + num_persons * 2))
     for perso_idx in range(num_persons):
-        ret[perso_idx * 2, perso_idx * num_tasks:(perso_idx * num_tasks + num_tasks)] = 1
-        ret[perso_idx * 2, num_persons * num_tasks + perso_idx * 2] = -1
-        ret[perso_idx * 2 + 1, perso_idx * num_tasks:(perso_idx * num_tasks + num_tasks)] = -1
-        ret[perso_idx * 2 + 1, num_persons * num_tasks + 2 * perso_idx + 1] = -1
+        persons_work_start_index = perso_idx * num_tasks
+        persons_work_end_index = persons_work_start_index + num_tasks
+        persons_work_slice = slice(persons_work_start_index, persons_work_end_index)
+
+        one_work_difference_index = num_persons * num_tasks + perso_idx * 2
+        other_work_difference_index = one_work_difference_index + 1
+        coeff_when_person_working_more = 1
+        coeff_when_person_working_less = -1
+        person_working_more_index = perso_idx * 2
+        person_working_less_index = person_working_more_index + 1
+
+        ret[person_working_more_index, persons_work_slice] = coeff_when_person_working_more
+        ret[person_working_more_index, one_work_difference_index] = -1
+        ret[person_working_less_index, persons_work_slice] = coeff_when_person_working_less
+        ret[person_working_less_index, other_work_difference_index] = -1
     return ret
 
 
+def _record_lhs_contributions_make_whole_task(Aeq, starting_row_idx, num_tasks, num_persons):
+    for task_idx in range(num_tasks):
+        sl = slice(task_idx, num_tasks * num_persons, num_tasks)
+        Aeq[starting_row_idx + task_idx, sl] = 1
+
+
+def _record_lhs_differences_are_the_same(Aeq, starting_row_idx, num_tasks, num_persons):
+    first_col_index_of_differences = num_persons * num_tasks
+    for perso_idx in range(num_persons):
+        Aeq[starting_row_idx + perso_idx, first_col_index_of_differences + 2 * perso_idx] = 1
+        Aeq[starting_row_idx + perso_idx, first_col_index_of_differences + 2 * perso_idx + 1] = -1
+
+
+def _record_lhs_no_work_on_unwanted_items(Aeq, starting_row_idx, indices_of_zeros):
+    for idx, zero_idx in enumerate(indices_of_zeros):
+        Aeq[starting_row_idx + idx, zero_idx] = 1
+
+
+# Aeq rows:
+# 0..num_tasks: Task composition
+# +0..num_persons: Two consequent columns are the same
+# +0..num_zeros: Work done by person on a task is zero (if the cost is infinite)
 def gen_Aeq(task_sizes, persons_potential, labor_cost=None):
     num_tasks = len(task_sizes)
     num_persons = len(persons_potential)
@@ -192,16 +241,25 @@ def gen_Aeq(task_sizes, persons_potential, labor_cost=None):
         labor_cost = np.ones((num_persons, num_tasks))
     indices_of_zeros = np.where(labor_cost.flatten() == np.inf)[0]
     ret = np.zeros((num_tasks + num_persons + len(indices_of_zeros), num_tasks * num_persons + num_persons * 2))
-    for task_idx in range(num_tasks):
-        sl = slice(task_idx, num_tasks * num_persons, num_tasks)
-        ret[task_idx, sl] = 1
-    for perso_idx in range(num_persons):
-        ret[num_tasks + perso_idx, num_persons * num_tasks + 2 * perso_idx] = 1
-        ret[num_tasks + perso_idx, num_persons * num_tasks + 2 * perso_idx + 1] = -1
+    _record_lhs_contributions_make_whole_task(ret, 0, num_tasks, num_persons)
+    _record_lhs_differences_are_the_same(ret, num_tasks, num_tasks, num_persons)
     zeros_start = num_tasks + num_persons
-    for idx, zero_idx in enumerate(indices_of_zeros):
-        ret[zeros_start + idx, zero_idx] = 1
+    _record_lhs_no_work_on_unwanted_items(ret, zeros_start, indices_of_zeros)
     return ret
+
+
+def _record_rhs_contributions_make_whole_task(beq, starting_idx, task_sizes):
+    num_tasks = len(task_sizes)
+    for task_idx in range(num_tasks):
+        beq[starting_idx + task_idx] = task_sizes[task_idx]
+
+
+def _record_rhs_differences_are_the_same(beq, starting_row_idx):
+    pass
+
+
+def _record_rhs_no_work_on_unwanted_items(beq, starting_row_idx):
+    pass
 
 
 def gen_beq(task_sizes, persons_potential, labor_cost=None):
@@ -211,8 +269,7 @@ def gen_beq(task_sizes, persons_potential, labor_cost=None):
         labor_cost = np.ones((num_persons, num_tasks))
     number_of_zeros = np.sum(labor_cost == np.inf)
     ret = np.zeros(num_tasks + num_persons + number_of_zeros)
-    for task_idx in range(num_tasks):
-        ret[task_idx] = task_sizes[task_idx]
+    _record_rhs_contributions_make_whole_task(ret, 0, task_sizes)
     return ret
 
 
