@@ -140,40 +140,38 @@ def test_generate_objective_function():
     task_sizes = [1]
     persons_potential = [1]
     c = tm.gen_c(task_sizes, persons_potential)
-    assert len(c) == len(task_sizes) * len(persons_potential) + 2 * len(persons_potential)
+    assert len(c) == len(task_sizes) * len(persons_potential) + len(persons_potential)
     assert c[0] == 0
-    assert c[-2] == 1
-    assert c[-1] == 0
+    assert c[-1] == 1
 
     task_sizes = [1, 1]
     persons_potential = [1]
     c = tm.gen_c(task_sizes, persons_potential)
-    assert len(c) == len(task_sizes) * len(persons_potential) + 2 * len(persons_potential)
+    assert len(c) == len(task_sizes) * len(persons_potential) + len(persons_potential)
     assert c[0] == 0
     assert c[1] == 0
-    assert c[-2] == 1
-    assert c[-1] == 0
+    assert c[-1] == 1
 
     task_sizes = [1, 1]
     persons_potential = [1, 1, 1]
     c = tm.gen_c(task_sizes, persons_potential)
-    assert len(c) == len(task_sizes) * len(persons_potential) + 2 * len(persons_potential)
+    assert len(c) == len(task_sizes) * len(persons_potential) + len(persons_potential)
     assert sum(c) == len(persons_potential)
-    assert np.all(c[-1::-2] == 0)
+    assert np.all(c[-1:-len(persons_potential)] == 1)
 
 
 def test_generate_upper_bound_matrix():
     task_sizes = [1]
     persons_potential = [1]
     Aub = tm.gen_Aub(task_sizes, persons_potential)
-    assert Aub.shape == (2, 3)
+    assert Aub.shape == (2, 2)
     assert Aub[0, 0] == 1
     assert Aub[-1, -1] == -1
 
     task_sizes = [1, 1]
     persons_potential = [1]
     Aub = tm.gen_Aub(task_sizes, persons_potential)
-    assert Aub.shape == (2, 4)
+    assert Aub.shape == (2, 3)
     assert Aub[0, 0] == 1
     assert Aub[0, 1] == 1
     assert Aub[1, 0] == -1
@@ -183,7 +181,7 @@ def test_generate_upper_bound_matrix():
     task_sizes = [1, 1]
     persons_potential = [1, 1, 1]
     Aub = tm.gen_Aub(task_sizes, persons_potential)
-    assert Aub.shape == (6, 12)
+    assert Aub.shape == (6, 9)
     assert Aub[0, 0] == 1
     assert Aub[0, 1] == 1
     assert Aub[0, 2] == 0
@@ -197,34 +195,31 @@ def test_generate_equality_matrix():
     task_sizes = [1]
     persons_potential = [1]
     Aeq = tm.gen_Aeq(task_sizes, persons_potential)
-    assert Aeq.shape == (2, 3)
+    assert Aeq.shape == (1, 2)
     assert Aeq[0, 0] == 1
-    assert Aeq[-1, -2] == 1
-    assert Aeq[-1, -1] == -1
+    assert Aeq[-1, -1] == 0
 
     task_sizes = [1, 1]
     persons_potential = [1]
     Aeq = tm.gen_Aeq(task_sizes, persons_potential)
-    assert Aeq.shape == (3, 4)
+    assert Aeq.shape == (2, 3)
     assert Aeq[0, 0] == 1
     assert Aeq[0, 1] == 0
     assert Aeq[1, 0] == 0
     assert Aeq[1, 1] == 1
-    assert Aeq[-1, -2] == 1
-    assert Aeq[-1, -1] == -1
+    assert Aeq[-1, -1] == 0
 
     task_sizes = [1, 1]
     persons_potential = [1, 1, 1]
     Aeq = tm.gen_Aeq(task_sizes, persons_potential)
-    assert Aeq.shape == (5, 12)
+    assert Aeq.shape == (2, 9)
     assert Aeq[0, 0] == 1
     assert Aeq[0, 1] == 0
     assert Aeq[1, 0] == 0
     assert Aeq[1, 1] == 1
-    assert Aeq[-2, -4] == 1
-    assert Aeq[-2, -3] == -1
-    assert Aeq[-1, -2] == 1
-    assert Aeq[-1, -1] == -1
+    assert Aeq[-1, -3] == 0
+    assert Aeq[-1, -2] == 0
+    assert Aeq[-1, -1] == 0
 
     labor_cost = np.ones((len(persons_potential), len(task_sizes)))
     labor_cost[1, 1] = np.inf
@@ -236,21 +231,21 @@ def test_generate_equality_rhs():
     task_sizes = [1]
     persons_potential = [1]
     beq = tm.gen_beq(task_sizes, persons_potential)
-    assert len(beq) == (len(task_sizes) + len(persons_potential))
+    assert len(beq) == len(task_sizes)
     assert sum(beq) == sum(task_sizes)
     assert np.all(beq[len(task_sizes):] == 0)
 
     task_sizes = [1, 3]
     persons_potential = [1, 2, 1]
     beq = tm.gen_beq(task_sizes, persons_potential)
-    assert len(beq) == (len(task_sizes) + len(persons_potential))
+    assert len(beq) == len(task_sizes)
     assert sum(beq) == sum(task_sizes)
     assert np.all(beq[len(task_sizes):] == 0)
 
     labor_cost = np.ones((len(persons_potential), len(task_sizes)))
     labor_cost[1, 1] = np.inf
     beq = tm.gen_beq(task_sizes, persons_potential, labor_cost)
-    assert len(beq) == (len(task_sizes) + len(persons_potential) + 1)
+    assert len(beq) == len(task_sizes) + 1
 
 
 def evaluate_solution(solution, task_sizes, persons_potential, labor_cost=None):
