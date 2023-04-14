@@ -10,15 +10,25 @@ QUARTER_TO_MONTH_NUMBER = None
 PROJECT_NAME = "OPENSCAP"
 
 
+TEMPLATE_OVERRIDES = {
+    "tree_view_retrospective.html": "rhcompliance-retrotree.html",
+}
+
+
 class InputSpec(jira.InputSpec):
     @classmethod
     def from_dict(cls, input_form) -> "InputSpec":
-        input_form.server_url = "https://issues.redhat.com"
-        epoch = input_form.epoch
-        input_form.cutoff_date = epoch_start_to_datetime(epoch)
-        query_lead = f"project == {PROJECT_NAME} AND type == Epic AND"
-        retro_narrowing = f"sprint == {epoch} AND Commitment in (Committed, Planned)"
-        proj_narrowing = f"(sprint == {epoch} OR fixVersion == {epoch})"
+        ret = cls()
+        ret.server_url = "https://issues.redhat.com"
+        ret.token = input_form.token.data
+        epoch = input_form.quarter.data
+        ret.cutoff_date = epoch_start_to_datetime(epoch)
+        query_lead = f"project = {PROJECT_NAME} AND type = Epic AND"
+        retro_narrowing = f"sprint = {epoch} AND Commitment in (Committed, Planned)"
+        proj_narrowing = f"(sprint = {epoch} OR fixVersion = {epoch})"
+        ret.retrospective_query = " ".join((query_lead, retro_narrowing))
+        ret.projective_query = " ".join((query_lead, proj_narrowing))
+        return ret
 
 
 def epoch_start_to_datetime(epoch: str):
@@ -41,10 +51,6 @@ def next_epoch_of(epoch: str) -> str:
     return f"CY{next_epoch_start.year - 2000}Q{quarter}"
 
 
-def name_from_field(field_contents):
-    return field_contents.name.split("@", 1)[0]
-
-
 class Importer(jira.Importer):
     def merge_jira_item_without_children(self, item):
         STORY_POINTS = "customfield_12310243"
@@ -61,10 +67,11 @@ class Importer(jira.Importer):
         result.status_summary = item.get_field(STATUS_SUMMARY) or ""
         try:
             result.status_summary = getattr(item.renderedFields, STATUS_SUMMARY).replace("\r", "")
-        except Exception:
+        except AttributeError:
             pass
         try:
-            result.collaborators += [jira.name_from_field(c) for c in item.get_field(CONTRIBUTORS) or []]
+            result.collaborators += [
+                jira.name_from_field(c) for c in item.get_field(CONTRIBUTORS) or []]
         except AttributeError:
             pass
         result.tier = 0

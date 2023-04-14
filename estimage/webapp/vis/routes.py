@@ -1,5 +1,6 @@
 import io
 import datetime
+import collections
 
 import flask
 import flask_login
@@ -49,7 +50,7 @@ def plot_continuous_pert(ax, pert, expected, task_name):
 
 def plot_delta_pert(ax, pert, expected, task_name):
     dom = pert[0]
-    ax.plot(dom, 0 * dom, 'b-', lw=2, label=f'task {task_name}')
+    ax.axhline(0, color='blue', lw=2, label=f'task {task_name}')
     ax.axvline(expected, color="orange", label="expected value", zorder=2)
     # ax.arrow(expected, 0, 0, 1, fc='b', ec="b", lw=2, width=0.01, zorder=2)
     ax.set_ylim(-0.1, 1.1)
@@ -84,19 +85,27 @@ def get_pert_in_figure(estimation, task_name):
 @flask_login.login_required
 def visualize_velocity(epic_name):
     all_targets = webdata.RetroTarget.get_loaded_targets_by_id()
-    target_tree = utilities.reduce_subsets_from_sets(list(all_targets.values()))
     all_events = webdata.EventManager.load()
 
     start = flask.current_app.config["PERIOD"]["start"]
     end = flask.current_app.config["PERIOD"]["end"]
 
     if epic_name == ".":
-        aggregation = history.Aggregation.from_targets(target_tree, start, end)
+        targets_by_tiers = collections.defaultdict(list)
+        for t in all_targets.values():
+            targets_by_tiers[t.tier].append(t)
+
+        aggregation = []
+        for tier in range(max(targets_by_tiers.keys()) + 1):
+            target_tree = utilities.reduce_subsets_from_sets(targets_by_tiers[tier])
+            a = history.Aggregation.from_targets(target_tree, start, end)
+            a.process_event_manager(all_events)
+            aggregation.append(a)
     else:
         epic = all_targets[epic_name]
         aggregation = history.Aggregation.from_target(epic, start, end)
+        aggregation.process_event_manager(all_events)
 
-    aggregation.process_event_manager(all_events)
     cutoff_date = min(datetime.datetime.today(), end)
 
     fig = history.MPLVelocityPlot(aggregation).get_figure(cutoff_date)
@@ -136,26 +145,43 @@ def visualize_task(task_name, nominal_or_remaining):
     return send_figure_as_svg(fig, task_name)
 
 
-@bp.route('/<epic_name>-<size>-burndown.svg')
+@bp.route('/<epic_name>-burndown-<size>.svg')
 @flask_login.login_required
-def visualize_burndown(epic_name, size):
+def visualize_epic_burndown(epic_name, size):
     allowed_sizes = ("small", "normal")
     if size not in allowed_sizes:
         msg = "Figure size must be one of {allowed_sizes}, got '{size}' instead."
         raise ValueError(msg)
-    all_targets = webdata.RetroTarget.get_loaded_targets_by_id()
-    target_tree = utilities.reduce_subsets_from_sets(list(all_targets.values()))
-    all_events = webdata.EventManager.load()
 
+    all_targets = webdata.RetroTarget.get_loaded_targets_by_id()
+    epic = all_targets[epic_name]
+
+    return output_burndown([epic], size)
+
+
+@bp.route('/tier<tier>-burndown-<size>.svg')
+def visualize_overall_burndown(tier, size):
+    allowed_sizes = ("small", "normal")
+    if size not in allowed_sizes:
+        msg = "Figure size must be one of {allowed_sizes}, got '{size}' instead."
+        raise ValueError(msg)
+    if (tier := int(tier)) < 0:
+        msg = "Tier must be a positive number, got {tier}"
+        raise ValueError(msg)
+
+    all_targets = webdata.RetroTarget.get_loaded_targets_by_id()
+    all_targets = {name: target for name, target in all_targets.items() if target.tier <= tier}
+    target_tree = utilities.reduce_subsets_from_sets(list(all_targets.values()))
+
+    return output_burndown(target_tree, size)
+
+
+def output_burndown(target_tree, size):
     start = flask.current_app.config["PERIOD"]["start"]
     end = flask.current_app.config["PERIOD"]["end"]
+    all_events = webdata.EventManager.load()
 
-    if epic_name == ".":
-        aggregation = history.Aggregation.from_targets(target_tree, start, end)
-    else:
-        epic = all_targets[epic_name]
-        aggregation = history.Aggregation.from_target(epic, start, end)
-
+    aggregation = history.Aggregation.from_targets(target_tree, start, end)
     aggregation.process_event_manager(all_events)
 
     if size == "small":
@@ -164,4 +190,7 @@ def visualize_burndown(epic_name, size):
     else:
         fig = history.MPLPointPlot(aggregation).get_figure()
         fig.set_size_inches(* NORMAL_FIGURE_SIZE)
-    return send_figure_as_svg(fig, epic_name)
+
+    basename = flask.request.path.split("/")[-1]
+
+    return send_figure_as_svg(fig, basename)

@@ -1,7 +1,6 @@
 import dataclasses
 import datetime
 import collections
-import typing
 
 from jira import JIRA
 
@@ -83,7 +82,8 @@ def recursively_identify_task_subtasks(jira, task, known_issues_by_id, parents_c
 
 
 def get_epics_and_their_tasks_by_id(jira, epics_query, all_items_by_name, parents_child_keymap):
-    epics = jira.search_issues(f"type = epic AND {epics_query}", expand="changelog,renderedFields", maxResults=0)
+    epics = jira.search_issues(
+        f"type = epic AND {epics_query}", expand="changelog,renderedFields", maxResults=0)
 
     new_epics_names = set()
     for epic in epics:
@@ -101,8 +101,7 @@ def name_from_field(field_contents):
 
 def inherit_attributes(parent, child):
     parent.add_element(child)
-    # if work_span := parent.work_span:
-        # child.work_span = work_span
+    child.tier = parent.tier
 
 
 def resolve_inheritance_of_attributes(name, all_items_by_id, parents_child_keymap):
@@ -133,8 +132,6 @@ def jira_date_to_datetime(jira_date):
 
 def import_event(event, date, related_task_name):
     STORY_POINTS = "customfield_12310243"
-    EPIC_LINK = "customfield_12311140"
-    STATUS_SUMMARY = "customfield_12317299"
 
     field_name = event.field
     former_value = event.fromString
@@ -151,11 +148,6 @@ def import_event(event, date, related_task_name):
         evt.value_before = float(former_value or 0)
         evt.value_after = float(new_value or 0)
         evt.msg = f"Points changed from {former_value} to {new_value}"
-    elif field_name == EPIC_LINK:
-        evt = evts.Event(related_task_name, "project", date)
-        evt.value_before = int(former_value in sprint_epics)
-        evt.value_after = int(new_value in sprint_epics)
-        evt.msg = f"Got assigned epic {new_value}"
     elif field_name == "Latest Status Summary":
         evt = evts.Event(related_task_name, "status_summary", date)
         evt.value_before = former_value
@@ -193,7 +185,7 @@ def append_event_entry(events, event, date, related_task_name):
     return events
 
 
-def get_task_events(task, cutoff_date, sprint_epics=frozenset()):
+def get_task_events(task, cutoff_date):
     cutoff_datetime = None
     if cutoff_date:
         cutoff_datetime = datetime.datetime(cutoff_date.year, cutoff_date.month, cutoff_date.day)
@@ -224,7 +216,7 @@ class Importer:
             retro_epic_names = get_epics_and_their_tasks_by_id(
                 jira, spec.retrospective_query, self._all_issues_by_name,
                 self._parents_child_keymap)
-            new_targets = export_jira_epic_chain_to_targets(retro_epic_names)
+            new_targets = self.export_jira_epic_chain_to_targets(retro_epic_names)
             self._retro_targets.update(new_targets.keys())
             issue_names_requiring_events.update(new_targets.keys())
             self._targets_by_id.update(new_targets)
@@ -244,7 +236,8 @@ class Importer:
 
         self._all_events = []
         for name in issue_names_requiring_events:
-            self._all_events.extend(get_task_events(self._all_issues_by_name[name], spec.cutoff_date))
+            new_events = get_task_events(self._all_issues_by_name[name], spec.cutoff_date)
+            self._all_events.extend(new_events)
         print(f"Collected {len(self._all_events)} events")
 
     def export_jira_epic_chain_to_targets(self, root_names):
@@ -265,9 +258,10 @@ class Importer:
         result.description = item.get_field("description") or ""
         try:
             result.description = item.renderedFields.description.replace("\r", "")
-        except Exception:
+        except AttributeError:
             pass
-        result.state = JIRA_STATUS_TO_STATE.get(item.get_field("status").name, target.State.unknown)
+        result.state = JIRA_STATUS_TO_STATE.get(
+            item.get_field("status").name, target.State.unknown)
         if item.fields.issuetype.name == "Epic" and result.state == target.State.abandoned:
             result.state = target.State.done
         result.priority = JIRA_PRIORITY_TO_VALUE.get(item.get_field("priority").name, 0)
@@ -291,6 +285,6 @@ class Importer:
         print(f"Got about {len(self._all_events)} events")
 
 
-def do_stuff(spec, cls=Importer):
-    importer = cls(spec)
+def do_stuff(spec):
+    importer = Importer(spec)
     importer.save(simpledata.RetroTarget, simpledata.ProjTarget, simpledata.EventManager)

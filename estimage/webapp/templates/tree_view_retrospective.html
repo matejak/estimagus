@@ -7,6 +7,7 @@
     <div class="row">
     <h1>Tree View</h1>
     <div class="col">
+{% block burndown %}
     <h2>Burndown</h2>
     <p>
         Total SP waiting to be completed at start of the sprint: {{ initial_todo }}
@@ -20,10 +21,12 @@
         </ul>
     </p>
     <p>
-    <img src="{{ url_for('vis.visualize_burndown', epic_name='.', size="normal") }}" alt="Overall Burndown"/>
+    <img src="{{ url_for('vis.visualize_overall_burndown', tier=0, size="normal") }}" alt="Overall Burndown"/>
     </p>
+{% endblock %}
     </div>
     <div class="col">
+{% block velocity %}
     <h2>Velocity</h2>
     <p>
         <ul>
@@ -36,11 +39,13 @@
     <p>
     <img src="{{ url_for('vis.visualize_velocity', epic_name='.') }}" alt="Overall velocity"/>
     </p>
+{% endblock %}
     </div>
     </div>
     <h2>Epics</h2>
     <div class="row">
     <h3>WIP</h3>
+{% block epics_wip %}
     <ul>
     {% for target in targets -%}
     {% if target.state not in (6, 7) %}
@@ -48,6 +53,7 @@
     {% endif %}
     {% endfor -%}
     </ul>
+{% endblock %}
     </div>
     <h3>Done</h3>
     <div class="row">

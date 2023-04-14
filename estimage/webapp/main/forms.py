@@ -99,3 +99,9 @@ class JiraForm(FlaskForm):
     projQuery = StringField('Projective Query')
     cutoffDate = wtforms.DateField("History Cutoff date")
     submit = SubmitField("Import Data")
+
+
+class RedhatComplianceForm(FlaskForm):
+    token = PasswordField('Token')
+    quarter = StringField('Quarter String')
+    submit = SubmitField("Import Data")

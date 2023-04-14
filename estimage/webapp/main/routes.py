@@ -315,7 +315,8 @@ def tree_view_retro():
     priority_sorted_targets = sorted(targets_tree_without_duplicates, key=lambda x: - x.priority)
 
     return web_utils.render_template(
-        "tree_view_retrospective.html", title="Retrospective Tasks tree view",
+        "tree_view_retrospective.html",
+        title="Retrospective Tasks tree view",
         targets=priority_sorted_targets, today=datetime.datetime.today(), model=model, ** executive_summary)
 
 
@@ -347,3 +348,18 @@ def jira_plugin():
 
     return web_utils.render_template(
         'jira.html', title='Jira Plugin', plugin_form=form, )
+
+
+@bp.route('/plugins/rhcompliance', methods=("GET", "POST"))
+@flask_login.login_required
+def rhcompliance_plugin():
+    form = forms.RedhatComplianceForm()
+    if form.validate_on_submit():
+
+        from estimage import plugins
+        import estimage.plugins.redhat_compliance
+        task_spec = plugins.redhat_compliance.InputSpec.from_dict(form)
+        plugins.redhat_compliance.do_stuff(task_spec)
+
+    return web_utils.render_template(
+        'rhcompliance.html', title='Red Hat Compliacne Plugin', plugin_form=form, )
