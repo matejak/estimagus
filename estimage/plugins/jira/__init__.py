@@ -157,31 +157,20 @@ def import_event(event, date, related_task_name):
     return evt
 
 
-def extract_status_updates(all_events):
-    last_updates = dict()
-    for e in all_events:
-        if e.quantity == "status_summary":
-            if (task_name := e.task_name) in last_updates:
-                last_updates[task_name] = max(last_updates[task_name], e.time)
-            else:
-                last_updates[task_name] = e.time
-    return last_updates
-
-
-def apply_status_updates(issues_by_name, all_events):
-    last_updates_by_id = extract_status_updates(all_events)
-    for issue_name, date in last_updates_by_id.items():
-        issues_by_name[issue_name].status_summary_time = date
-
-
-def apply_some_events_into_issues(issues_by_name, all_events):
-    apply_status_updates(issues_by_name, all_events)
-
-
 def append_event_entry(events, event, date, related_task_name):
     event = import_event(event, date, related_task_name)
     if event is not None:
         events.append(event)
+    return events
+
+
+def get_events_from_relevant_task_histories(histories, task_name):
+    events = []
+    for history in histories:
+        date = jira_datetime_to_datetime(history.created)
+
+        for event in history.items:
+            append_event_entry(events, event, date, task_name)
     return events
 
 
@@ -190,16 +179,12 @@ def get_task_events(task, cutoff_date):
     if cutoff_date:
         cutoff_datetime = datetime.datetime(cutoff_date.year, cutoff_date.month, cutoff_date.day)
 
-    events = []
-    for history in task.changelog.histories:
-        date = jira_datetime_to_datetime(history.created)
+    recent_enough_histories = [
+        history for history in task.changelog.histories
+        if jira_datetime_to_datetime(history.created) < cutoff_datetime
+    ]
 
-        if cutoff_datetime and date < cutoff_datetime:
-            continue
-
-        for event in history.items:
-            append_event_entry(events, event, date, task.key)
-
+    events = get_events_from_relevant_task_histories(recent_enough_histories, task.key)
     return events
 
 
@@ -249,24 +234,28 @@ class Importer:
                 root_name, all_targets_by_id, self._parents_child_keymap)
         return all_targets_by_id
 
+    def _get_contents_of_rendered_field(self, item, field_name):
+        ret = item.get_field(field_name) or ""
+        try:
+            ret = getattr(item.renderedFields, field_name)
+        except AttributeError:
+            pass
+        ret = ret.replace("\r", "")
+        return ret
+
     def merge_jira_item_without_children(self, item):
         result = target.BaseTarget()
         result.name = item.key
         result.uri = item.permalink()
         result.loading_plugin = "jira"
         result.title = item.get_field("summary") or ""
-        result.description = item.get_field("description") or ""
-        try:
-            result.description = item.renderedFields.description.replace("\r", "")
-        except AttributeError:
-            pass
+        result.description = self._get_contents_of_rendered_field(item, "description")
         result.state = JIRA_STATUS_TO_STATE.get(
             item.get_field("status").name, target.State.unknown)
         if item.fields.issuetype.name == "Epic" and result.state == target.State.abandoned:
             result.state = target.State.done
         result.priority = JIRA_PRIORITY_TO_VALUE.get(item.get_field("priority").name, 0)
         result.tags = {f"label:{value}" for value in (item.get_field("labels") or [])}
-        result.collaborators = []
 
         if assignee := item.get_field("assignee"):
             result.assignee = name_from_field(assignee)
@@ -274,7 +263,6 @@ class Importer:
         return result
 
     def save(self, retro_target_class, proj_target_class, event_manager_class):
-        apply_some_events_into_issues(self._targets_by_id, self._all_events)
         save_exported_jira_tasks(self._targets_by_id, self._retro_targets, retro_target_class)
         save_exported_jira_tasks(self._targets_by_id, self._projective_targets, proj_target_class)
 

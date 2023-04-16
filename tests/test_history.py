@@ -34,16 +34,16 @@ def long_timeline():
 
 
 def test_localize_events(early_event, less_early_event, late_event):
-    early_loc = tm.localize_date(PERIOD_START, early_event.time)
-    less_early_loc = tm.localize_date(PERIOD_START, less_early_event.time)
+    early_loc = tm.days_between(PERIOD_START, early_event.time)
+    less_early_loc = tm.days_between(PERIOD_START, less_early_event.time)
 
     assert int(early_loc) == early_loc
     assert int(less_early_loc) == less_early_loc
 
     assert early_loc <= less_early_loc
-    assert early_loc < tm.localize_date(PERIOD_START, late_event.time)
+    assert early_loc < tm.days_between(PERIOD_START, late_event.time)
 
-    assert tm.localize_date(PERIOD_START, PERIOD_START) == 0
+    assert tm.days_between(PERIOD_START, PERIOD_START) == 0
 
 
 def test_beyond_timeline(long_timeline):
@@ -549,34 +549,6 @@ def test_aggregation_point_velocity_trivial(twoday_repre_done_in_day):
     assert a.point_velocity.sigma == pytest.approx(1)
 
 
-def test_simplify_history():
-    trivial_input = np.array([])
-    assert len(tm.simplify_timeline_array(trivial_input)) == 0
-
-    simple_input = np.array([[1, 2]])
-    np.testing.assert_array_equal(tm.simplify_timeline_array(simple_input), simple_input)
-
-    minimal_input = np.array([[1, 2], [1, 2]])
-    np.testing.assert_array_equal(tm.simplify_timeline_array(minimal_input), minimal_input)
-
-    redundant_input = np.array([[1, 2], [1, 2], [1, 2]])
-    np.testing.assert_array_equal(tm.simplify_timeline_array(redundant_input), minimal_input)
-
-    np.testing.assert_array_equal(tm.simplify_timeline_array(
-        np.array([[1, 2], [1.5, 2], [2, 2]])), np.array([[1, 2], [2, 2]]))
-
-    np.testing.assert_array_equal(tm.simplify_timeline_array(
-        np.array([[1, 2], [1.5, 2], [1.8, 2], [2, 2], [2, 2]])), np.array([[1, 2], [2, 2]]))
-
-    np.testing.assert_array_equal(tm.simplify_timeline_array(
-        np.array([[1, 2], [1.5, 2], [1.8, 2], [2, 3], [4, 3]])), np.array([[1, 2], [1.8, 2], [2, 3], [4, 3]]))
-
-    np.testing.assert_array_equal(
-        tm.simplify_timeline_array(
-            np.array([[1, 2, 0], [1.5, 2, 0], [1.8, 2, 1], [2, 3, 1], [3, 3, 1], [4, 3, 1]])),
-            np.array([[1, 2, 0], [1.5, 2, 0], [1.8, 2, 1], [2, 3, 1], [4, 3, 1]]))
-
-
 def test_project_events(repre, early_event, late_event):
     points_event = data.Event("", "points", PERIOD_START)
     points_event.value_before = 5
@@ -715,9 +687,3 @@ def test_target_span_ending_after_is_recalculated():
     r = tm.convert_target_to_representations_of_leaves(t, PERIOD_START, END)[0]
     overflowing_ratio = ONE_DAY / (t.work_span[1] - t.work_span[0])
     assert r.plan_timeline.value_at(END) == overflowing_ratio
-
-
-def test_element_insertion():
-    a = np.array([1])
-    new_a = tm.insert_element_into_array_after(a, 0, 2)
-    np.testing.assert_array_equal(new_a, np.array([1, 2]))
