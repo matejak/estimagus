@@ -6,6 +6,7 @@ import numpy as np
 
 from .entities import target
 from . import data
+from . import utilities
 
 
 ONE_DAY = datetime.timedelta(days=1)
@@ -403,3 +404,17 @@ class Aggregation:
             name = repre.task_name
             events_by_taskname[name] = manager.get_chronological_task_events_by_type(name)
         return self.process_events_by_taskname_and_type(events_by_taskname)
+
+
+def produce_tiered_aggregations(all_targets, all_events, start, end):
+    targets_by_tiers = collections.defaultdict(list)
+    for t in all_targets.values():
+        targets_by_tiers[t.tier].append(t)
+
+    aggregations = []
+    for tier in range(max(targets_by_tiers.keys()) + 1):
+        target_tree = utilities.reduce_subsets_from_sets(targets_by_tiers[tier])
+        a = Aggregation.from_targets(target_tree, start, end)
+        a.process_event_manager(all_events)
+        aggregations.append(a)
+    return aggregations

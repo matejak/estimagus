@@ -61,21 +61,13 @@ def visualize_velocity(epic_name):
     end = flask.current_app.config["PERIOD"]["end"]
 
     if epic_name == ".":
-        targets_by_tiers = collections.defaultdict(list)
-        for t in all_targets.values():
-            targets_by_tiers[t.tier].append(t)
-
-        aggregation = []
-        for tier in range(max(targets_by_tiers.keys()) + 1):
-            target_tree = utilities.reduce_subsets_from_sets(targets_by_tiers[tier])
-            a = history.Aggregation.from_targets(target_tree, start, end)
-            a.process_event_manager(all_events)
-            aggregation.append(a)
+        target_tree = utilities.reduce_subsets_from_sets(list(all_targets.values()))
+        aggregation = history.Aggregation.from_targets(target_tree, start, end)
     else:
         epic = all_targets[epic_name]
         aggregation = history.Aggregation.from_target(epic, start, end)
-        aggregation.process_event_manager(all_events)
 
+    aggregation.process_event_manager(all_events)
     cutoff_date = min(datetime.datetime.today(), end)
 
     fig = velocity.MPLVelocityPlot(aggregation).get_figure(cutoff_date)

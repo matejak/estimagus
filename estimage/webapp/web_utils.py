@@ -38,5 +38,3 @@ def render_template(path, title, **kwargs):
     return flask.render_template(
         maybe_overriden_path, title=title, authenticated_user=authenticated_user,
         ** kwargs)
-
-

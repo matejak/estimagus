@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% import "utils.j2" as utils %}
+{% from 'bootstrap5/form.html' import render_form %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+    <h1>Red Hat Compliance Plugin</h1>
+        {{ render_form(plugin_form, action=url_for("main.rhcompliance_plugin")) }}
+    </div>
+</div>
+{% endblock %}
+
+

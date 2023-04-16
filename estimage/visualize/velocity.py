@@ -7,11 +7,16 @@ from . import utils
 from .. import history
 
 
+class TierStyle(typing.NamedTuple):
+    label: str
+    color: tuple
+
+
 class MPLVelocityPlot:
-    TIER_STYLES = [
-        ("Committed", (0.1, 0.1, 0.7, 0.7)),
-        ("Combined", (0.1, 0.1, 0.6, 1)),
-    ]
+    TIER_STYLES = (
+        TierStyle(label="", color=(0.1, 0.1, 0.6, 1)),
+    )
+
     def __init__(self, a: typing.Iterable[history.Aggregation]):
         try:
             num_tiers = len(a)
@@ -49,14 +54,9 @@ class MPLVelocityPlot:
 
     def _plot_velocity_tier(self, ax, data, tier):
         tier_style = self.TIER_STYLES[tier]
-        if tier == 0:
-            ax.fill_between(
-                self.days, 0, data, color=tier_style[1],
-                label=f"{tier_style[0]} Velocity retrofit")
-        elif tier == 1:
-            ax.plot(
-                self.days, data, color=tier_style[1],
-                label=f"{tier_style[0]} Velocity Retrofit")
+        ax.plot(
+            self.days, data, color=tier_style.color,
+            label=f"{tier_style.label} Velocity Fit")
 
     def get_figure(self, cutoff_date):
         plt = utils.get_standard_pyplot()

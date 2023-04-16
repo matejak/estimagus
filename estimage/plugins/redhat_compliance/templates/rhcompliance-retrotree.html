@@ -1,0 +1,25 @@
+{% extends "tree_view_retrospective.html" %}
+
+{% block epics_wip %}
+    <h4>Committed</h4>
+    <ul>
+    {% for target in targets -%}
+    {% if target.state not in (6, 7) and target.tier == 0 %}
+    {{ utils.render_whatever_retro(target, model, today, recursive=false) }}
+    {% endif %}
+    {% endfor -%}
+    </ul>
+    <h4>Planned</h4>
+    <ul>
+    {% for target in targets -%}
+    {% if target.state not in (6, 7) and target.tier == 1 %}
+    {{ utils.render_whatever_retro(target, model, today, recursive=false) }}
+    {% endif %}
+    {% endfor -%}
+    </ul>
+{% endblock %}
+
+
+{% block content %}
+{{ super() }}
+{% endblock %}
