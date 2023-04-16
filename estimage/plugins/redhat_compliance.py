@@ -10,7 +10,7 @@ QUARTER_TO_MONTH_NUMBER = None
 PROJECT_NAME = "OPENSCAP"
 
 
-TEMPLATE_OVERRIDES = {
+_TEMPLATE_OVERRIDES = {
     "tree_view_retrospective.html": "rhcompliance-retrotree.html",
 }
 

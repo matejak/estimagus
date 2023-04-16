@@ -11,23 +11,12 @@ from . import data
 ONE_DAY = datetime.timedelta(days=1)
 
 
-def get_standard_pyplot():
-    import matplotlib.pyplot as plt
-    plt.rcParams['svg.fonttype'] = 'none'
-    plt.rcParams['font.sans-serif'] = (
-        "system-ui", "-apple-system", "Segoe UI", "Roboto", "Helvetica Neue", "Noto Sans", "Liberation Sans",
-        "Arial,sans-serif" ,"Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji",
-    )
-    plt.rcParams['font.size'] = 12
-    return plt
-
-
 def get_period(start: datetime.datetime, end: datetime.datetime):
     period = end - start
     return np.zeros(period.days)
 
 
-def localize_date(
+def days_between(
         start: datetime.datetime, evt: datetime.datetime):
     return (evt - start).days
 
@@ -75,7 +64,7 @@ class Timeline:
         self._data[:] = events_from_newest[0].value_after
         indices_from_newest = np.empty(len(events_from_newest), dtype=int)
         for i, e in enumerate(events_from_newest):
-            index = localize_date(self.start, e.time)
+            index = self._localize_date(e.time)
             indices_from_newest[i] = index
             if not 0 <= index < len(self._data):
                 msg = "Event outside of the timeline"
@@ -87,11 +76,11 @@ class Timeline:
             self._data[i] = e.value_before
 
     def set_value_at(self, time: datetime.datetime, value):
-        index = localize_date(self.start, time)
+        index = self._localize_date(time)
         self._data[index] = value
 
     def value_at(self, time: datetime.datetime):
-        index = localize_date(self.start, time)
+        index = self._localize_date(time)
         return self._data[index]
 
     def get_value_mask(self, value):
@@ -187,7 +176,7 @@ class Repre:
             if latest_at < self.start:
                 return False
             elif latest_at < self.end:
-                deadline_index = localize_date(self.start, latest_at)
+                deadline_index = days_between(self.start, latest_at)
                 relevant_slice = slice(0, deadline_index + 1)
         done_mask = self.status_timeline.get_value_mask(target.State.done)[relevant_slice]
         task_done = done_mask.sum() > 0
@@ -225,7 +214,7 @@ class Repre:
             return self.status_timeline.get_value_mask(target.State.done).astype(float)
         velocity_array = self.status_timeline.get_value_mask(target.State.in_progress).astype(float)
         if velocity_array.sum() == 0:
-            index_of_completion = localize_date(self.start, self.get_day_of_completion())
+            index_of_completion = days_between(self.start, self.get_day_of_completion())
             if index_of_completion == 0:
                 return velocity_array
             velocity_array[index_of_completion] = 1
@@ -414,209 +403,3 @@ class Aggregation:
             name = repre.task_name
             events_by_taskname[name] = manager.get_chronological_task_events_by_type(name)
         return self.process_events_by_taskname_and_type(events_by_taskname)
-
-
-def x_axis_weeks_and_months(ax, start, end):
-    ticks = dict()
-    set_week_ticks_to_mondays(ticks, start, end)
-    set_ticks_to_months(ticks, start, end)
-
-    ax.set_xticks(list(ticks.keys()))
-    ax.set_xticklabels(list(ticks.values()), rotation=60)
-
-    ax.set_xlabel("time / weeks")
-
-
-def set_week_ticks_to_mondays(ticks, start, end):
-    week_index = 0
-    if start.weekday != 0:
-        week_index = 1
-    for day in range((end - start).days):
-        if (start + day * ONE_DAY).weekday() == 0:
-            ticks[day] = str(week_index)
-            week_index += 1
-
-
-def set_ticks_to_months(ticks, start, end):
-    for day in range((end - start).days):
-        if (the_day := (start + day * ONE_DAY)).day == 1:
-            ticks[day] = datetime.date.strftime(the_day, "%b")
-
-
-def insert_element_into_array_after(array: np.ndarray, index: int, value: typing.Any):
-    separindex = index + 1
-    components = (array[:separindex], np.array([value]), array[separindex:])
-    return np.concatenate(components, 0)
-
-
-class MPLPointPlot:
-    def __init__(self, a: Aggregation):
-        self.aggregation = a
-        empty_array = np.zeros(a.days)
-        self.styles = [
-            (target.State.todo, empty_array.copy(), (0.1, 0.1, 0.5, 1)),
-            (target.State.in_progress, empty_array.copy(), (0.1, 0.1, 0.6, 0.8)),
-            (target.State.review, empty_array.copy(), (0.1, 0.2, 0.7, 0.6)),
-        ]
-        self.index_of_today = localize_date(self.aggregation.start, datetime.datetime.today())
-        self.width = 1.0
-
-    def _prepare_plots(self):
-        for status, dest, color in self.styles:
-            for r in self.aggregation.repres:
-                dest[r.status_is(status)] += r.points_of_status(status)
-
-    def _show_plan(self, ax):
-        ax.plot(self.aggregation.get_plan_array(), color="orange",
-                linewidth=self.width, label="burndown")
-
-    def _show_today(self, ax):
-        if self.aggregation.start <= datetime.datetime.today() <= self.aggregation.end:
-            ax.axvline(self.index_of_today, label="today", color="grey", linewidth=self.width * 2)
-
-    def _plot_prepared_arrays(self, ax):
-        days = np.arange(self.aggregation.days)
-        bottom = np.zeros_like(days, dtype=float)
-        for status, array, color in self.styles:
-            self._plot_data_with_termination(ax, status, array, bottom, color)
-            bottom += array
-
-    def _plot_data_with_termination(self, ax, status, array, bottom, color):
-        days = np.arange(self.aggregation.days)
-        if 0 <= self.index_of_today < len(days):
-            array = insert_element_into_array_after(array[:self.index_of_today + 1], self.index_of_today, 0)
-            bottom = insert_element_into_array_after(bottom[:self.index_of_today + 1], self.index_of_today, 0)
-            days = insert_element_into_array_after(days[:self.index_of_today + 1], self.index_of_today, self.index_of_today)
-        ax.fill_between(days, array + bottom, bottom, label=status,
-                        color=color, edgecolor="white", linewidth=self.width * 0.5)
-
-    def get_figure(self):
-        plt = get_standard_pyplot()
-
-        fig, ax = plt.subplots()
-        ax.grid(True)
-
-        self._prepare_plots()
-        self._plot_prepared_arrays(ax)
-        self._show_plan(ax)
-        self._show_today(ax)
-        ax.legend(loc="upper right")
-
-        x_axis_weeks_and_months(ax, self.aggregation.start, self.aggregation.end)
-        ax.set_ylabel("points")
-
-        return fig
-
-    def get_small_figure(self):
-        plt = get_standard_pyplot()
-
-        fig, ax = plt.subplots()
-
-        self._prepare_plots()
-        self._plot_prepared_arrays(ax)
-        self._show_plan(ax)
-        self._show_today(ax)
-
-        ax.set_axis_off()
-        fig.subplots_adjust(0, 0, 1, 1)
-
-        return fig
-
-    def plot_stuff(self):
-        plt = get_standard_pyplot()
-        self.get_figure()
-
-        plt.show()
-
-
-class MPLVelocityPlot:
-    TIER_STYLES = [
-        ("Committed", (0.1, 0.1, 0.7, 0.7)),
-        ("Combined", (0.1, 0.1, 0.6, 1)),
-    ]
-    def __init__(self, a: typing.Iterable[Aggregation]):
-        try:
-            num_tiers = len(a)
-        except TypeError:
-            num_tiers = 1
-            a = [a]
-        self.aggregations_by_tiers = a
-        self.velocity_estimate = np.zeros((num_tiers, a[0].days))
-        self.velocity_focus = np.zeros((num_tiers, a[0].days))
-        self.days = np.arange(a[0].days)
-        self.start = a[0].start
-        self.end = a[0].end
-
-    def _prepare_plots(self, cutoff_date):
-        for tier, aggregation in enumerate(self.aggregations_by_tiers):
-            for r in aggregation.repres:
-                self.velocity_focus[tier] += r.get_velocity_array()
-                self._fill_rolling_velocity(tier, r, cutoff_date)
-
-    def _fill_rolling_velocity(self, tier, repre, cutoff_date):
-        completed_from_before = repre.points_completed(self.start)
-        for days in self.days:
-            date = self.start + ONE_DAY * days
-            points_completed_to_date = repre.points_completed(date) - completed_from_before
-            self.velocity_estimate[tier, days] += points_completed_to_date / (days + 1)
-
-            if date >= cutoff_date:
-                break
-
-    def plot_stuff(self, cutoff_date):
-        plt = get_standard_pyplot()
-        self.get_figure(cutoff_date)
-
-        plt.show()
-
-    def _plot_velocity_tier(self, ax, data, tier):
-        tier_style = self.TIER_STYLES[tier]
-        if tier == 0:
-            ax.fill_between(
-                self.days, 0, data, color=tier_style[1],
-                label=f"{tier_style[0]} Velocity retrofit")
-        elif tier == 1:
-            ax.plot(
-                self.days, data, color=tier_style[1],
-                label=f"{tier_style[0]} Velocity Retrofit")
-
-    def get_figure(self, cutoff_date):
-        plt = get_standard_pyplot()
-
-        fig, ax = plt.subplots()
-        ax.grid(True)
-
-        days_in_real_week = 7
-
-        self._prepare_plots(cutoff_date)
-
-        aggregate_focus = np.zeros_like(self.velocity_focus[0])
-        for tier, tier_focus in enumerate(self.velocity_focus):
-            aggregate_focus += tier_focus
-            self._plot_velocity_tier(ax, aggregate_focus * days_in_real_week, tier)
-        all_tiers_rolling_velocity = np.sum(self.velocity_estimate, 0)
-        ax.plot(
-            self.days, all_tiers_rolling_velocity * days_in_real_week,
-            color="orange", label="Rolling velocity estimate")
-
-        index_of_today = localize_date(self.start, datetime.datetime.today())
-        if 0 <= index_of_today <= len(self.days):
-            ax.axvline(index_of_today, label="today", color="grey", linewidth=2)
-
-        ax.legend(loc="upper center")
-        x_axis_weeks_and_months(ax, self.start, self.end)
-        ax.set_ylabel("team velocity / points per week")
-
-        return fig
-
-
-def simplify_timeline_array(array_to_simplify):
-    if len(array_to_simplify) < 3:
-        return array_to_simplify
-    simplified = [array_to_simplify[0]]
-    for first, middle, last in zip(array_to_simplify[:-2], array_to_simplify[1:-1], array_to_simplify[2:]):
-        if np.all(first[1:] == middle[1:]) * np.all(middle[1:] == last[1:]):
-            continue
-        simplified.append(middle)
-    simplified.append(array_to_simplify[-1])
-    return np.array(simplified, dtype=array_to_simplify.dtype)
