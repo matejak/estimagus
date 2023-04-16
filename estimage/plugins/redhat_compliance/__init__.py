@@ -3,7 +3,7 @@ import datetime
 import dateutil.relativedelta
 
 from estimage import simpledata
-from . import jira
+from .. import jira
 
 
 QUARTER_TO_MONTH_NUMBER = None

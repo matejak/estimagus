@@ -90,18 +90,3 @@ class PointEstimationForm(FlaskForm):
     most_likely = wtforms.SelectField("Most Likely", choices=FIB)
     pessimistic = wtforms.SelectField("Pessimistic", choices=FIB)
     submit = SubmitField("Save Estimate")
-
-
-class JiraForm(FlaskForm):
-    server = StringField('Server URL', default="https://")
-    token = PasswordField('Token')
-    retroQuery = StringField('Retrospective Query')
-    projQuery = StringField('Projective Query')
-    cutoffDate = wtforms.DateField("History Cutoff date")
-    submit = SubmitField("Import Data")
-
-
-class RedhatComplianceForm(FlaskForm):
-    token = PasswordField('Token')
-    quarter = StringField('Quarter String')
-    submit = SubmitField("Import Data")

@@ -338,11 +338,13 @@ def view_epic_retro(epic_name):
 @bp.route('/plugins/jira', methods=("GET", "POST"))
 @flask_login.login_required
 def jira_plugin():
-    form = forms.JiraForm()
+    from estimage import plugins
+    import estimage.plugins.jira
+    import estimage.plugins.jira.forms
+
+    form = estimage.plugins.jira.forms.JiraForm()
     if form.validate_on_submit():
 
-        from estimage import plugins
-        import estimage.plugins.jira
         task_spec = plugins.jira.InputSpec.from_dict(form)
         plugins.jira.do_stuff(task_spec)
 
@@ -353,11 +355,13 @@ def jira_plugin():
 @bp.route('/plugins/rhcompliance', methods=("GET", "POST"))
 @flask_login.login_required
 def rhcompliance_plugin():
-    form = forms.RedhatComplianceForm()
+    from estimage import plugins
+    import estimage.plugins.redhat_compliance
+    import estimage.plugins.redhat_compliance.forms
+
+    form = estimage.plugins.redhat_compliance.forms.RedhatComplianceForm()
     if form.validate_on_submit():
 
-        from estimage import plugins
-        import estimage.plugins.redhat_compliance
         task_spec = plugins.redhat_compliance.InputSpec.from_dict(form)
         plugins.redhat_compliance.do_stuff(task_spec)
 
