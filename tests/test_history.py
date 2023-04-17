@@ -608,6 +608,22 @@ def test_timeline_interpolation():
     assert reasonable_timeline.value_at(PERIOD_START + ONE_DAY) == 0.5
 
 
+def test_timeline_interpolation_invalid():
+    END = PERIOD_START + 5 * ONE_DAY
+    reasonable_timeline = tm.Timeline(PERIOD_START, END)
+    reasonable_timeline.set_gradient_values(PERIOD_START, 1, PERIOD_START, 0)
+    assert sum(reasonable_timeline.get_array()) == 0
+
+    reasonable_timeline.set_gradient_values(PERIOD_START, 1, PERIOD_START + 10 * ONE_DAY, 1)
+    assert sum(reasonable_timeline.get_value_mask(1)) == 6
+
+    reasonable_timeline.set_gradient_values(PERIOD_START, 0, PERIOD_START + 10 * ONE_DAY, 1)
+    assert 0.2 < reasonable_timeline.get_array().mean() < 0.4
+
+    reasonable_timeline.set_gradient_values(PERIOD_START - 10 * ONE_DAY, 0, END, 1)
+    assert 0.6 < reasonable_timeline.get_array().mean() < 1
+
+
 def test_target_span_propagates_to_children():
     END = PERIOD_START + 5 * ONE_DAY
     parent = target.BaseTarget()
@@ -686,4 +702,4 @@ def test_target_span_ending_after_is_recalculated():
     t.work_span = (PERIOD_START + ONE_DAY, END + ONE_DAY)
     r = tm.convert_target_to_representations_of_leaves(t, PERIOD_START, END)[0]
     overflowing_ratio = ONE_DAY / (t.work_span[1] - t.work_span[0])
-    assert r.plan_timeline.value_at(END) == overflowing_ratio
+    assert r.plan_timeline.value_at(END) == pytest.approx(overflowing_ratio)
