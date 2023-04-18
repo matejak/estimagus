@@ -290,12 +290,18 @@ def executive_summary_of_points_and_velocity(targets):
         elif r.get_status_at(cutoff_date) == data.State.done:
             cutoff_data.done += repre_points
 
+    velocity_array = aggregation.get_velocity_array()
+    velocity_stdev = velocity_array.var()**0.5
+    velocity_stdev_while_working = velocity_array[velocity_array>0].var()**0.5
+
     output = dict(
         initial_todo=not_done_on_start,
-        initial_done=not_done_on_start,
+        initial_done=done_on_start,
         last_record=cutoff_data,
         total_days_in_period=(cutoff_date - start).days,
-        total_days_while_working=sum(aggregation.get_velocity_array() > 0),
+        total_days_while_working=sum(velocity_array > 0),
+        velocity_stdev=velocity_stdev,
+        velocity_stdev_while_working=velocity_stdev_while_working,
         total_points_done=cutoff_data.done - done_on_start,
     )
     return output
@@ -305,8 +311,10 @@ def executive_summary_of_points_and_velocity(targets):
 @flask_login.login_required
 def tree_view_retro():
     all_targets = webdata.RetroTarget.load_all_targets()
+    tier0_targets = [t for t in all_targets if t.tier == 0]
+    tier0_targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(tier0_targets)
     targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(all_targets)
-    executive_summary = executive_summary_of_points_and_velocity(targets_tree_without_duplicates)
+    summary = executive_summary_of_points_and_velocity(tier0_targets_tree_without_duplicates)
 
     user = flask_login.current_user
     user_id = user.get_id()
@@ -317,7 +325,7 @@ def tree_view_retro():
     return web_utils.render_template(
         "tree_view_retrospective.html",
         title="Retrospective Tasks tree view",
-        targets=priority_sorted_targets, today=datetime.datetime.today(), model=model, ** executive_summary)
+        targets=priority_sorted_targets, today=datetime.datetime.today(), model=model, ** summary)
 
 
 @bp.route('/retrospective/epic/<epic_name>')
