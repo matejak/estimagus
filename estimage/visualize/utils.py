@@ -33,15 +33,15 @@ def set_week_ticks_to_mondays(ticks, start, end):
     week_index = 0
     if start.weekday != 0:
         week_index = 1
-    for day in range((end - start).days):
+    for day in range((end - start).days + 1):
         if (start + day * ONE_DAY).weekday() == 0:
             ticks[day] = str(week_index)
             week_index += 1
 
 
 def set_ticks_to_months(ticks, start, end):
-    for day in range((end - start).days):
-        if (the_day := (start + day * ONE_DAY)).day == 1:
+    for day in range((end - start).days + 1):
+        if (the_day := start + day * ONE_DAY).day == 1:
             ticks[day] = datetime.date.strftime(the_day, "%b")
 
 

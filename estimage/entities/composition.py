@@ -105,6 +105,12 @@ class Composition:
     def _load(self):
         raise NotImplementedError()
 
+    def get_contained_elements(self):
+        elements = list(self.elements)
+        for c in self.compositions:
+            elements.extend(c.get_contained_elements())
+        return elements
+
 
 class MemoryComposition(Composition):
     COMPOSITIONS = dict()

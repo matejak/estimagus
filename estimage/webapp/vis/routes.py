@@ -13,7 +13,6 @@ from ... import history
 from ...visualize import utils, velocity, burndown, pert
 
 import matplotlib
-matplotlib.use('Agg')
 
 
 NORMAL_FIGURE_SIZE = (6.0, 4.4)
@@ -38,6 +37,7 @@ def send_figure_as_svg(figure, basename):
 
     bytesio = io.BytesIO()
     figure.savefig(bytesio, pad_inches=0, dpi="figure", format="svg", bbox_inches='tight')
+    figure.clear()
     plt.close(figure)
     bytesio.seek(0)
 
@@ -70,6 +70,7 @@ def visualize_velocity(epic_name):
     aggregation.process_event_manager(all_events)
     cutoff_date = min(datetime.datetime.today(), end)
 
+    matplotlib.use("svg")
     fig = velocity.MPLVelocityPlot(aggregation).get_figure(cutoff_date)
     fig.set_size_inches(* NORMAL_FIGURE_SIZE)
     return send_figure_as_svg(fig, epic_name)
@@ -102,6 +103,7 @@ def visualize_task(task_name, nominal_or_remaining):
         else:
             estimation = model.remaining_point_estimate_of(task_name)
 
+    matplotlib.use("svg")
     fig = get_pert_in_figure(estimation, task_name)
 
     return send_figure_as_svg(fig, task_name)
@@ -146,6 +148,7 @@ def output_burndown(target_tree, size):
     aggregation = history.Aggregation.from_targets(target_tree, start, end)
     aggregation.process_event_manager(all_events)
 
+    matplotlib.use("svg")
     if size == "small":
         fig = burndown.MPLPointPlot(aggregation).get_small_figure()
         fig.set_size_inches(* SMALL_FIGURE_SIZE)
