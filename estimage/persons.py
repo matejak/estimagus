@@ -42,7 +42,7 @@ class Workloads:
         self.targets_by_name = collections.OrderedDict()
         self.targets = targets
         self.persons_potential = dict()
-        for i, t in enumerate(targets):
+        for t in targets:
             self.targets_by_name[t.name] = t
         self._target_persons_map = dict()
         self._fill_in_collaborators()
@@ -71,11 +71,11 @@ class SimpleWorkloads(Workloads):
     def of_person(self, person_name: str) -> Workload:
         ret = Workload(name=person_name)
         for target in self.targets:
-            if person_name in target.collaborators:
-                self._apply_target(ret, person_name, target)
+            if person_name in get_people_associaged_with(target):
+                self._apply_target_to_person(ret, person_name, target)
         return ret
 
-    def _apply_target(self, ret, who, target):
+    def _apply_target_to_person(self, ret, who, target):
         collaborating_group = self.get_who_works_on(target.name)
         own_potential = self.persons_potential[who]
         target_potential = sum([self.persons_potential.get(name) for name in collaborating_group])
@@ -161,37 +161,38 @@ def get_all_collaborators(targets):
 #   Either person works less than their potential, or they work more
 #   odd(leading) rows represent + work - difference <= (positive) potential
 #   even rows represent - work - difference <= - (positive) potential
+# +0..num_persons: Nothing to see here
 def gen_bub(task_sizes, persons_potential):
-    ret = np.ones(2 * len(persons_potential)) * sum(task_sizes) / sum(persons_potential)
+    work_per_potential_unit = sum(task_sizes) / sum(persons_potential)
+    num_persons = len(persons_potential)
+    ret = np.ones(3 * num_persons) * work_per_potential_unit
+    coeff_when_person_working_less = -1
     for i, pot in enumerate(persons_potential):
-        coeff_when_person_working_less = -1
         person_working_more_index = i * 2
         person_working_less_index = person_working_more_index + 1
 
         ret[person_working_more_index] *= pot
         ret[person_working_less_index] *= pot * coeff_when_person_working_less
+    ret[2 * num_persons:] = 0
     return ret
 
 
 # 0..num_tasks * num_persons: The same meaning as cost matrix that is flattened
 # +0..num_persons: Absolute values of diff between work done by a person and their work potential
+# +0..num_persons: Effort of particular person (work done over potential)
+# +1: Maximum of the person's effort
 def gen_c(task_sizes, persons_potential):
     num_tasks = len(task_sizes)
     num_persons = len(persons_potential)
-    ret = np.zeros(num_tasks * num_persons + num_persons)
+    ret = np.zeros(num_tasks * num_persons + num_persons * 2 + 1)
+    index_of_first_diff = num_persons * num_tasks
     for i in range(1, num_persons + 1):
-        ret[-1 * i] = 1
+        ret[i + index_of_first_diff] = 0.5 / num_persons
+    ret[-1] = 1
     return ret
 
 
-# Aub rows:
-# 0..num_persons * 2:
-#   Either person works less than their potential, or they work more
-#   The sum of their work minus their potential, their work difference, is defined here
-def gen_Aub(task_sizes, persons_potential):
-    num_tasks = len(task_sizes)
-    num_persons = len(persons_potential)
-    ret = np.zeros((num_persons * 2, num_tasks * num_persons + num_persons))
+def _define_persons_overwork_or_underwork(Aub, starting_row_idx, num_persons, num_tasks):
     for perso_idx in range(num_persons):
         persons_work_start_index = perso_idx * num_tasks
         persons_work_end_index = persons_work_start_index + num_tasks
@@ -200,13 +201,38 @@ def gen_Aub(task_sizes, persons_potential):
         work_difference_index = num_persons * num_tasks + perso_idx
         coeff_when_person_working_more = 1
         coeff_when_person_working_less = -1
-        person_working_more_index = perso_idx * 2
-        person_working_less_index = person_working_more_index + 1
+        person_working_more_index = starting_row_idx + perso_idx * 2
+        person_working_less_index = starting_row_idx + person_working_more_index + 1
 
-        ret[person_working_more_index, persons_work_slice] = coeff_when_person_working_more
-        ret[person_working_more_index, work_difference_index] = -1
-        ret[person_working_less_index, persons_work_slice] = coeff_when_person_working_less
-        ret[person_working_less_index, work_difference_index] = -1
+        Aub[person_working_more_index, persons_work_slice] = coeff_when_person_working_more
+        Aub[person_working_more_index, work_difference_index] = -1
+        Aub[person_working_less_index, persons_work_slice] = coeff_when_person_working_less
+        Aub[person_working_less_index, work_difference_index] = -1
+
+
+def _define_persons_greatest_effort(Aub, starting_row_idx, num_persons, num_tasks):
+    greatest_effort_index = num_tasks * num_persons + 2 * num_persons
+    for perso_idx in range(num_persons):
+        current_effort_index = num_tasks * num_persons + num_persons + perso_idx
+        Aub[starting_row_idx + perso_idx, current_effort_index] = 1
+        Aub[starting_row_idx + perso_idx, greatest_effort_index] = -1
+
+
+# Aub rows:
+# 0..num_persons * 2:
+#   Either person works less than their potential, or they work more
+#   The sum of their work minus their potential, their work difference, is defined here
+# +0..num_persons: Definition of max of person's efforts
+def gen_Aub(task_sizes, persons_potential):
+    num_tasks = len(task_sizes)
+    num_persons = len(persons_potential)
+    ret = np.zeros((
+        num_persons * 3,
+        num_tasks * num_persons + num_persons * 2 + 1))
+    starting_idx = 0
+    _define_persons_overwork_or_underwork(ret, starting_idx, num_persons, num_tasks)
+    starting_idx += 2 * num_persons
+    _define_persons_greatest_effort(ret, starting_idx, num_persons, num_tasks)
     return ret
 
 
@@ -225,19 +251,37 @@ def _record_lhs_no_work_on_unwanted_items(Aeq, starting_row_idx, indices_of_zero
         Aeq[starting_row_idx + idx, zero_idx] = 1
 
 
+def _record_lhs_effort_applied(Aeq, starting_row_idx, persons_potential, num_tasks):
+    num_persons = len(persons_potential)
+    effort_index_base = num_persons * num_tasks + num_persons
+    for person_idx, potential in enumerate(persons_potential):
+        relative_effort = 1.0 / potential
+        task_slice = slice(person_idx * num_tasks, (person_idx + 1) * num_tasks)
+        effort_index = effort_index_base + person_idx
+
+        Aeq[starting_row_idx + person_idx, task_slice] = 1.0 * relative_effort
+        Aeq[starting_row_idx + person_idx, effort_index] = -1
+
+
 # Aeq rows:
 # 0..num_tasks: Task composition
 # +0..num_zeros: Work done by person on a task is zero (if the cost is infinite)
+# +0..num_persons: Definition of work effort (work done divided by potential)
 def gen_Aeq(task_sizes, persons_potential, labor_cost=None):
     num_tasks = len(task_sizes)
     num_persons = len(persons_potential)
     if labor_cost is None:
         labor_cost = np.ones((num_persons, num_tasks))
     indices_of_zeros = np.where(labor_cost.flatten() == np.inf)[0]
-    ret = np.zeros((num_tasks + len(indices_of_zeros), num_tasks * num_persons + num_persons))
-    _record_lhs_contributions_make_whole_task(ret, 0, num_tasks, num_persons)
-    zeros_start = num_tasks
-    _record_lhs_no_work_on_unwanted_items(ret, zeros_start, indices_of_zeros)
+    ret = np.zeros((
+        num_tasks + len(indices_of_zeros) + num_persons,
+        num_tasks * num_persons + num_persons * 2 + 1))
+    starting_index = 0
+    _record_lhs_contributions_make_whole_task(ret, starting_index, num_tasks, num_persons)
+    starting_index += num_tasks
+    _record_lhs_no_work_on_unwanted_items(ret, starting_index, indices_of_zeros)
+    starting_index += len(indices_of_zeros)
+    _record_lhs_effort_applied(ret, starting_index, persons_potential, num_tasks)
     return ret
 
 
@@ -261,19 +305,19 @@ def gen_beq(task_sizes, persons_potential, labor_cost=None):
     if labor_cost is None:
         labor_cost = np.ones((num_persons, num_tasks))
     number_of_zeros = np.sum(labor_cost == np.inf)
-    ret = np.zeros(num_tasks + number_of_zeros)
+    ret = np.zeros(num_tasks + number_of_zeros + num_persons)
     _record_rhs_contributions_make_whole_task(ret, 0, task_sizes)
     return ret
 
 
 def solve(task_sizes, persons_potential, labor_cost=None):
-    if len(task_sizes) == 0:
-        return []
-    if len(persons_potential) == 0:
-        msg = "No persons to assign tasks to."
-        raise ValueError(msg)
     num_tasks = len(task_sizes)
     num_persons = len(persons_potential)
+    if num_tasks == 0:
+        return []
+    if num_persons == 0:
+        msg = "No persons to assign tasks to."
+        raise ValueError(msg)
     interesting_solution_len = num_tasks * num_persons
     c = gen_c(task_sizes, persons_potential)
     Aub = gen_Aub(task_sizes, persons_potential)
@@ -284,5 +328,6 @@ def solve(task_sizes, persons_potential, labor_cost=None):
     if not solution.success:
         msg = solution.message
         raise ValueError(msg)
+
     ret = solution.x[:interesting_solution_len].reshape(num_persons, num_tasks)
     return ret
