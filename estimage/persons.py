@@ -8,6 +8,10 @@ import scipy as sp
 import estimage.data as data
 
 
+class WorkloadSummary(typing.NamedTuple):
+    expected_effort_of_full_potential: float
+
+
 @dataclasses.dataclass
 class Workload:
     name: str = ""
@@ -31,6 +35,10 @@ class Workloads:
     targets: typing.List[data.BaseTarget] = dataclasses.field(default_factory=list)
     persons_potential: typing.Dict[str, float] = dataclasses.field(
         default_factory=lambda: collections.defaultdict(lambda: 0))
+    persons_indices: typing.Dict[str, int] = dataclasses.field(default_factory=dict)
+    targets_indices: typing.Dict[str, int] = dataclasses.field(default_factory=dict)
+    work_matrix = np.ndarray
+    task_sizes = np.ndarray
 
     def __init__(self,
                  targets: typing.Iterable[data.BaseTarget],
@@ -42,10 +50,23 @@ class Workloads:
         self.targets_by_name = collections.OrderedDict()
         self.targets = targets
         self.persons_potential = dict()
+        self.persons_indices = dict()
+        self.targets_indices = dict()
         for t in targets:
             self.targets_by_name[t.name] = t
         self._target_persons_map = dict()
         self._fill_in_collaborators()
+        self.task_sizes = np.array([
+            self.model.remaining_point_estimate_of(t.name).expected
+            for t in self.targets_by_name.values()])
+        self.work_matrix = np.zeros((len(self.persons_potential), len(targets)))
+        self._create_indices()
+
+    def _create_indices(self):
+        for index, person_name in enumerate(self.persons_potential):
+            self.persons_indices[person_name] = index
+        for index, target in enumerate(self.targets):
+            self.targets_indices[target.name] = index
 
     def _fill_in_collaborators(self):
         all_collaborators = set()
@@ -65,28 +86,47 @@ class Workloads:
     def of_person(self, person_name: str) -> Workload:
         raise NotImplementedError()
 
+    def summary(self) -> WorkloadSummary:
+        effort_per_potential = self.task_sizes.sum() / sum(self.persons_potential.values())
+        ret = WorkloadSummary(
+            expected_effort_of_full_potential=effort_per_potential,
+        )
+        return ret
+
 
 class SimpleWorkloads(Workloads):
 
-    def of_person(self, person_name: str) -> Workload:
+    def solve_problem(self):
+        for tidx, target in enumerate(self.targets):
+            for pidx, person_name in enumerate(self.persons_potential):
+                collaborating_group = self.get_who_works_on(target.name)
+                if person_name not in collaborating_group:
+                    continue
+
+                own_potential = self.persons_potential[person_name]
+                target_potential = sum([self.persons_potential.get(name) for name in collaborating_group])
+
+                proportion = own_potential / target_potential
+                points_contribution = self.task_sizes[tidx]
+                points_contribution *= proportion
+
+                self.work_matrix[pidx, tidx] = points_contribution
+
+    def of_person(self, person_name):
         ret = Workload(name=person_name)
-        for target in self.targets:
-            if person_name in get_people_associaged_with(target):
-                self._apply_target_to_person(ret, person_name, target)
+        if person_name not in self.persons_indices:
+            return ret
+        person_index = self.persons_indices[person_name]
+        ret.points = sum(self.work_matrix[person_index])
+        task_totals = np.sum(self.work_matrix, axis=0)
+        for task_index, task_name in enumerate(self.targets_by_name.keys()):
+            projection = self.work_matrix[person_index, task_index]
+            if projection == 0:
+                continue
+            ret.targets.append(self.targets_by_name[task_name])
+            ret.point_parts[task_name] = projection
+            ret.proportions[task_name] = projection / task_totals[task_index]
         return ret
-
-    def _apply_target_to_person(self, ret, who, target):
-        collaborating_group = self.get_who_works_on(target.name)
-        own_potential = self.persons_potential[who]
-        target_potential = sum([self.persons_potential.get(name) for name in collaborating_group])
-
-        proportion = own_potential / target_potential
-        points_contribution = self.model.remaining_point_estimate_of(target.name).expected
-        points_contribution *= proportion
-        ret.points += points_contribution
-        ret.point_parts[target.name] = points_contribution
-        ret.proportions[target.name] = proportion
-        ret.targets.append(target)
 
 
 class OptimizedWorkloads(Workloads):
@@ -95,17 +135,9 @@ class OptimizedWorkloads(Workloads):
                  model: data.EstiModel,
                  * args, ** kwargs):
         super().__init__(targets, model, * args, ** kwargs)
-        self._solution = None
         self.task_totals = np.zeros(len(targets))
-        self.persons_indices = dict()
         self.targets_indices = dict()
         self._create_indices()
-
-    def _create_indices(self):
-        for index, person_name in enumerate(self.persons_potential):
-            self.persons_indices[person_name] = index
-        for index, target in enumerate(self.targets):
-            self.targets_indices[target.name] = index
 
     def cost_matrix(self):
         ret = np.ones((len(self.persons_potential), len(self.targets_by_name)))
@@ -118,25 +150,22 @@ class OptimizedWorkloads(Workloads):
         return ret
 
     def solve_problem(self):
-        task_sizes = np.array([
-            self.model.remaining_point_estimate_of(t.name).expected
-            for t in self.targets_by_name.values()])
-        if len(task_sizes) == 0 or len(self.persons_potential) == 0:
+        if len(self.task_sizes) == 0 or len(self.persons_potential) == 0:
             return
         costs = self.cost_matrix()
-        if len(indices := np.where(np.logical_and(np.min(costs, axis=0) == np.inf, task_sizes > 0))[0]):
+        if len(indices := np.where(np.logical_and(np.min(costs, axis=0) == np.inf, self.task_sizes > 0))[0]):
             task_names = [self.targets[i].name for i in indices]
             msg = f"Nobody wants to work on some tasks: {task_names}"
             raise ValueError(msg)
-        self._solution = solve(task_sizes, self.persons_potential.values(), costs)
-        self.task_totals = np.sum(self._solution, axis=0)
+        self.work_matrix = solve(self.task_sizes, self.persons_potential.values(), costs)
+        self.task_totals = np.sum(self.work_matrix, axis=0)
 
     def of_person(self, person_name):
         person_index = self.persons_indices[person_name]
         ret = Workload()
-        ret.points = sum(self._solution[person_index])
+        ret.points = sum(self.work_matrix[person_index])
         for task_index, task_name in enumerate(self.targets_by_name.keys()):
-            projection = self._solution[person_index, task_index]
+            projection = self.work_matrix[person_index, task_index]
             if projection == 0:
                 continue
             ret.targets.append(self.targets_by_name[task_name])

@@ -52,6 +52,7 @@ def test_persons_workload(exclusive_target, shared_target):
     targets = []
     model = estimage.simpledata.get_model(targets)
     workloads = tm.SimpleWorkloads(targets, model)
+    workloads.solve_problem()
     evaluate_workloads(workloads)
     assert workloads.points == 0
     assert not workloads.persons_potential
@@ -64,6 +65,7 @@ def test_persons_workload(exclusive_target, shared_target):
     targets = [exclusive_target]
     model = estimage.simpledata.get_model(targets)
     workloads = tm.SimpleWorkloads(targets, model)
+    workloads.solve_problem()
     evaluate_workloads(workloads)
     assert len(workloads.persons_potential) == 1
     working_group = workloads.get_who_works_on(exclusive_target.name)
@@ -78,6 +80,7 @@ def test_persons_workload(exclusive_target, shared_target):
     targets = [shared_target]
     model = estimage.simpledata.get_model(targets)
     workloads = tm.SimpleWorkloads(targets, model)
+    workloads.solve_problem()
     evaluate_workloads(workloads)
     persons_workload = workloads.of_person("associate")
     assert persons_workload.points == shared_target.point_cost / 2.0
@@ -87,6 +90,7 @@ def test_persons_workload(exclusive_target, shared_target):
     targets = [shared_target, exclusive_target]
     model = estimage.simpledata.get_model(targets)
     workloads = tm.SimpleWorkloads(targets, model)
+    workloads.solve_problem()
     evaluate_workloads(workloads)
     persons_workload = workloads.of_person("associate")
     assert persons_workload.points == shared_target.point_cost / 2.0 + exclusive_target.point_cost
@@ -96,6 +100,7 @@ def test_persons_workload(exclusive_target, shared_target):
     assert persons_workload.proportions["leaf"] == 0.5
     workloads = tm.SimpleWorkloads(targets, model)
     workloads.persons_potential["parallel_associate"] = 0
+    workloads.solve_problem()
     evaluate_workloads(workloads)
 
 
@@ -300,6 +305,8 @@ def test_workloads(exclusive_target, shared_target):
     assert workloads.persons_potential["associate"] == 1
     assert workloads.cost_matrix()[0, 0] == 1
     workloads.solve_problem()
+    summary = workloads.summary()
+    assert summary.expected_effort_of_full_potential == exclusive_target.point_cost
 
     targets = [exclusive_target, shared_target]
     model = estimage.simpledata.get_model(targets)
@@ -307,4 +314,9 @@ def test_workloads(exclusive_target, shared_target):
     assert workloads.targets_by_name[exclusive_target.name] == exclusive_target
     assert workloads.cost_matrix()[workloads.persons_indices["parallel_associate"], workloads.targets_indices[exclusive_target.name]] == np.inf
     assert sum(workloads.cost_matrix()[workloads.persons_indices["associate"], :]) == 2
+    workloads.persons_potential["associate"] = 1
+    workloads.persons_potential["parallel_associate"] = 0.5
     workloads.solve_problem()
+    summary = workloads.summary()
+    assert summary.expected_effort_of_full_potential == (
+        exclusive_target.point_cost + shared_target.point_cost) / 1.5
