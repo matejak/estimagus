@@ -96,7 +96,7 @@ def get_epics_and_their_tasks_by_id(jira, epics_query, all_items_by_name, parent
 
 
 def name_from_field(field_contents):
-    return field_contents.name.split("@", 1)[0]
+    return field_contents.emailAddress.split("@", 1)[0]
 
 
 def inherit_attributes(parent, child):
@@ -181,7 +181,7 @@ def get_task_events(task, cutoff_date):
 
     recent_enough_histories = [
         history for history in task.changelog.histories
-        if jira_datetime_to_datetime(history.created) < cutoff_datetime
+        if jira_datetime_to_datetime(history.created) >= cutoff_datetime
     ]
 
     events = get_events_from_relevant_task_histories(recent_enough_histories, task.key)
