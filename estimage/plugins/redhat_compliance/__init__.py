@@ -1,9 +1,11 @@
 import re
 import datetime
 import dateutil.relativedelta
+import collections
 
 from estimage import simpledata
 from .. import jira
+from . import forms
 
 
 QUARTER_TO_MONTH_NUMBER = None
@@ -133,6 +135,19 @@ class Importer(jira.Importer):
         return super().save(retro_target_class, proj_target_class, event_manager_class)
 
 
+def refresh_targets(names, mode, token):
+    Spec = collections.namedtuple("Spec", ["server_url", "token"])
+    spec = Spec(server_url="https://issues.redhat.com", token=token)
+    if mode == "projective":
+        cls = simpledata.ProjTarget
+    else:
+        cls = simpledata.RetroTarget
+    real_targets = [cls.load_metadata(name) for name in names]
+    importer = Importer(spec)
+    importer.refresh_targets(real_targets)
+
+
 def do_stuff(spec):
     importer = Importer(spec)
+    importer.import_data(spec)
     importer.save(simpledata.RetroTarget, simpledata.ProjTarget, simpledata.EventManager)

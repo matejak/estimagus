@@ -13,6 +13,7 @@ from ... import data
 from ... import utilities
 from ... import simpledata as webdata
 from ... import history
+from ...plugins import redhat_compliance
 
 
 def profile(wrapped):
@@ -233,8 +234,14 @@ def view_epic(epic_name):
 
     t = projective_retrieve_task(epic_name)
 
+    refresh_form = redhat_compliance.forms.RedhatComplianceRefreshForm()
+    refresh_form.request_refresh_of([epic_name] + [e.name for e in t.dependents])
+    refresh_form.mode.data = "projective"
+    refresh_form.next.data = flask.request.path
+
     return web_utils.render_template(
-        'epic_view.html', title='View epic', epic=t, estimate=estimate, model=model)
+        'epic_view.html', title='View epic', epic=t, estimate=estimate, model=model,
+        refresh_form=refresh_form)
 
 
 def get_similar_tasks(user_id, task_name):
@@ -248,6 +255,25 @@ def get_similar_tasks(user_id, task_name):
 @bp.route('/')
 def index():
     return flask.redirect(flask.url_for("main.tree_view"))
+
+
+@bp.route('/refresh', methods=["POST"])
+@flask_login.login_required
+def refresh():
+    form = redhat_compliance.forms.RedhatComplianceRefreshForm()
+    if form.validate_on_submit():
+        redhat_compliance.refresh_targets(
+            form.get_what_names_to_refresh(), form.mode.data, form.token.data)
+    redirect = web_utils.safe_url_to_redirect(form.next.data)
+    return flask.redirect(redirect)
+
+
+@bp.route('/refresh_single', methods=["GET"])
+@flask_login.login_required
+def refresh_single():
+    # TODO: The refresh code goes here
+    redirect = web_utils.safe_url_to_redirect(flask.request.args.get("next", "/"))
+    return flask.redirect(redirect)
 
 
 @bp.route('/projective')
@@ -322,10 +348,16 @@ def tree_view_retro():
 
     priority_sorted_targets = sorted(targets_tree_without_duplicates, key=lambda x: - x.priority)
 
+    refresh_form = redhat_compliance.forms.RedhatComplianceRefreshForm()
+    refresh_form.request_refresh_of([e.name for e in priority_sorted_targets])
+    refresh_form.mode.data = "retrospective"
+    refresh_form.next.data = flask.request.path
+
     return web_utils.render_template(
         "tree_view_retrospective.html",
         title="Retrospective Tasks tree view",
-        targets=priority_sorted_targets, today=datetime.datetime.today(), model=model, ** summary)
+        targets=priority_sorted_targets, today=datetime.datetime.today(), model=model,
+        refresh_form=refresh_form, ** summary)
 
 
 @bp.route('/retrospective/epic/<epic_name>')

@@ -1,6 +1,7 @@
 import dataclasses
 import datetime
 import collections
+import typing
 
 from jira import JIRA
 
@@ -194,12 +195,17 @@ class Importer:
         self._all_issues_by_name = dict()
         self._parents_child_keymap = collections.defaultdict(set)
 
-        jira = JIRA(spec.server_url, token_auth=spec.token)
-        issue_names_requiring_events = set()
         self._retro_targets = set()
+        self._projective_targets = set()
+        self._all_events = []
+        self.jira = JIRA(spec.server_url, token_auth=spec.token)
+
+    def import_data(self, spec):
+        issue_names_requiring_events = set()
+
         if spec.retrospective_query:
             retro_epic_names = get_epics_and_their_tasks_by_id(
-                jira, spec.retrospective_query, self._all_issues_by_name,
+                self.jira, spec.retrospective_query, self._all_issues_by_name,
                 self._parents_child_keymap)
             new_targets = self.export_jira_epic_chain_to_targets(retro_epic_names)
             self._retro_targets.update(new_targets.keys())
@@ -208,22 +214,35 @@ class Importer:
             print("Gathering retro stuff")
             print(f"{len(self._retro_targets)} issues so far")
 
-        self._projective_targets = set()
         if spec.projective_query:
             print("Gathering proj stuff")
             proj_epic_names = get_epics_and_their_tasks_by_id(
-                jira, spec.projective_query, self._all_issues_by_name, self._parents_child_keymap)
+                self.jira, spec.projective_query, self._all_issues_by_name, self._parents_child_keymap)
             new_targets = self.export_jira_epic_chain_to_targets(proj_epic_names)
             self._projective_targets.update(new_targets.keys())
             self._targets_by_id.update(new_targets)
             print("Gathering projective stuff")
             print(f"{len(self._projective_targets)} issues so far")
 
-        self._all_events = []
         for name in issue_names_requiring_events:
             new_events = get_task_events(self._all_issues_by_name[name], spec.cutoff_date)
             self._all_events.extend(new_events)
         print(f"Collected {len(self._all_events)} events")
+
+    def refresh_targets(self, real_targets: typing.Iterable[target.BaseTarget]):
+        if not real_targets:
+            return
+        refreshed = [self.get_refreshed_target(t) for t in real_targets]
+        for t in refreshed:
+            t.save_metadata()
+            t.save_point_cost()
+
+    def get_refreshed_target(self, real_target: target.BaseTarget):
+        jira_target = self.jira.issue(real_target.name, expand="renderedFields")
+        fresh_target = self.merge_jira_item_without_children(jira_target)
+        fresh_target.dependents = real_target.dependents
+        real_target = fresh_target.as_class(real_target.__class__)
+        return real_target
 
     def export_jira_epic_chain_to_targets(self, root_names):
         all_targets_by_id = dict()
@@ -275,4 +294,5 @@ class Importer:
 
 def do_stuff(spec):
     importer = Importer(spec)
+    importer.import_data(spec)
     importer.save(simpledata.RetroTarget, simpledata.ProjTarget, simpledata.EventManager)

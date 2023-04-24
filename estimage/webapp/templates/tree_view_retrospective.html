@@ -44,12 +44,15 @@
     </div>
     <h2>Epics</h2>
     <div class="row">
+	{% call utils.show_refresh_form(refresh_form) %}
+		<h3>Shallow refresh of epics</h3>
+	{% endcall %}
     <h3>WIP</h3>
 {% block epics_wip %}
     <ul>
     {% for target in targets -%}
     {% if target.state not in (6, 7) %}
-    {{ utils.render_whatever_retro(target, model, today, recursive=false) }}
+    {{ utils.render_epic_retro(target, model, today, recursive=false) }}
     {% endif %}
     {% endfor -%}
     </ul>
@@ -60,7 +63,7 @@
     <ul>
     {% for target in targets -%}
     {% if target.state in (6, 7) %}
-    {{ utils.render_whatever_retro(target, model, today, recursive=false) }}
+    {{ utils.render_epic_retro(target, model, today, recursive=false) }}
     {% endif %}
     {% endfor -%}
     </ul>

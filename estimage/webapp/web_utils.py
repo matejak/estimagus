@@ -1,5 +1,6 @@
 import flask
 import flask_login
+import werkzeug
 
 from .. import simpledata as webdata
 from .. import utilities
@@ -38,3 +39,9 @@ def render_template(path, title, **kwargs):
     return flask.render_template(
         maybe_overriden_path, title=title, authenticated_user=authenticated_user,
         ** kwargs)
+
+
+def safe_url_to_redirect(candidate):
+    if not candidate or werkzeug.urls.url_parse(candidate).netloc != '':
+        candidate = flask.url_for('main.tree_view')
+    return candidate
