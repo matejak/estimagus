@@ -3,7 +3,11 @@ from . import utils
 
 def plot_continuous_pert(ax, pert, expected, task_name):
     ax.plot(pert[0], pert[1], 'b-', lw=2, label=f'task {task_name}')
+    limits = ax.get_xlim()
+    ax.plot((limits[0], pert[0, 0]), (0, 0), 'b-', lw=2, scaley=False)
+    ax.plot((pert[0, -1], limits[1]), (0, 0), 'b-', lw=2, scaley=False)
     ax.axvline(expected, color="orange", label="expected value")
+    ax.set_xlim(limits)
 
 
 def plot_delta_pert(ax, pert, expected, task_name):
