@@ -5,8 +5,8 @@ from flask_login import LoginManager
 from flask_bootstrap import Bootstrap5
 from jinja2 import loaders
 
+from .. import data, simpledata
 from . import users, config
-from estimage import data
 
 from .main import bp as main_bp
 from .vis import bp as vis_bp
@@ -58,6 +58,7 @@ def create_app(config_class=config.Config):
     app = PluginFriendlyFlask(__name__)
     app.jinja_env.globals.update(dict(State=data.State))
     app.config.from_object(config_class)
+    app.config.from_object(config.read_or_create_config(simpledata.AppData))
 
     plugins_dict = dict(redhat_compliance=redhat_compliance)
     app.set_plugins_dict(plugins_dict)

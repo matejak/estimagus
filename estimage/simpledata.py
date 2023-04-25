@@ -1,5 +1,7 @@
 import typing
 import pathlib
+import datetime
+import dateutil.relativedelta
 import dataclasses
 
 import flask
@@ -140,6 +142,23 @@ class Context:
 
 class EventManager(IniInDirMixin, inidata.IniEvents):
     CONFIG_BASENAME = "events.ini"
+
+
+class AppData(IniInDirMixin, inidata.IniAppdata):
+    CONFIG_BASENAME = "appdata.ini"
+
+    def _get_default_retrospective_period(self):
+        today = datetime.datetime.today()
+        today_first_of_month = datetime.datetime(today.year, today.month, 1)
+        beginning = today_first_of_month - dateutil.relativedelta.relativedelta(months=1)
+        end = today_first_of_month + dateutil.relativedelta.relativedelta(months=2, days=-1)
+        return (beginning, end)
+
+    def _get_default_projective_quarter(self):
+        return ""
+
+    def _get_default_retrospective_quarter(self):
+        return ""
 
 
 def get_model(targets_tree_without_duplicates, cls=None):

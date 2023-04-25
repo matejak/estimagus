@@ -57,8 +57,7 @@ def visualize_velocity(epic_name):
     all_targets = webdata.RetroTarget.get_loaded_targets_by_id()
     all_events = webdata.EventManager.load()
 
-    start = flask.current_app.config["PERIOD"]["start"]
-    end = flask.current_app.config["PERIOD"]["end"]
+    start, end = flask.current_app.config["RETROSPECTIVE_PERIOD"]
 
     if epic_name == ".":
         target_tree = utilities.reduce_subsets_from_sets(list(all_targets.values()))
@@ -141,8 +140,7 @@ def visualize_overall_burndown(tier, size):
 
 
 def output_burndown(target_tree, size):
-    start = flask.current_app.config["PERIOD"]["start"]
-    end = flask.current_app.config["PERIOD"]["end"]
+    start, end = flask.current_app.config["RETROSPECTIVE_PERIOD"]
     all_events = webdata.EventManager.load()
 
     aggregation = history.Aggregation.from_targets(target_tree, start, end)

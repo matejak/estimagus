@@ -293,8 +293,7 @@ def tree_view():
 def executive_summary_of_points_and_velocity(targets):
     all_events = webdata.EventManager.load()
 
-    start = flask.current_app.config["PERIOD"]["start"]
-    end = flask.current_app.config["PERIOD"]["end"]
+    start, end = flask.current_app.config["RETROSPECTIVE_PERIOD"]
     cutoff_date = min(datetime.datetime.today(), end)
     aggregation = history.Aggregation.from_targets(targets, start, end)
     aggregation.process_event_manager(all_events)

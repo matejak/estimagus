@@ -1,4 +1,5 @@
 import configparser
+import dataclasses
 import contextlib
 import typing
 import datetime
@@ -292,3 +293,55 @@ class IniEvents(data.EventManager, IniStorage):
                 continue
             names.add(key.split("-", 1)[1])
         return names
+
+
+@dataclasses.dataclass()
+class IniAppdata(IniStorage):
+    RETROSPECTIVE_PERIOD: typing.Container[datetime.datetime] = (None, None)
+    RETROSPECTIVE_QUARTER: str = ""
+    PROJECTIVE_QUARTER: str = ""
+
+    def _get_default_retrospective_period(self):
+        raise NotImplementedError()
+
+    def _get_default_projective_quarter(self):
+        raise NotImplementedError()
+
+    def _get_default_retrospective_quarter(self):
+        raise NotImplementedError()
+
+    def save(self):
+        to_save = dict()
+        to_save["RETROSPECTIVE_PERIOD"] = dict(
+            start=self.RETROSPECTIVE_PERIOD[0],
+            end=self.RETROSPECTIVE_PERIOD[1],
+        )
+        to_save["QUARTERS"] = dict(
+            projective=self.PROJECTIVE_QUARTER,
+            retrospective=self.RETROSPECTIVE_QUARTER,
+        )
+
+        with self._manipulate_existing_config() as config:
+            config.update(to_save)
+
+    def _load_retrospective_period(self, config):
+        start = config.get("RETROSPECTIVE_PERIOD", "start", fallback=None)
+        end = config.get("RETROSPECTIVE_PERIOD", "end", fallback=None)
+        if start is None or end is None:
+            self.RETROSPECTIVE_PERIOD = self._get_default_retrospective_period()
+        else:
+            self.RETROSPECTIVE_PERIOD = [datetime.datetime.fromisoformat(s) for s in (start, end)]
+
+    def _load_quarters(self, config):
+        self.PROJECTIVE_QUARTER = config.get(
+            "QUARTERS", "projective", fallback=self._get_default_projective_quarter())
+        self.RETROSPECTIVE_QUARTER = config.get(
+            "QUARTERS", "retrospective", fallback=self._get_default_retrospective_quarter())
+
+    @classmethod
+    def load(cls):
+        result = cls()
+        config = result._load_existing_config()
+        result._load_retrospective_period(config)
+        result._load_quarters(config)
+        return result
