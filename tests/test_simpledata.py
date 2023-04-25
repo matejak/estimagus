@@ -174,6 +174,7 @@ def test_context_deal_with_defective_estimate():
 
 
 def test_default_appdata():
+    tm.AppData.CONFIG_BASENAME = "nothing here"
     appdata = tm.AppData.load()
 
     period = appdata.RETROSPECTIVE_PERIOD

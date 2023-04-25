@@ -334,9 +334,13 @@ class IniAppdata(IniStorage):
 
     def _load_quarters(self, config):
         self.PROJECTIVE_QUARTER = config.get(
-            "QUARTERS", "projective", fallback=self._get_default_projective_quarter())
+            "QUARTERS", "projective", fallback=None)
+        if self.PROJECTIVE_QUARTER is None:
+            self.PROJECTIVE_QUARTER = self._get_default_projective_quarter()
         self.RETROSPECTIVE_QUARTER = config.get(
-            "QUARTERS", "retrospective", fallback=self._get_default_retrospective_quarter())
+            "QUARTERS", "retrospective", fallback=None)
+        if self.RETROSPECTIVE_QUARTER is None:
+            self.RETROSPECTIVE_QUARTER = self._get_default_retrospective_quarter()
 
     @classmethod
     def load(cls):
