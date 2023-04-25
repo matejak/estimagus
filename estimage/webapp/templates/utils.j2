@@ -12,7 +12,7 @@
 {% macro render_epic_retro(epic, model, today, recursive=true) %}
     <li>
         <div id="{{ epic.name }}">
-        {{ epic_link(epic, "main.view_epic_retro") }}{{ refresh_whatever(epic, mode="retrospective", next=url_for('main.tree_view_retro', _anchor=epic.name)) }} &mdash; {{ epic.title }}
+        {{ epic_link(epic, "main.view_epic_retro") }} &mdash; {{ epic.title }}
         <div class="container-md">
            <div class="row">
               <div class="col">
