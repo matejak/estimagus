@@ -1,11 +1,21 @@
 from . import utils
 
 
+def handle_border_discontinuities(ax, pert):
+    if pert[1, 0] != 0:
+        ax.scatter(pert[0, 0], pert[1, 0], ec="b", fc="b", lw=2, zorder=3)
+        ax.scatter(pert[0, 0], 0, ec="b", fc="w", lw=2, zorder=3)
+    if pert[1, -1] != 0:
+        ax.scatter(pert[0, -1], pert[1, -1], ec="b", fc="b", lw=2, zorder=3)
+        ax.scatter(pert[0, -1], 0, ec="b", fc="w", lw=2, zorder=3)
+
+
 def plot_continuous_pert(ax, pert, expected, task_name):
     ax.plot(pert[0], pert[1], 'b-', lw=2, label=f'task {task_name}')
     limits = ax.get_xlim()
     ax.plot((limits[0], pert[0, 0]), (0, 0), 'b-', lw=2, scaley=False)
     ax.plot((pert[0, -1], limits[1]), (0, 0), 'b-', lw=2, scaley=False)
+    handle_border_discontinuities(ax, pert)
     ax.axvline(expected, color="orange", label="expected value")
     ax.set_xlim(limits)
 
