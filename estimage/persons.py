@@ -95,22 +95,27 @@ class Workloads:
 
 
 class SimpleWorkloads(Workloads):
-
     def solve_problem(self):
         for tidx, target in enumerate(self.targets):
-            for pidx, person_name in enumerate(self.persons_potential):
-                collaborating_group = self.get_who_works_on(target.name)
-                if person_name not in collaborating_group:
-                    continue
+            if self.task_sizes[tidx] == 0:
+                continue
+            collaborating_group = self.get_who_works_on(target.name)
+            person_potentials = [self.persons_potential.get(name) for name in collaborating_group]
+            target_potential = sum(person_potentials)
+            self._solve_problem_for_target(tidx, target_potential, collaborating_group)
 
-                own_potential = self.persons_potential[person_name]
-                target_potential = sum([self.persons_potential.get(name) for name in collaborating_group])
+    def _solve_problem_for_target(self, tidx, target_potential, collaborating_group):
+        for pidx, person_name in enumerate(self.persons_potential):
+            if person_name not in collaborating_group:
+                continue
 
-                proportion = own_potential / target_potential
-                points_contribution = self.task_sizes[tidx]
-                points_contribution *= proportion
+            own_potential = self.persons_potential[person_name]
 
-                self.work_matrix[pidx, tidx] = points_contribution
+            proportion = own_potential / target_potential
+            points_contribution = self.task_sizes[tidx]
+            points_contribution *= proportion
+
+            self.work_matrix[pidx, tidx] = points_contribution
 
     def of_person(self, person_name):
         ret = Workload(name=person_name)
@@ -153,7 +158,8 @@ class OptimizedWorkloads(Workloads):
         if len(self.task_sizes) == 0 or len(self.persons_potential) == 0:
             return
         costs = self.cost_matrix()
-        if len(indices := np.where(np.logical_and(np.min(costs, axis=0) == np.inf, self.task_sizes > 0))[0]):
+        indices = np.where(np.logical_and(np.min(costs, axis=0) == np.inf, self.task_sizes > 0))[0]
+        if len(indices):
             task_names = [self.targets[i].name for i in indices]
             msg = f"Nobody wants to work on some tasks: {task_names}"
             raise ValueError(msg)
@@ -166,6 +172,7 @@ class OptimizedWorkloads(Workloads):
         ret.points = sum(self.work_matrix[person_index])
         for task_index, task_name in enumerate(self.targets_by_name.keys()):
             projection = self.work_matrix[person_index, task_index]
+            projection = round(projection, 1)
             if projection == 0:
                 continue
             ret.targets.append(self.targets_by_name[task_name])
