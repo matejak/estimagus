@@ -70,8 +70,12 @@
         <a href="{{ url_for("main.view_task", task_name=task.name) }}">{{ task.name }}</a>&nbsp;<a href="{{ task.uri }}" rel="external">{{ render_icon("box-arrow-up-right") }}</a>
 {%- endmacro %}
 
+{% macro epic_external_link(epic) -%}
+	<a href="{{ epic.uri }}" rel="external">{{ render_icon("box-arrow-up-right") }}</a>
+{%- endmacro %}
+
 {% macro epic_link(epic, endpoint="main.view_epic") -%}
-        <a href="{{ url_for(endpoint, epic_name=epic.name) }}">{{ epic.name }}</a>&nbsp;<a href="{{ epic.uri }}" rel="external">{{ render_icon("box-arrow-up-right") }}</a>
+        <a href="{{ url_for(endpoint, epic_name=epic.name) }}">{{ epic.name }}</a>&nbsp;{{ epic_external_link(epic) }}
 {%- endmacro %}
 
 {% macro render_state_short(state) -%}
@@ -83,7 +87,12 @@
 {%- endmacro %}
 
 {% macro render_task_basic(task, model) -%}
-        {{ task_link(task) }} &mdash; <span class="task-state">{{ state_to_string(task.state) }}</span><span class="task-points {{- " uncounted_points" if model and model.get_element(task.name).masked }}">{{ "%.2g" % task.point_cost }}</span><span class="d-inline-block text-truncate" style="max-width: 350pt;">{{ task.title }}</span>
+        {{ task_link(task) }} &mdash; <span class="task-state">{{ state_to_string(task.state) }}</span><span class="task-points {{- " uncounted_points" if model and model.get_element(task.name).masked }}">{{ "%.2g" % task.point_cost }}</span>
+	{{ truncate_text_to(task.title, "350pt") }}
+{%- endmacro %}
+
+{% macro truncate_text_to(text, width) -%}
+<span class="d-inline-block text-truncate align-top" style="max-width: {{ width }};">{{ text }}</span>
 {%- endmacro %}
 
 {% macro render_task(task, model) %}
