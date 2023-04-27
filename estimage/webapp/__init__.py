@@ -58,6 +58,8 @@ def create_app(config_class=config.Config):
     app = PluginFriendlyFlask(__name__)
     app.jinja_env.globals.update(dict(State=data.State))
     app.config.from_object(config_class)
+    config_class = simpledata.AppData
+    config_class.DATADIR = pathlib.Path(app.config["DATA_DIR"])
     app.config.from_object(config.read_or_create_config(simpledata.AppData))
 
     plugins_dict = dict(redhat_compliance=redhat_compliance)

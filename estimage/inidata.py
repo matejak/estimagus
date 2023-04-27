@@ -3,6 +3,7 @@ import dataclasses
 import contextlib
 import typing
 import datetime
+import pathlib
 
 from . import data
 
@@ -300,6 +301,13 @@ class IniAppdata(IniStorage):
     RETROSPECTIVE_PERIOD: typing.Container[datetime.datetime] = (None, None)
     RETROSPECTIVE_QUARTER: str = ""
     PROJECTIVE_QUARTER: str = ""
+    DATADIR: pathlib.Path = pathlib.Path(".")
+
+    @classmethod
+    @property
+    def CONFIG_FILENAME(cls):
+        ret = cls.DATADIR / cls.CONFIG_BASENAME
+        return ret
 
     def _get_default_retrospective_period(self):
         raise NotImplementedError()

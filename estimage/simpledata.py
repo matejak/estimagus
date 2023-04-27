@@ -18,7 +18,8 @@ class IniInDirMixin:
             datadir = pathlib.Path(flask.current_app.config["DATA_DIR"])
         except RuntimeError:
             datadir = pathlib.Path(".")
-        return datadir / cls.CONFIG_BASENAME
+        ret = datadir / cls.CONFIG_BASENAME
+        return ret
 
 
 class RetroTarget(IniInDirMixin, inidata.IniTarget):
@@ -144,7 +145,7 @@ class EventManager(IniInDirMixin, inidata.IniEvents):
     CONFIG_BASENAME = "events.ini"
 
 
-class AppData(IniInDirMixin, inidata.IniAppdata):
+class AppData(inidata.IniAppdata):
     CONFIG_BASENAME = "appdata.ini"
 
     def _get_default_retrospective_period(self):
