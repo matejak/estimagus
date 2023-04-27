@@ -25,16 +25,20 @@ def projective_workload():
     simple_summary = simple_workloads.summary()
     all_persons = sorted(simple_workloads.persons_potential.keys())
 
+    summaries_and_workloads = dict(
+        simple_summary=simple_summary, simple=simple_workloads,
+        )
     optimized_workloads = persons.OptimizedWorkloads(targets_tree_without_duplicates, model)
     try:
         optimized_workloads.solve_problem()
         optimized_summary = optimized_workloads.summary()
+        summaries_and_workloads["optimized"] = optimized_workloads
+        summaries_and_workloads["optimized_summary"] = optimized_summary
     except ValueError as exc:
         optimized_workloads = None
         flask.flash(f"Error optimizing workload: {exc}")
 
     return web_utils.render_template(
         'workload.html', title='Projective Workloads', all_persons=all_persons,
-        simple=simple_workloads, optimized=optimized_workloads,
-        simple_summary=simple_summary, optimized_summary=optimized_summary,
+        ** summaries_and_workloads
     )

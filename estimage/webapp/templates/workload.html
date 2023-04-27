@@ -2,6 +2,13 @@
 
 {% import "utils.j2" as utils %}
 
+{% macro render_epic_workload(epic, points, percentage) -%}
+<div>
+	{{ "%.2g" % points }} &nbsp; pts., {{ "%i" % percentage }} &nbsp; % &mdash; 
+	{{ utils.truncate_text_to(epic.title, "350pt") }}
+        {{ utils.epic_external_link(epic) }}
+</div>
+{%- endmacro %}
 
 {% block content %}
 <div class="container">
@@ -23,7 +30,7 @@
     Proportion of the work: {{ "%.2g" % workload.points }}
     <ul>
     {% for epic in (workload.targets | sort(attribute="name")) %}
-    <li>{{ utils.epic_link(epic) }} &mdash; {{ "%.2g" % workload.point_parts[epic.name] }} &nbsp; pts., {{ "%i" % (100 * workload.proportions[epic.name]) }} &nbsp; %</li>
+    <li>{{ render_epic_workload(epic, workload.point_parts[epic.name], 100 * workload.proportions[epic.name]) }}</li>
     {% endfor %}
     </ul>
     </div>
@@ -36,7 +43,7 @@
     </p>
     <ul>
     {% for epic in (workload.targets | sort(attribute="name")) %}
-    <li>{{ utils.epic_link(epic) }} &mdash; {{ "%.2g" % workload.point_parts[epic.name] }} &nbsp; pts., {{ "%i" % (100 * workload.proportions[epic.name]) }} &nbsp; %</li>
+    <li>{{ render_epic_workload(epic, workload.point_parts[epic.name], 100 * workload.proportions[epic.name]) }}</li>
     {% endfor %}
     </ul>
     </div>
