@@ -6,7 +6,7 @@ import pytest
 
 import estimage.inidata as tm
 import estimage.data as data
-from test_history import early_event, less_early_event
+from test_events import early_event, less_early_event
 
 
 @pytest.fixture
