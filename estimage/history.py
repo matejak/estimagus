@@ -114,7 +114,7 @@ class Repre:
     end: datetime.datetime
     points_timeline: Timeline
     status_timeline: Timeline
-    plan_timeline: Timeline
+    remainder_timeline: Timeline
     time_timeline: Timeline
     relevancy_timeline: Timeline
     task_name: str
@@ -128,7 +128,7 @@ class Repre:
         self.status_timeline.recreate_with_value(target.State.unknown)
         self.time_timeline = Timeline(start, end)
 
-        self.plan_timeline = Timeline(start, end)
+        self.remainder_timeline = Timeline(start, end)
         self.calculate_plan()
 
         self.relevancy_timeline = Timeline(start, end)
@@ -138,7 +138,7 @@ class Repre:
     def calculate_plan(self, work_start=None, work_end=None):
         start = work_start or self.start
         end = work_end or self.end
-        self.plan_timeline.set_gradient_values(start, 1, end, 0)
+        self.remainder_timeline.set_gradient_values(start, 1, end, 0)
 
     def update(self, when, status=None, points=None, time=None):
         if points is not None:
@@ -226,7 +226,7 @@ class Repre:
         points_multiplier = self.get_last_point_value()
         if self.always_was_irrelevant():
             points_multiplier *= 0
-        return self.plan_timeline.get_array() * points_multiplier
+        return self.remainder_timeline.get_array() * points_multiplier
 
     def get_velocity_array(self):
         if not self.is_done():
@@ -264,18 +264,44 @@ class Repre:
             timeline.process_events(events)
 
 
-def apply_span_to_timeline(timeline, span, start, end):
-    work_start = max(start, span[0])
+def get_start_and_end_remainders(span, start, end):
+    start_remainder = 1
+    end_remainder = 0
+    span_width = span[1] - span[0]
+    if span[0] < start:
+        if span[1] < start:
+            start_remainder = 0
+        else:
+            start_remainder = 1 - (start - span[0]) / span_width
 
-    work_end = span[1]
-    overflow_ratio = 0
     if span[1] > end:
-        work_end = end
-        overflow_ratio = (span[1] - end) / (span[1] - span[0])
+        if span[0] > end:
+            end_remainder = 1
+        else:
+            end_remainder = (span[1] - end) / span_width
 
-    timeline.set_gradient_values(start, 1, work_start, 1)
-    timeline.set_gradient_values(work_end, overflow_ratio, end, overflow_ratio)
-    timeline.set_gradient_values(work_start, 1, work_end, overflow_ratio)
+    return start_remainder, end_remainder
+
+
+def apply_span_to_timeline(timeline, span, start, end):
+    start_remainder, end_remainder = get_start_and_end_remainders(span, start, end)
+
+    if start_remainder == 0:
+        timeline.set_gradient_values(start, 0, end, 0)
+
+    if end_remainder == 1:
+        timeline.set_gradient_values(start, 1, end, 1)
+
+    if end > span[0] > start:
+        timeline.set_gradient_values(start, start_remainder, span[0], start_remainder)
+
+    period_work_start = max(start, span[0])
+    period_work_end = min(end, span[1])
+
+    timeline.set_gradient_values(period_work_start, start_remainder, period_work_end, end_remainder)
+
+    if end > span[1] > start:
+        timeline.set_gradient_values(span[1], end_remainder, end, end_remainder)
 
 
 def _convert_target_to_representation(
@@ -290,7 +316,7 @@ def _convert_target_to_representation(
         if work_span[1] < work_span[0]:
             msg = f"Inconsistent work span in {source.name}"
             raise ValueError(msg)
-        apply_span_to_timeline(repre.plan_timeline, work_span, start, end)
+        apply_span_to_timeline(repre.remainder_timeline, work_span, start, end)
     repre.fill_history_from(end)
     return repre
 

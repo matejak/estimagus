@@ -576,14 +576,14 @@ def test_project_events(repre, early_event, late_event):
 
 
 def test_repre_has_sane_plan(oneday_repre, twoday_repre, fiveday_repre):
-    assert oneday_repre.plan_timeline.value_at(oneday_repre.end) == 0
+    assert oneday_repre.remainder_timeline.value_at(oneday_repre.end) == 0
 
-    assert twoday_repre.plan_timeline.value_at(twoday_repre.start) == 1
-    assert twoday_repre.plan_timeline.value_at(twoday_repre.end) == 0
+    assert twoday_repre.remainder_timeline.value_at(twoday_repre.start) == 1
+    assert twoday_repre.remainder_timeline.value_at(twoday_repre.end) == 0
 
-    assert fiveday_repre.plan_timeline.value_at(fiveday_repre.start) == 1
-    assert fiveday_repre.plan_timeline.value_at(fiveday_repre.start + 2 * ONE_DAY) == 0.5
-    assert fiveday_repre.plan_timeline.value_at(fiveday_repre.end) == 0
+    assert fiveday_repre.remainder_timeline.value_at(fiveday_repre.start) == 1
+    assert fiveday_repre.remainder_timeline.value_at(fiveday_repre.start + 2 * ONE_DAY) == 0.5
+    assert fiveday_repre.remainder_timeline.value_at(fiveday_repre.end) == 0
 
 
 def test_timeline_interpolation_sanity():
@@ -632,17 +632,17 @@ def test_target_span_propagates_to_children():
     parent.add_element(child)
 
     r = tm.convert_target_to_representations_of_leaves(parent, PERIOD_START, END)[0]
-    assert r.plan_timeline.value_at(PERIOD_START + ONE_DAY) == 1
+    assert r.remainder_timeline.value_at(PERIOD_START + ONE_DAY) == 1
 
     parent.work_span = (None, END - ONE_DAY)
     r = tm.convert_target_to_representations_of_leaves(parent, PERIOD_START, END)[0]
-    assert r.plan_timeline.value_at(PERIOD_START + ONE_DAY) == 0.75
-    assert r.plan_timeline.value_at(END - ONE_DAY) == 0
+    assert r.remainder_timeline.value_at(PERIOD_START + ONE_DAY) == 0.75
+    assert r.remainder_timeline.value_at(END - ONE_DAY) == 0
 
     parent.work_span = (PERIOD_START + ONE_DAY, None)
     r = tm.convert_target_to_representations_of_leaves(parent, PERIOD_START, END)[0]
-    assert r.plan_timeline.value_at(PERIOD_START + ONE_DAY) == 1.0
-    assert r.plan_timeline.value_at(END) == 0
+    assert r.remainder_timeline.value_at(PERIOD_START + ONE_DAY) == 1.0
+    assert r.remainder_timeline.value_at(END) == 0
 
 
 def test_target_span_incomplete_works():
@@ -650,11 +650,37 @@ def test_target_span_incomplete_works():
     t = target.BaseTarget()
     t.work_span = (None, END - ONE_DAY)
     r = tm.convert_target_to_representations_of_leaves(t, PERIOD_START, END)[0]
-    assert r.plan_timeline.value_at(PERIOD_START + ONE_DAY) == 0.75
-    assert r.plan_timeline.value_at(END - ONE_DAY) == 0
+    assert r.remainder_timeline.value_at(PERIOD_START + ONE_DAY) == 0.75
+    assert r.remainder_timeline.value_at(END - ONE_DAY) == 0
 
     t.work_span = (None, PERIOD_START - ONE_DAY)
     r = tm.convert_target_to_representations_of_leaves(t, PERIOD_START, END)[0]
+
+    t.work_span = (END + ONE_DAY, END + ONE_DAY)
+    r = tm.convert_target_to_representations_of_leaves(t, PERIOD_START, END)[0]
+    assert r.remainder_timeline.value_at(PERIOD_START) == 1
+    assert r.remainder_timeline.value_at(END - ONE_DAY) == 1
+    assert r.remainder_timeline.value_at(END) == 1
+
+    t.work_span = (PERIOD_START - 5 * ONE_DAY, END + 5 * ONE_DAY)
+    r = tm.convert_target_to_representations_of_leaves(t, PERIOD_START, END)[0]
+    assert r.remainder_timeline.value_at(PERIOD_START) == pytest.approx(2 / 3)
+    assert r.remainder_timeline.value_at(END) == pytest.approx(1 / 3)
+
+
+def test_target_span_not_started_works():
+    END = PERIOD_START + 5 * ONE_DAY
+    t = target.BaseTarget()
+
+    t.work_span = (PERIOD_START - ONE_DAY, PERIOD_START - ONE_DAY)
+    r = tm.convert_target_to_representations_of_leaves(t, PERIOD_START, END)[0]
+    assert r.remainder_timeline.value_at(END) == 0
+    assert r.remainder_timeline.value_at(PERIOD_START) == 0
+
+    t.work_span = (PERIOD_START - ONE_DAY, PERIOD_START + ONE_DAY)
+    r = tm.convert_target_to_representations_of_leaves(t, PERIOD_START, END)[0]
+    assert r.remainder_timeline.value_at(PERIOD_START + ONE_DAY) == 0
+    assert r.remainder_timeline.value_at(PERIOD_START) == 0.5
 
 
 def test_target_span_of_executive_summary():
@@ -672,20 +698,20 @@ def test_target_span_propagates():
     t = target.BaseTarget()
     r = tm.convert_target_to_representations_of_leaves(t, PERIOD_START, END)[0]
 
-    assert r.plan_timeline.value_at(PERIOD_START) == 1
-    assert r.plan_timeline.value_at(END) == 0
+    assert r.remainder_timeline.value_at(PERIOD_START) == 1
+    assert r.remainder_timeline.value_at(END) == 0
 
     t.work_span = (PERIOD_START + 2 * ONE_DAY, END - ONE_DAY)
     r = tm.convert_target_to_representations_of_leaves(t, PERIOD_START, END)[0]
 
-    assert r.plan_timeline.value_at(PERIOD_START) == 1
-    assert r.plan_timeline.value_at(END) == 0
+    assert r.remainder_timeline.value_at(PERIOD_START) == 1
+    assert r.remainder_timeline.value_at(END) == 0
 
-    assert r.plan_timeline.value_at(PERIOD_START + ONE_DAY) == 1
-    assert r.plan_timeline.value_at(END - ONE_DAY) == 0
+    assert r.remainder_timeline.value_at(PERIOD_START + ONE_DAY) == 1
+    assert r.remainder_timeline.value_at(END - ONE_DAY) == 0
 
-    assert r.plan_timeline.value_at(PERIOD_START + 2 * ONE_DAY) == 1
-    assert r.plan_timeline.value_at(PERIOD_START + 3 * ONE_DAY) == 0.5
+    assert r.remainder_timeline.value_at(PERIOD_START + 2 * ONE_DAY) == 1
+    assert r.remainder_timeline.value_at(PERIOD_START + 3 * ONE_DAY) == 0.5
 
 
 def test_target_span_starting_before_is_correctly_recalculated():
@@ -693,7 +719,7 @@ def test_target_span_starting_before_is_correctly_recalculated():
     t = target.BaseTarget()
     t.work_span = (PERIOD_START - ONE_DAY, END - ONE_DAY)
     r = tm.convert_target_to_representations_of_leaves(t, PERIOD_START, END)[0]
-    assert r.plan_timeline.value_at(PERIOD_START) == 1
+    assert r.remainder_timeline.value_at(PERIOD_START) == 0.8
 
 
 def test_target_span_ending_after_is_recalculated():
@@ -702,4 +728,4 @@ def test_target_span_ending_after_is_recalculated():
     t.work_span = (PERIOD_START + ONE_DAY, END + ONE_DAY)
     r = tm.convert_target_to_representations_of_leaves(t, PERIOD_START, END)[0]
     overflowing_ratio = ONE_DAY / (t.work_span[1] - t.work_span[0])
-    assert r.plan_timeline.value_at(END) == pytest.approx(overflowing_ratio)
+    assert r.remainder_timeline.value_at(END) == pytest.approx(overflowing_ratio)
