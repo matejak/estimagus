@@ -27,7 +27,9 @@
     </p>
     <div class="col">
     <h4>Simple distribution of work</h4>
+    <p>
     Proportion of the work: {{ "%.2g" % workload.points }}
+    </p>
     <ul>
     {% for epic in (workload.targets | sort(attribute="name")) %}
     <li>{{ render_epic_workload(epic, workload.point_parts[epic.name], 100 * workload.proportions[epic.name]) }}</li>

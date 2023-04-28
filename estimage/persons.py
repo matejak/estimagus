@@ -170,6 +170,7 @@ class OptimizedWorkloads(Workloads):
         person_index = self.persons_indices[person_name]
         ret = Workload()
         ret.points = sum(self.work_matrix[person_index])
+        ret.points = round(ret.points, 1)
         for task_index, task_name in enumerate(self.targets_by_name.keys()):
             projection = self.work_matrix[person_index, task_index]
             projection = round(projection, 1)
