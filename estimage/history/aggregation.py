@@ -11,21 +11,34 @@ from ..entities import target
 from . import progress
 
 
-def get_start_and_end_remainders(span, start, end):
-    start_remainder = 1
-    end_remainder = 0
-    span_width = span[1] - span[0]
-    if span[0] < start:
-        if span[1] < start:
-            start_remainder = 0
-        else:
-            start_remainder = 1 - (start - span[0]) / span_width
+def _get_start_remainder(span, start, plan_length):
+    planned_start, planned_end = span
+    if planned_start >= start:
+        return 1
+    if planned_end < start:
+        start_remainder = 0
+    else:
+        plan_before_period = start - planned_start
+        start_remainder = 1 - plan_before_period / plan_length
+    return start_remainder
 
-    if span[1] > end:
-        if span[0] > end:
-            end_remainder = 1
-        else:
-            end_remainder = (span[1] - end) / span_width
+
+def _get_end_remainder(span, end, plan_length):
+    planned_start, planned_end = span
+    if planned_end < end:
+        return 0
+    if planned_start > end:
+        end_remainder = 1
+    else:
+        plan_after_period = planned_end - end
+        end_remainder = plan_after_period / plan_length
+    return end_remainder
+
+
+def get_start_and_end_remainders(span, start, end):
+    span_width = span[1] - span[0]
+    start_remainder = _get_start_remainder(span, start, span_width)
+    end_remainder = _get_end_remainder(span, end, span_width)
 
     return start_remainder, end_remainder
 

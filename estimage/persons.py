@@ -8,6 +8,15 @@ import scipy as sp
 import estimage.data as data
 
 
+def get_all_collaborators(targets):
+    ret = set()
+    for t in targets:
+        ret.update(set(t.collaborators))
+        ret.add(t.assignee)
+    ret.discard("")
+    return ret
+
+
 class WorkloadSummary(typing.NamedTuple):
     expected_effort_of_full_potential: float
 
@@ -22,10 +31,7 @@ class Workload:
 
 
 def get_people_associaged_with(target: data.BaseTarget) -> typing.Set[str]:
-    associated_people = set()
-    associated_people.add(target.assignee)
-    associated_people.update(set(target.collaborators))
-    associated_people.discard("")
+    associated_people = get_all_collaborators((target,))
     return associated_people
 
 
@@ -180,16 +186,6 @@ class OptimizedWorkloads(Workloads):
             ret.point_parts[task_name] = projection
             ret.proportions[task_name] = projection / self.task_totals[task_index]
         return ret
-
-
-def get_all_collaborators(targets):
-    ret = set()
-    for t in targets:
-        ret.update(set(t.collaborators))
-        ret.add(t.assignee)
-    if "" in ret:
-        ret.remove("")
-    return ret
 
 
 # For a naming reference, see https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.linprog.html
