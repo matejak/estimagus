@@ -1,4 +1,5 @@
 {% from 'bootstrap5/utils.html' import render_icon %}
+{% from 'bootstrap5/form.html' import render_form %}
 
 {% macro render_whatever_retro(target, model, today, recursive=true) %}
 {% if target.dependents %}
@@ -10,6 +11,7 @@
 
 {% macro render_epic_retro(epic, model, today, recursive=true) %}
     <li>
+        <div id="{{ epic.name }}">
         {{ epic_link(epic, "main.view_epic_retro") }} &mdash; {{ epic.title }}
         <div class="container-md">
            <div class="row">
@@ -44,9 +46,10 @@
 
               </div>
               <div class="col">
-    <img src="{{ url_for('vis.visualize_burndown', epic_name=epic.name, size="small") }}" alt="Epic Burndown"/>
+    <img src="{{ url_for('vis.visualize_epic_burndown', epic_name=epic.name, size="small") }}" alt="Epic Burndown"/>
               </div>
            </div>
+        </div>
         </div>
     </li>
 {% endmacro %}
@@ -59,12 +62,20 @@
 {% endif %}
 {% endmacro %}
 
+{% macro refresh_whatever(target, mode, next) -%}
+        <a href="{{ url_for("main.refresh_single", name=target.name, mode=mode, next=next) }}">{{ render_icon("arrow-clockwise") }}</a>
+{%- endmacro %}
+
 {% macro task_link(task) -%}
         <a href="{{ url_for("main.view_task", task_name=task.name) }}">{{ task.name }}</a>&nbsp;<a href="{{ task.uri }}" rel="external">{{ render_icon("box-arrow-up-right") }}</a>
 {%- endmacro %}
 
+{% macro epic_external_link(epic) -%}
+	<a href="{{ epic.uri }}" rel="external">{{ render_icon("box-arrow-up-right") }}</a>
+{%- endmacro %}
+
 {% macro epic_link(epic, endpoint="main.view_epic") -%}
-        <a href="{{ url_for(endpoint, epic_name=epic.name) }}">{{ epic.name }}</a>&nbsp;<a href="{{ epic.uri }}" rel="external">{{ render_icon("box-arrow-up-right") }}</a>
+        <a href="{{ url_for(endpoint, epic_name=epic.name) }}">{{ epic.name }}</a>&nbsp;{{ epic_external_link(epic) }}
 {%- endmacro %}
 
 {% macro render_state_short(state) -%}
@@ -76,12 +87,19 @@
 {%- endmacro %}
 
 {% macro render_task_basic(task, model) -%}
-        {{ task_link(task) }} &mdash; <span class="task-state">{{ state_to_string(task.state) }}</span><span class="task-points {{- " uncounted_points" if model and model.get_element(task.name).masked }}">{{ "%.2g" % task.point_cost }}</span><span class="d-inline-block text-truncate" style="max-width: 350pt;">{{ task.title }}</span>
+        {{ task_link(task) }} &mdash; <span class="task-state">{{ state_to_string(task.state) }}</span><span class="task-points {{- " uncounted_points" if model and model.get_element(task.name).masked }}">{{ "%.2g" % task.point_cost }}</span>
+	{{ truncate_text_to(task.title, "350pt") }}
+{%- endmacro %}
+
+{% macro truncate_text_to(text, width) -%}
+<span class="d-inline-block text-truncate align-top" style="max-width: {{ width }};">{{ text }}</span>
 {%- endmacro %}
 
 {% macro render_task(task, model) %}
         <li>
+        <div id={{ task.name }}">
         {{- render_task_basic(task, model) -}}
+        </div>
         </li>
 {% endmacro %}
 
@@ -91,6 +109,7 @@
 
 {% macro render_epic(epic, model, recursive=true) %}
         <li>
+        <div id={{ epic.name }}">
         {{ render_epic_basic(epic) }}
         <p>
         Left to do: {{ "%.3g" % model.remaining_point_estimate_of(epic.name).expected }}, i.e. {{ "%i %%" % (model.remaining_point_estimate_of(epic.name).expected / model.remaining_point_estimate.expected * 100) }} of the whole
@@ -102,6 +121,7 @@
             {% endfor %}
         </ul>
         {%- endif %}
+        </div>
         </li>
 {% endmacro %}
 
@@ -149,4 +169,14 @@
 
 {% macro state_to_string(state) -%}
     {{ states_table.get(state, "Unknown") }}
+{%- endmacro %}
+
+
+{% macro show_refresh_form(refresh_form) -%}
+	{% if refresh_form %}
+        <div class="col">
+	{{ caller() }}
+	{{ render_form(refresh_form, action=url_for("main.refresh")) }}
+        </div>
+	{% endif %}
 {%- endmacro %}

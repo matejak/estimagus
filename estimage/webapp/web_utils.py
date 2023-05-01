@@ -1,5 +1,6 @@
 import flask
 import flask_login
+import werkzeug
 
 from .. import simpledata as webdata
 from .. import utilities
@@ -30,11 +31,17 @@ def get_user_model(user_id, cls, targets_tree_without_duplicates=None):
     return model
 
 
-def render_template(template_basename, title, **kwargs):
+def render_template(path, title, **kwargs):
     authenticated_user = ""
     if flask_login.current_user.is_authenticated:
         authenticated_user = flask_login.current_user
+    maybe_overriden_path = flask.current_app.config["plugins_templates_overrides"](path)
     return flask.render_template(
-        template_basename, title=title, authenticated_user=authenticated_user, ** kwargs)
+        maybe_overriden_path, title=title, authenticated_user=authenticated_user,
+        ** kwargs)
 
 
+def safe_url_to_redirect(candidate):
+    if not candidate or werkzeug.urls.url_parse(candidate).netloc != '':
+        candidate = flask.url_for('main.tree_view')
+    return candidate

@@ -13,6 +13,7 @@ from ... import data
 from ... import utilities
 from ... import simpledata as webdata
 from ... import history
+from ...plugins import redhat_compliance
 
 
 def profile(wrapped):
@@ -233,8 +234,14 @@ def view_epic(epic_name):
 
     t = projective_retrieve_task(epic_name)
 
+    refresh_form = redhat_compliance.forms.RedhatComplianceRefreshForm()
+    refresh_form.request_refresh_of([epic_name] + [e.name for e in t.dependents])
+    refresh_form.mode.data = "projective"
+    refresh_form.next.data = flask.request.path
+
     return web_utils.render_template(
-        'epic_view.html', title='View epic', epic=t, estimate=estimate, model=model)
+        'epic_view.html', title='View epic', epic=t, estimate=estimate, model=model,
+        refresh_form=refresh_form)
 
 
 def get_similar_tasks(user_id, task_name):
@@ -248,6 +255,25 @@ def get_similar_tasks(user_id, task_name):
 @bp.route('/')
 def index():
     return flask.redirect(flask.url_for("main.tree_view"))
+
+
+@bp.route('/refresh', methods=["POST"])
+@flask_login.login_required
+def refresh():
+    form = redhat_compliance.forms.RedhatComplianceRefreshForm()
+    if form.validate_on_submit():
+        redhat_compliance.refresh_targets(
+            form.get_what_names_to_refresh(), form.mode.data, form.token.data)
+    redirect = web_utils.safe_url_to_redirect(form.next.data)
+    return flask.redirect(redirect)
+
+
+@bp.route('/refresh_single', methods=["GET"])
+@flask_login.login_required
+def refresh_single():
+    # TODO: The refresh code goes here
+    redirect = web_utils.safe_url_to_redirect(flask.request.args.get("next", "/"))
+    return flask.redirect(redirect)
 
 
 @bp.route('/projective')
@@ -267,8 +293,7 @@ def tree_view():
 def executive_summary_of_points_and_velocity(targets):
     all_events = webdata.EventManager.load()
 
-    start = flask.current_app.config["PERIOD"]["start"]
-    end = flask.current_app.config["PERIOD"]["end"]
+    start, end = flask.current_app.config["RETROSPECTIVE_PERIOD"]
     cutoff_date = min(datetime.datetime.today(), end)
     aggregation = history.Aggregation.from_targets(targets, start, end)
     aggregation.process_event_manager(all_events)
@@ -290,12 +315,18 @@ def executive_summary_of_points_and_velocity(targets):
         elif r.get_status_at(cutoff_date) == data.State.done:
             cutoff_data.done += repre_points
 
+    velocity_array = aggregation.get_velocity_array()
+    velocity_stdev = velocity_array.var()**0.5
+    velocity_stdev_while_working = velocity_array[velocity_array>0].var()**0.5
+
     output = dict(
         initial_todo=not_done_on_start,
-        initial_done=not_done_on_start,
+        initial_done=done_on_start,
         last_record=cutoff_data,
         total_days_in_period=(cutoff_date - start).days,
-        total_days_while_working=sum(aggregation.get_velocity_array() > 0),
+        total_days_while_working=sum(velocity_array > 0),
+        velocity_stdev=velocity_stdev,
+        velocity_stdev_while_working=velocity_stdev_while_working,
         total_points_done=cutoff_data.done - done_on_start,
     )
     return output
@@ -305,8 +336,10 @@ def executive_summary_of_points_and_velocity(targets):
 @flask_login.login_required
 def tree_view_retro():
     all_targets = webdata.RetroTarget.load_all_targets()
+    tier0_targets = [t for t in all_targets if t.tier == 0]
+    tier0_targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(tier0_targets)
     targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(all_targets)
-    executive_summary = executive_summary_of_points_and_velocity(targets_tree_without_duplicates)
+    summary = executive_summary_of_points_and_velocity(tier0_targets_tree_without_duplicates)
 
     user = flask_login.current_user
     user_id = user.get_id()
@@ -314,9 +347,16 @@ def tree_view_retro():
 
     priority_sorted_targets = sorted(targets_tree_without_duplicates, key=lambda x: - x.priority)
 
+    refresh_form = redhat_compliance.forms.RedhatComplianceRefreshForm()
+    refresh_form.request_refresh_of([e.name for e in priority_sorted_targets])
+    refresh_form.mode.data = "retrospective"
+    refresh_form.next.data = flask.request.path
+
     return web_utils.render_template(
-        "tree_view_retrospective.html", title="Retrospective Tasks tree view",
-        targets=priority_sorted_targets, today=datetime.datetime.today(), model=model, ** executive_summary)
+        "tree_view_retrospective.html",
+        title="Retrospective Tasks tree view",
+        targets=priority_sorted_targets, today=datetime.datetime.today(), model=model,
+        refresh_form=refresh_form, ** summary)
 
 
 @bp.route('/retrospective/epic/<epic_name>')
@@ -337,13 +377,32 @@ def view_epic_retro(epic_name):
 @bp.route('/plugins/jira', methods=("GET", "POST"))
 @flask_login.login_required
 def jira_plugin():
-    form = forms.JiraForm()
+    from estimage import plugins
+    import estimage.plugins.jira
+    import estimage.plugins.jira.forms
+
+    form = estimage.plugins.jira.forms.JiraForm()
     if form.validate_on_submit():
 
-        from estimage import plugins
-        import estimage.plugins.jira
         task_spec = plugins.jira.InputSpec.from_dict(form)
         plugins.jira.do_stuff(task_spec)
 
     return web_utils.render_template(
         'jira.html', title='Jira Plugin', plugin_form=form, )
+
+
+@bp.route('/plugins/rhcompliance', methods=("GET", "POST"))
+@flask_login.login_required
+def rhcompliance_plugin():
+    from estimage import plugins
+    import estimage.plugins.redhat_compliance
+    import estimage.plugins.redhat_compliance.forms
+
+    form = estimage.plugins.redhat_compliance.forms.RedhatComplianceForm()
+    if form.validate_on_submit():
+
+        task_spec = plugins.redhat_compliance.InputSpec.from_dict(form)
+        plugins.redhat_compliance.do_stuff(task_spec)
+
+    return web_utils.render_template(
+        'rhcompliance.html', title='Red Hat Compliacne Plugin', plugin_form=form, )

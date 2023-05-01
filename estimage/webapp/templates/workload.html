@@ -2,36 +2,50 @@
 
 {% import "utils.j2" as utils %}
 
+{% macro render_epic_workload(epic, points, percentage) -%}
+<div>
+	{{ "%.2g" % points }} &nbsp; pts., {{ "%i" % percentage }} &nbsp; % &mdash; 
+	{{ utils.truncate_text_to(epic.title, "350pt") }}
+        {{ utils.epic_external_link(epic) }}
+</div>
+{%- endmacro %}
 
 {% block content %}
 <div class="container">
     <div class="row">
     <h1>Workloads</h1>
+    <h2>Summary</h2>
+    <ul>
+    <li>Average effort of a full-potential person: {{ "%.2g" % simple_summary.expected_effort_of_full_potential }} pts</li>
+    </ul>
+    <h2>Distribution</h2>
     {% for name in all_persons %}
     {% set workload = simple.of_person(name) %}
-    <h2>{{ name }}</h2>
+    <h3>{{ name }}</h3>
     <p>
     Expected work potential: {{ ("%i&nbsp;%%" % (simple.persons_potential[name] * 100)) | safe }}
     </p>
     <div class="col">
-    <h2>Simple distribution of work</h2>
+    <h4>Simple distribution of work</h4>
+    <p>
     Proportion of the work: {{ "%.2g" % workload.points }}
+    </p>
     <ul>
     {% for epic in (workload.targets | sort(attribute="name")) %}
-    <li>{{ utils.epic_link(epic) }} &mdash; {{ "%.2g" % workload.point_parts[epic.name] }} &nbsp; pts., {{ "%i" % (100 * workload.proportions[epic.name]) }} &nbsp; %</li>
+    <li>{{ render_epic_workload(epic, workload.point_parts[epic.name], 100 * workload.proportions[epic.name]) }}</li>
     {% endfor %}
     </ul>
     </div>
     {% if optimized %}
     {% set workload = optimized.of_person(name) %}
     <div class="col">
-    <h2>Equalized distribution of work</h2>
+    <h4>Equalized distribution of work</h4>
     <p>
     Proportion of the work: {{ "%.2g" % workload.points }}
     </p>
     <ul>
     {% for epic in (workload.targets | sort(attribute="name")) %}
-    <li>{{ utils.epic_link(epic) }} &mdash; {{ "%.2g" % workload.point_parts[epic.name] }} &nbsp; pts., {{ "%i" % (100 * workload.proportions[epic.name]) }} &nbsp; %</li>
+    <li>{{ render_epic_workload(epic, workload.point_parts[epic.name], 100 * workload.proportions[epic.name]) }}</li>
     {% endfor %}
     </ul>
     </div>

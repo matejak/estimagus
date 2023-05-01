@@ -244,12 +244,19 @@ def test_composition():
     assert c.nominal_point_estimate.expected == 0
     assert len(c.elements) == 0
 
+    leaves = c.get_contained_elements()
+    assert len(leaves) == 0
+
     e1 = tm.TaskModel("foo")
     e1.point_estimate = tm.Estimate(2, 1)
     e1.time_estimate = tm.Estimate(1, 1)
 
     c.add_element(e1)
     assert c.nominal_point_estimate.expected == 2
+
+    leaves = c.get_contained_elements()
+    assert len(leaves) == 1
+    assert leaves[0] == e1
 
     c2 = tm.Composition("c2")
     c2.add_element(e1)
@@ -259,6 +266,11 @@ def test_composition():
     c.add_composition(c2)
     assert c.nominal_point_estimate.expected == 6
     assert c.nominal_time_estimate.expected == 3
+
+    leaves = c.get_contained_elements()
+    assert len(leaves) == 3
+    assert leaves[0] == e1
+    assert leaves[-1] == e1
 
     e1.mask()
     assert c.remaining_point_estimate.expected == 0

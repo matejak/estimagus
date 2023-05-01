@@ -1,11 +1,12 @@
 import tempfile
 import os
+import datetime
 
 import pytest
 
 import estimage.inidata as tm
 import estimage.data as data
-from test_history import early_event, less_early_event
+from test_events import early_event, less_early_event
 
 
 @pytest.fixture
@@ -33,6 +34,14 @@ def eventmgr_inifile(temp_filename):
         CONFIG_FILENAME = temp_filename
 
     yield TmpIniEventMgr
+
+
+@pytest.fixture
+def appdata_inifile(temp_filename):
+    class TmpIniAppdata(tm.IniAppdata):
+        CONFIG_FILENAME = temp_filename
+
+    yield TmpIniAppdata
 
 
 def test_require_name_for_saving(target_inifile):
@@ -151,3 +160,19 @@ def test_eventmgr_storage_state(eventmgr_inifile, early_event):
 
     mgr_two = eventmgr_inifile.load()
     assert mgr_two.get_chronological_task_events_by_type(early_event.task_name) == {"state": [early_event]}
+
+
+def test_appdata_storage(appdata_inifile):
+    data = appdata_inifile()
+    data.RETROSPECTIVE_PERIOD = [
+        datetime.datetime(2001, 4, 1),
+        datetime.datetime(2001, 6, 30),
+    ]
+    data.PROJECTIVE_QUARTER = "abcd"
+    data.RETROSPECTIVE_QUARTER = "cd00"
+    data.save()
+
+    data2 = appdata_inifile.load()
+    assert data2.RETROSPECTIVE_PERIOD == data.RETROSPECTIVE_PERIOD
+    assert data2.PROJECTIVE_QUARTER == data.PROJECTIVE_QUARTER
+    assert data2.RETROSPECTIVE_QUARTER == data.RETROSPECTIVE_QUARTER

@@ -1,4 +1,5 @@
 import pytest
+import datetime
 
 from estimage import simpledata as tm
 from estimage import data
@@ -170,3 +171,16 @@ def test_context_deal_with_defective_estimate():
         context.process_global_pollster(poisoned_pollster)
     assert not context.global_estimation_exists
     assert context.estimation_source == "none"
+
+
+def test_default_appdata():
+    tm.AppData.CONFIG_BASENAME = "nothing here"
+    appdata = tm.AppData.load()
+
+    period = appdata.RETROSPECTIVE_PERIOD
+    today = datetime.datetime.today()
+    assert period[0] < today < period[1]
+    assert (today - period[0]).days > 25
+    assert (period[1] - today).days > 25
+    assert period[0].day == 1
+    assert period[1].day > 25

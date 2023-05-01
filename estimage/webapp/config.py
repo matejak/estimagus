@@ -1,6 +1,8 @@
 import os
 import datetime
 
+from ..simpledata import AppData
+
 
 class Config:
     SECRET_KEY = os.environ.get("SECRET_KEY")
@@ -13,7 +15,8 @@ class Config:
         "https://accounts.google.com/.well-known/openid-configuration"
     )
 
-    PERIOD = dict(
-        start=datetime.datetime(2023, 1, 1),
-        end=datetime.datetime(2023, 3, 31),
-    )
+
+def read_or_create_config(cls):
+    config = cls.load()
+    config.save()
+    return config

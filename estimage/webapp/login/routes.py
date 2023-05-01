@@ -7,6 +7,7 @@ from . import forms
 
 from .google_login import google_login
 from ..users import User
+from .. import web_utils
 
 
 def render_template(template_basename, title, **kwargs):
@@ -40,8 +41,7 @@ def login():
     config_dict = flask.current_app.config
 
     next_page = flask.request.args.get('next')
-    if not next_page or werkzeug.urls.url_parse(next_page).netloc != '':
-        next_page = flask.url_for('main.tree_view')
+    next_page = web_utils.safe_url_to_redirect(next_page)
 
     match provider_name := config_dict["LOGIN_PROVIDER_NAME"]:
         case "autologin":
