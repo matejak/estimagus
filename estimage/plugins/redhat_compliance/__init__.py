@@ -3,9 +3,19 @@ import datetime
 import dateutil.relativedelta
 import collections
 
-from ... import simpledata, utilities, data
+import flask
+
+from ... import simpledata, data
 from .. import jira
-from . import forms
+
+from . import routes
+
+
+bp = flask.Blueprint("rhcompliance", __name__, template_folder="templates")
+
+
+EXPORTS = dict(PertPlotter="PertPlotter")
+TEMPLATE_EXPORTS = dict(base="rhc-base.html")
 
 
 QUARTER_TO_MONTH_NUMBER = None
@@ -15,6 +25,15 @@ PROJECT_NAME = "OPENSCAP"
 TEMPLATE_OVERRIDES = {
     "tree_view_retrospective.html": "rhcompliance-retrotree.html",
 }
+
+
+def register_own_blueprint(app):
+    app.register_blueprint(bp, url_prefix="/plugins")
+
+
+class PertPlotter:
+    PERT_COLOR = "red"
+    EXPECTED_COLOR = "grey"
 
 
 class InputSpec(jira.InputSpec):
