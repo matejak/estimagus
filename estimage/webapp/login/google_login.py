@@ -35,22 +35,31 @@ def decode_urlsafe_data(safe_string):
 def google_login(safe_next_page):
     form = forms.GoogleLoginForm()
     if form.validate_on_submit():
-        google_provider_cfg = get_google_provider_cfg()
-        authorization_endpoint = google_provider_cfg["authorization_endpoint"]
-        client = get_google_client(flask.app)
-
-        request_uri = client.prepare_request_uri(
-            authorization_endpoint,
-            redirect_uri=flask.request.base_url + "/callback",
-            scope=["openid", "email"],
-            state=encode_data_urlsafe(safe_next_page=safe_next_page)
-        )
-        return flask.redirect(request_uri)
+        return start_google_login(safe_next_page)
 
     login_provider = flask.current_app.config["LOGIN_PROVIDER_NAME"]
     return flask.render_template(
         'login.html', title='Sign In', login_form=form,
         next=safe_next_page, login_provider=login_provider)
+
+
+@bp.route('/google_auto_login')
+def google_auto_login(safe_next_page):
+    return start_google_login(safe_next_page)
+
+
+def start_google_login(safe_next_page):
+    google_provider_cfg = get_google_provider_cfg()
+    authorization_endpoint = google_provider_cfg["authorization_endpoint"]
+    client = get_google_client(flask.app)
+
+    request_uri = client.prepare_request_uri(
+        authorization_endpoint,
+        redirect_uri=flask.request.base_url + "/callback",
+        scope=["openid", "email"],
+        state=encode_data_urlsafe(safe_next_page=safe_next_page)
+    )
+    return flask.redirect(request_uri)
 
 
 @bp.route('/login/callback', methods=['GET', 'POST'])

@@ -73,7 +73,7 @@ def create_app(config_class=config.Config):
 
     login.init_app(app)
     login.user_loader(users.load_user)
-    login.login_view = "login.login"
+    login.login_view = "login.auto_login"
 
     if not app.debug and not app.testing:
         pass
