@@ -374,20 +374,3 @@ def jira_plugin():
 
     return web_utils.render_template(
         'jira.html', title='Jira Plugin', plugin_form=form, )
-
-
-@bp.route('/plugins/rhcompliance', methods=("GET", "POST"))
-@flask_login.login_required
-def rhcompliance_plugin():
-    from estimage import plugins
-    import estimage.plugins.redhat_compliance
-    import estimage.plugins.redhat_compliance.forms
-
-    form = estimage.plugins.redhat_compliance.forms.RedhatComplianceForm()
-    if form.validate_on_submit():
-
-        task_spec = plugins.redhat_compliance.InputSpec.from_dict(form)
-        plugins.redhat_compliance.do_stuff(task_spec)
-
-    return web_utils.render_template(
-        'rhcompliance.html', title='Red Hat Compliacne Plugin', plugin_form=form, )

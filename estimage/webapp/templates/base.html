@@ -15,15 +15,22 @@
     <body>
 	<nav class="navbar navbar-expand-lg navbar-light bg-light">
 	    <div class="navbar-nav mr-auto">
+		{% block navbar %}
+		{% block navbar_common %}
 		{{ render_nav_item('main.tree_view', 'Projective Tree View') }}
 		{{ render_nav_item('main.tree_view_retro', 'Retrospective Tree View') }}
 		{{ render_nav_item('persons.projective_workload', 'Projective Workloads') }}
+		{% endblock %}
+		{% block navbar_custom %}
+		{% endblock %}
+		{% block navbar_user %}
 		  {% if authenticated_user %}
-
 		{{ render_nav_item('login.logout', 'Logout user ' ~ authenticated_user.get_id()) }}
 		  {% else %}
 		{{ render_nav_item('login.login', 'Login') }}
 		  {% endif %}
+		{% endblock %}
+		{% endblock %}
 	    </div>
 	</nav>
 	{{ render_messages() }}

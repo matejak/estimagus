@@ -45,7 +45,8 @@ def send_figure_as_svg(figure, basename):
 
 
 def get_pert_in_figure(estimation, task_name):
-    fig = pert.get_pert_in_figure(estimation, task_name)
+    pert_class = flask.current_app.config["classes"]["PertPlotter"]
+    fig = pert.get_pert_in_figure(estimation, task_name, pert_class)
     fig.set_size_inches(* NORMAL_FIGURE_SIZE)
 
     return fig
