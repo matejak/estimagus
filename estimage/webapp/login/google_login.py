@@ -53,9 +53,10 @@ def start_google_login(safe_next_page):
     authorization_endpoint = google_provider_cfg["authorization_endpoint"]
     client = get_google_client(flask.app)
 
+    callback_url = flask.request.host_url.rstrip("/") + flask.url_for("login.login") + "/callback"
     request_uri = client.prepare_request_uri(
         authorization_endpoint,
-        redirect_uri=flask.request.base_url + "/callback",
+        redirect_uri=callback_url,
         scope=["openid", "email"],
         state=encode_data_urlsafe(safe_next_page=safe_next_page)
     )
