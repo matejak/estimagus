@@ -1,11 +1,10 @@
 import flask
 import flask_login
-import werkzeug.urls
 
 from . import bp
 from . import forms
 
-from .google_login import google_login
+from .google_login import google_login, google_auto_login
 from ..users import User
 from .. import web_utils
 
@@ -36,19 +35,32 @@ def autologin(safe_next_page):
         next=safe_next_page, login_provider=login_provider)
 
 
-@bp.route('/login', methods=['GET', 'POST'])
-def login():
+def perform_login_selection(login_methods, login_description):
     config_dict = flask.current_app.config
 
     next_page = flask.request.args.get('next')
-    next_page = web_utils.safe_url_to_redirect(next_page)
+    safe_next_page = web_utils.safe_url_to_redirect(next_page)
 
-    match provider_name := config_dict["LOGIN_PROVIDER_NAME"]:
-        case "autologin":
-            return autologin(next_page)
-        case "google":
-            return google_login(next_page)
-        case _:
-            msg = f"Unknown login provider: {provider_name}"
-            raise ValueError(msg)
+    provider_name = config_dict["LOGIN_PROVIDER_NAME"]
+    if provider_name not in login_methods:
+        msg = f"Unknown login provider '{provider_name}' for {login_description}"
+        raise ValueError(msg)
+    return login_methods[provider_name](safe_next_page)
 
+
+@bp.route('/login', methods=['GET', 'POST'])
+def login():
+    login_methods = dict(
+        autologin=autologin,
+        google=google_login,
+    )
+    return perform_login_selection(login_methods, "interactive login")
+
+
+@bp.route('/autologin', methods=['GET', 'POST'])
+def auto_login():
+    login_methods = dict(
+        autologin=autologin,
+        google=google_auto_login,
+    )
+    return perform_login_selection(login_methods, "automatic login")
