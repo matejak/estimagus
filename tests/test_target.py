@@ -26,22 +26,6 @@ def test_basic_target_properties(personweek_target):
     assert cost2 >= 0
 
 
-@pytest.mark.dependency(depends=["basic_target"])
-def test_target_value_parsing(personweek_target):
-    subject = personweek_target
-    assert subject.parse_point_cost("5") == 5
-
-    subject.TIME_UNIT = "pw"
-    assert subject.parse_time_cost("5pw") == 5
-    assert subject.parse_time_cost("5 pw") == 5
-
-    assert subject.format_time_cost(8.2) == "8 pw"
-
-    subject.TIME_UNIT = "x"
-    with pytest.raises(ValueError):
-        subject.parse_time_cost("5pw")
-
-
 @pytest.fixture
 def leaf_target():
     ret = tm.BaseTarget()
@@ -193,7 +177,7 @@ def test_target_load_all(persistent_target_class):
 
 def fill_target_instance_with_stuff(t):
     t.point_cost = 5
-    t.time_cost = 8
+    t.time_cost = 0
     t.title = "Issue One"
     t.state = target.State.in_progress
     t.collaborators = ["a", "b"]
@@ -231,15 +215,11 @@ def test_target_load_and_save_values(persistent_target_class):
     one = persistent_target_class()
     one.name = "one"
     fill_target_instance_with_stuff(one)
-    one.save_point_cost()
-    one.save_time_cost()
     one.save_metadata()
 
     all_targets_by_id = persistent_target_class.get_loaded_targets_by_id()
     loaded_one = all_targets_by_id["one"]
-    loaded_one.load_point_cost()
-    loaded_one.load_time_cost()
-    loaded_one.load_metadata(loaded_one.name)
+    loaded_one = loaded_one.load_metadata(loaded_one.name)
     assert_targets_are_equal(one, loaded_one)
 
 

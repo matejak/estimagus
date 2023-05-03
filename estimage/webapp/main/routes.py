@@ -42,13 +42,11 @@ def feed_estimation_to_form(estimation, form_data):
 
 def projective_retrieve_task(task_id):
     ret = webdata.ProjTarget.load_metadata(task_id)
-    ret.load_point_cost()
     return ret
 
 
 def retro_retrieve_task(task_id):
     ret = webdata.RetroTarget.load_metadata(task_id)
-    ret.load_point_cost()
     return ret
 
 

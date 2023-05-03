@@ -20,13 +20,14 @@ class IniStorage:
             pass
         return config
 
+    @classmethod
     @contextlib.contextmanager
-    def _manipulate_existing_config(self):
-        config = self._load_existing_config()
+    def _manipulate_existing_config(cls):
+        config = cls._load_existing_config()
         try:
             yield config
         finally:
-            with open(self.CONFIG_FILENAME, "w") as f:
+            with open(cls.CONFIG_FILENAME, "w") as f:
                 config.write(f)
 
     @contextlib.contextmanager
@@ -43,8 +44,12 @@ class IniStorage:
 
 class IniTarget(data.BaseTarget, IniStorage):
     def save_metadata(self):
+        with self._manipulate_existing_config() as config:
+            self._save_metadata(config)
+
+    def _save_metadata(self, config):
         for dep in self.dependents:
-            dep.save_metadata()
+            dep._save_metadata(config)
         if not self.name:
             msg = "Coudln't save target, because its name is blank."
             raise RuntimeError(msg)
@@ -60,6 +65,7 @@ class IniTarget(data.BaseTarget, IniStorage):
             tags=",".join(self.tags),
             tier=str(self.tier),
             uri=self.uri,
+            point_cost=str(self.point_cost),
             loading_plugin=self.loading_plugin,
         )
         if self.work_span and self.work_span[0] is not None:
@@ -68,8 +74,9 @@ class IniTarget(data.BaseTarget, IniStorage):
             metadata["work_end"] = self.work_span[1].isoformat()
         if self.status_summary_time:
             metadata["status_summary_time"] = self.status_summary_time.isoformat()
-        with self._update_key_with_dictionary(self.name) as callback:
-            callback(metadata)
+        if self.name not in config:
+            config[self.name] = dict()
+        config[self.name].update(metadata)
 
     @classmethod
     def get_all_target_names(cls):
@@ -93,6 +100,12 @@ class IniTarget(data.BaseTarget, IniStorage):
         ]
 
     @classmethod
+    def bulk_save_metadata(cls, targets: typing.Iterable[data.BaseTarget]):
+        with cls._manipulate_existing_config() as config:
+            for t in targets:
+                t._save_metadata(config)
+
+    @classmethod
     def load_metadata(cls, name):
         config = cls._load_existing_config()
         return cls._load_metadata(name, config)
@@ -110,8 +123,7 @@ class IniTarget(data.BaseTarget, IniStorage):
         state = our_config.get("state", data.State.unknown)
         ret.state = data.State(int(state))
 
-        cost_str = ret._load_point_cost(config)
-        ret.point_cost = ret.parse_point_cost(cost_str)
+        ret.point_cost = float(our_config.get("point_cost", 0))
 
         ret.priority = float(our_config.get("priority", ret.priority))
         ret.status_summary = our_config.get("status_summary", "")
@@ -138,29 +150,6 @@ class IniTarget(data.BaseTarget, IniStorage):
             new = cls._load_metadata(n, config)
             ret.dependents.append(new)
         return ret
-
-    def _save_point_cost(self, cost_str):
-        with self._update_key_with_dictionary(self.name) as callback:
-            new_value = dict(
-                point_cost=cost_str,
-            )
-            callback(new_value)
-
-    def _load_point_cost(self, config=None):
-        if not config:
-            config = self._load_existing_config()
-        return config[self.name].get("point_cost", fallback=0)
-
-    def _save_time_cost(self, cost_str):
-        with self._update_key_with_dictionary(self.name) as callback:
-            new_value = dict(
-                time_cost=cost_str,
-            )
-            callback(new_value)
-
-    def _load_time_cost(self):
-        config = self._load_existing_config()
-        return config[self.name].get("time_cost", fallback=0)
 
 
 class IniPollster(data.Pollster, IniStorage):
@@ -218,16 +207,20 @@ class IniPollster(data.Pollster, IniStorage):
 
 
 class IniEvents(data.EventManager, IniStorage):
-    def _save_task_events(self, task_name: str, event_list: typing.List[data.Event]):
+    def save(self):
+        task_names = self.get_referenced_task_names()
+        with self._manipulate_existing_config() as config:
+            for name in task_names:
+                self._save_task_events(config, name, self._events[name])
+
+    def _save_task_events(self, config, task_name: str, event_list: typing.List[data.Event]):
         all_values_to_save = dict()
         for index, event in enumerate(event_list):
             to_save = self._event_to_string_dict(event)
 
             keyname = f"{index:04d}-{task_name}"
             all_values_to_save[keyname] = to_save
-
-        with self._manipulate_existing_config() as config:
-            config.update(all_values_to_save)
+        config.update(all_values_to_save)
 
     def _event_to_string_dict(self, event):
         to_save = dict(

@@ -22,7 +22,6 @@ class State(enum.IntEnum):
 
 @dataclasses.dataclass(init=False)
 class BaseTarget:
-    TIME_UNIT: str = None
     point_cost: float
     time_cost: float
     name: str
@@ -62,7 +61,6 @@ class BaseTarget:
 
     def as_class(self, cls):
         ret = cls()
-        ret.TIME_UNIT = self.TIME_UNIT
         for fieldname in (
             "point_cost", "time_cost", "name", "title", "description", "state",
             "collaborators", "assignee", "priority", "status_summary", "status_summary_time",
@@ -72,9 +70,6 @@ class BaseTarget:
         ret.dependents = [d.as_class(cls) for d in self.dependents]
 
         return ret
-
-    def parse_point_cost(self, cost):
-        return float(cost)
 
     def _convert_into_composition(self):
         ret = Composition(self.name)
@@ -98,49 +93,13 @@ class BaseTarget:
     def add_element(self, what: "BaseTarget"):
         self.dependents.append(what)
 
-    def parse_time_cost(self, cost):
-        if not self.TIME_UNIT:
-            raise RuntimeError("No time estimates are expected.")
-        match = re.match(rf"([0-9.]+)\s*{self.TIME_UNIT}", cost)
-        if match is None:
-            raise ValueError(f"Couldn't parse cost {cost} in units {self.TIME_UNIT}")
-
-        return float(match.groups()[0])
-
-    def _load_point_cost(self) -> str:
-        raise NotImplementedError()
-
-    def _load_time_cost(self) -> str:
-        raise NotImplementedError()
-
-    def load_point_cost(self):
-        cost_str = self._load_point_cost()
-        self.point_cost = self.parse_point_cost(cost_str)
-
-    def load_time_cost(self):
-        cost_str = self._load_time_cost()
-        self.time_cost = self.parse_time_cost(cost_str)
-
-    def _save_point_cost(self, cost_str: str):
-        raise NotImplementedError()
-
-    def _save_time_cost(self, cost_str: str):
-        raise NotImplementedError()
-
-    def save_point_cost(self):
-        cost = str(int(round(self.point_cost)))
-        return self._save_point_cost(cost)
-
-    def format_time_cost(self, cost):
-        cost = int(round(cost))
-        return f"{cost} {self.TIME_UNIT}"
-
-    def save_time_cost(self):
-        cost = self.format_time_cost(self.time_cost)
-        return self._save_time_cost(cost)
-
     def save_metadata(self):
         raise NotImplementedError()
+
+    @staticmethod
+    def bulk_save_metadata(targets: typing.Iterable["BaseTarget"]):
+        for target in targets:
+            target.save_metadata()
 
     def __contains__(self, lhs: "BaseTarget"):
         lhs_name = lhs.name

@@ -78,11 +78,6 @@ class EventManager:
         return events_by_type
 
     def save(self):
-        task_names = self.get_referenced_task_names()
-        for name in task_names:
-            self._save_task_events(name, self._events[name])
-
-    def _save_task_events(self, task_name: str, event_list: typing.List[Event]):
         raise NotImplementedError()
 
     @classmethod

@@ -86,15 +86,9 @@ def test_save_something_load_same(target_inifile):
 
     data.point_cost = 5
     assert data.point_cost != data2.point_cost
-    data.save_point_cost()
-    data2.load_point_cost()
+    data.save_metadata()
+    data2 = data2.load_metadata("name")
     assert data.point_cost == data2.point_cost
-
-    data.time_cost = 5
-    assert data.time_cost != data2.time_cost
-    data.save_time_cost()
-    data2.load_time_cost()
-    assert data.time_cost == data2.time_cost
 
 
 @pytest.mark.dependency(depends=["test_save_something_load_same"])
