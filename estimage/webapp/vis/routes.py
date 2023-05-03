@@ -58,18 +58,21 @@ def visualize_velocity(epic_name):
 
     user = flask_login.current_user
     user_id = user.get_id()
-    model = web_utils.get_user_model(user_id, webdata.RetroTarget, all_targets)
-    model.update_targets_with_values(all_targets)
-
     all_events = webdata.EventManager.load()
 
     start, end = flask.current_app.config["RETROSPECTIVE_PERIOD"]
 
     if epic_name == ".":
         target_tree = utilities.reduce_subsets_from_sets(list(all_targets.values()))
+        model = web_utils.get_user_model(user_id, webdata.RetroTarget, target_tree)
+        model.update_targets_with_values(target_tree)
+
         aggregation = history.Aggregation.from_targets(target_tree, start, end)
     else:
         epic = all_targets[epic_name]
+        model = web_utils.get_user_model(user_id, webdata.RetroTarget, [epic])
+        model.update_targets_with_values([epic])
+
         aggregation = history.Aggregation.from_target(epic, start, end)
 
     aggregation.process_event_manager(all_events)
