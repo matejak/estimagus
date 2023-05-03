@@ -4,20 +4,21 @@
 
 {% block content %}
 <div class="container-md">
+{% block retrospective_content %}
     <div class="row">
     <h1>Tree View</h1>
     <div class="col">
 {% block burndown %}
     <h2>Burndown</h2>
     <p>
-        Total SP waiting to be completed at start of the sprint: {{ initial_todo }}
+        Total SP waiting to be completed at start of the sprint: {{ initial_todo | round | int }}
     </p>
     <p>
         Last recorded data:
         <ul>
-            <li>TODO: {{ last_record.todo }}</li>
-            <li>In Progress / needs review: {{ last_record.underway }}</li>
-            <li>Done: {{ last_record.done }}</li>
+            <li>TODO: {{ last_record.todo | round | int }}</li>
+            <li>In Progress / needs review: {{ last_record.underway | round | int }}</li>
+            <li>Done: {{ last_record.done | round | int }}</li>
         </ul>
     </p>
     <p>
@@ -65,5 +66,6 @@
     {% endfor -%}
     </ul>
     </div>
+{% endblock retrospective_content %}
 </div>
-{% endblock %}
+{% endblock content %}

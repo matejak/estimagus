@@ -348,6 +348,46 @@ def test_supply():
     assert model2.nominal_point_estimate.expected == 5
 
 
+def test_model_updates_targets():
+    target_one = tm.BaseTarget()
+    target_one.name = "one"
+    target_one.point_cost = 5
+
+    model = tm.EstiModel()
+    targets = [target_one]
+    model.use_composition(target_one.to_tree(targets))
+    target_one.point_cost = 4
+
+    target_two = tm.BaseTarget()
+    target_two.name = "two"
+    target_two.point_cost = 1
+    targets.append(target_two)
+
+    assert model.export_element("one").point_cost == 5
+    model.update_targets_with_values(targets)
+    assert targets[0].point_cost == 5
+
+
+def test_model_updates_nested_targets():
+    target_one = tm.BaseTarget()
+    target_one.name = "one"
+    target_one.point_cost = 5
+
+    target_two = tm.BaseTarget()
+    target_two.name = "two"
+    target_two.point_cost = 1
+    target_two.dependents.append(target_one)
+
+    model = tm.EstiModel()
+    targets = [target_two]
+    model.use_composition(target_two.to_tree(targets))
+    target_one.point_cost = 4
+
+    model.update_targets_with_values(targets)
+    assert target_one.point_cost == 5
+    assert target_two.point_cost == 1
+
+
 def test_memory_types():
     r1 = tm.MemoryTaskModel("R")
     r1.set_point_estimate(3, 2, 4)

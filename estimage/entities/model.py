@@ -96,9 +96,21 @@ class EstiModel:
     def get_element(self, name):
         return self.name_result_map[name]
 
-    def export_element(self, name: str) -> BaseTarget:
-        element = self.name_result_map[name]
-        target = BaseTarget()
+    def update_targets_with_values(self, targets: typing.Container[BaseTarget]):
+        for t in targets:
+            self._update_target(t)
+
+    def _update_target(self, target: BaseTarget):
+        for dep in target.dependents:
+            self._update_target(dep)
+        if target.name not in self.name_result_map:
+            return
+        element = self.name_result_map[target.name]
         target.point_cost = element.nominal_point_estimate.expected
         target.time_cost = element.nominal_time_estimate.expected
+
+    def export_element(self, name: str) -> BaseTarget:
+        target = BaseTarget()
+        target.name = name
+        self._update_target(target)
         return target

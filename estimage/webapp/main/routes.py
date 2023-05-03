@@ -339,12 +339,14 @@ def tree_view_retro():
     tier0_targets = [t for t in all_targets if t.tier == 0]
     tier0_targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(tier0_targets)
     targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(all_targets)
-    summary = executive_summary_of_points_and_velocity(tier0_targets_tree_without_duplicates)
 
     user = flask_login.current_user
     user_id = user.get_id()
     model = web_utils.get_user_model(user_id, webdata.RetroTarget, targets_tree_without_duplicates)
+    model.update_targets_with_values(tier0_targets_tree_without_duplicates)
+    model.update_targets_with_values(targets_tree_without_duplicates)
 
+    summary = executive_summary_of_points_and_velocity(tier0_targets_tree_without_duplicates)
     priority_sorted_targets = sorted(targets_tree_without_duplicates, key=lambda x: - x.priority)
 
     refresh_form = redhat_compliance.forms.RedhatComplianceRefreshForm()

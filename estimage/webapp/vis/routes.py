@@ -55,6 +55,12 @@ def get_pert_in_figure(estimation, task_name):
 @flask_login.login_required
 def visualize_velocity(epic_name):
     all_targets = webdata.RetroTarget.get_loaded_targets_by_id()
+
+    user = flask_login.current_user
+    user_id = user.get_id()
+    model = web_utils.get_user_model(user_id, webdata.RetroTarget, all_targets)
+    model.update_targets_with_values(all_targets)
+
     all_events = webdata.EventManager.load()
 
     start, end = flask.current_app.config["RETROSPECTIVE_PERIOD"]
@@ -119,22 +125,33 @@ def visualize_epic_burndown(epic_name, size):
     all_targets = webdata.RetroTarget.get_loaded_targets_by_id()
     epic = all_targets[epic_name]
 
+    user = flask_login.current_user
+    user_id = user.get_id()
+    model = web_utils.get_user_model(user_id, webdata.RetroTarget, [epic])
+    model.update_targets_with_values([epic])
+
     return output_burndown([epic], size)
 
 
 @bp.route('/tier<tier>-burndown-<size>.svg')
+@flask_login.login_required
 def visualize_overall_burndown(tier, size):
     allowed_sizes = ("small", "normal")
     if size not in allowed_sizes:
         msg = "Figure size must be one of {allowed_sizes}, got '{size}' instead."
         raise ValueError(msg)
     if (tier := int(tier)) < 0:
-        msg = "Tier must be a positive number, got {tier}"
+        msg = "Tier must be a non-negative number, got {tier}"
         raise ValueError(msg)
 
     all_targets = webdata.RetroTarget.get_loaded_targets_by_id()
     all_targets = {name: target for name, target in all_targets.items() if target.tier <= tier}
     target_tree = utilities.reduce_subsets_from_sets(list(all_targets.values()))
+
+    user = flask_login.current_user
+    user_id = user.get_id()
+    model = web_utils.get_user_model(user_id, webdata.RetroTarget, target_tree)
+    model.update_targets_with_values(target_tree)
 
     return output_burndown(target_tree, size)
 
