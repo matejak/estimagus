@@ -1,5 +1,3 @@
-import cProfile
-import functools
 import datetime
 import types
 
@@ -14,20 +12,6 @@ from ... import utilities
 from ... import simpledata as webdata
 from ... import history
 from ...plugins import redhat_compliance
-
-
-def profile(wrapped):
-    """
-    Decorate a function to save profiling info to the working directory.
-    The order of decorators matters.
-    """
-    @functools.wraps(wrapped)
-    def wrapper(* args, ** kwargs):
-        with cProfile.Profile() as pr:
-            ret = wrapped(* args, ** kwargs)
-            pr.dump_stats(f"{wrapped.__name__}.pstats")
-        return ret
-    return wrapper
 
 
 def tell_pollster_about_obtained_data(pollster, task_id, form_data):

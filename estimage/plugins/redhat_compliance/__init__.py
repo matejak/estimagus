@@ -3,7 +3,7 @@ import datetime
 import dateutil.relativedelta
 import collections
 
-from estimage import simpledata
+from ... import simpledata, utilities
 from .. import jira
 from . import forms
 
