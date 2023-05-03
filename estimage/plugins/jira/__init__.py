@@ -115,11 +115,8 @@ def resolve_inheritance_of_attributes(name, all_items_by_id, parents_child_keyma
 
 
 def save_exported_jira_tasks(all_targets_by_id, id_selection, target_class):
-    for tid in id_selection:
-        t = all_targets_by_id[tid].as_class(target_class)
-        t.save_metadata()
-        t.save_point_cost()
-        t.save_time_cost()
+    to_save = [all_targets_by_id[tid].as_class(target_class) for tid in id_selection]
+    target_class.bulk_save_metadata(to_save)
 
 
 def jira_datetime_to_datetime(jira_datetime):
@@ -229,16 +226,23 @@ class Importer:
             self._all_events.extend(new_events)
         print(f"Collected {len(self._all_events)} events")
 
+    def find_targets(self, target_names: typing.Iterable[str]):
+        target_ids_sequence = ", ".join(target_names)
+        query = f"id in ({target_ids_sequence})"
+        return self.jira.search_issues(query)
+
     def refresh_targets(self, real_targets: typing.Iterable[target.BaseTarget]):
         if not real_targets:
             return
-        refreshed = [self.get_refreshed_target(t) for t in real_targets]
-        for t in refreshed:
-            t.save_metadata()
-            t.save_point_cost()
+        fresh = self.find_targets([t.name for t in real_targets])
+        refreshed = [self._apply_refresh(real, jira) for real, jira in zip(real_targets, fresh)]
+        refreshed[0].bulk_save_metadata(refreshed)
 
-    def get_refreshed_target(self, real_target: target.BaseTarget):
+    def _get_refreshed_target(self, real_target: target.BaseTarget):
         jira_target = self.jira.issue(real_target.name, expand="renderedFields")
+        return self._apply_refresh(real_target, jira_target)
+
+    def _apply_refresh(self, real_target: target.BaseTarget, jira_target):
         fresh_target = self.merge_jira_item_without_children(jira_target)
         fresh_target.dependents = real_target.dependents
         real_target = fresh_target.as_class(real_target.__class__)
