@@ -74,11 +74,10 @@ class xBaseTarget:
         self.dependents.append(what)
 
     def save_metadata(self, saver_cls):
-        saver = saver_cls()
-        self._pass_data_to_saver(saver)
-        saver.save()
+        with saver_cls.saver() as saver:
+            self.pass_data_to_saver(saver)
 
-    def _pass_data_to_saver(self, saver):
+    def pass_data_to_saver(self, saver):
         saver.save_name_title_and_desc(self)
         saver.save_costs(self)
         saver.save_dependents(self)
@@ -89,7 +88,7 @@ class xBaseTarget:
         saver.save_work_span(self)
         saver.save_uri_and_plugin(self)
 
-    def _load_data_by_loader(self, loader):
+    def load_data_by_loader(self, loader):
         loader.name = self.name
         loader.load_name_title_and_desc(self)
         loader.load_costs(self)
@@ -119,12 +118,11 @@ class xBaseTarget:
                 return True
         return False
 
-    #TODO: The class as an argument prevent reuse of data
     @classmethod
     def load_metadata(cls, name: str, loader_cls):
         ret = cls(name)
         loader = loader_cls()
-        ret._load_data_by_loader(loader)
+        ret.load_data_by_loader(loader)
         return ret
 
     @classmethod
@@ -157,10 +155,10 @@ class BaseTarget(xBaseTarget):
         self.status_summary = ""
         self.status_summary_time = None
 
-    def _pass_data_to_saver(self, saver):
-        super()._pass_data_to_saver(saver)
+    def pass_data_to_saver(self, saver):
+        super().pass_data_to_saver(saver)
         saver.save_status_update(self)
 
-    def _load_data_by_loader(self, loader):
-        super()._load_data_by_loader(loader)
+    def load_data_by_loader(self, loader):
+        super().load_data_by_loader(loader)
         loader.load_status_update(self)

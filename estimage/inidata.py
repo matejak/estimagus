@@ -75,6 +75,13 @@ class IniTargetIO(IniTargetStateIO, IniStorage):
             raise RuntimeError(f"Couldn't load '{self.name}' from '{self.CONFIG_FILENAME}'")
         return self.all_data.get(self.name, attribute, fallback=fallback)
 
+    @classmethod
+    @contextlib.contextmanager
+    def saver(cls):
+        saver = cls()
+        yield saver
+        saver.save()
+
     def load_name_title_and_desc(self, t):
         t.name = self.name
         t.title = self._get_our("title")
@@ -90,7 +97,8 @@ class IniTargetIO(IniTargetStateIO, IniStorage):
             if not n:
                 continue
             self.name = n
-            new = t.load_metadata(n, self.__class__)
+            new = data.BaseTarget(n)
+            new.load_data_by_loader(self)
             t.dependents.append(new)
         self.name = original_name
 
@@ -175,23 +183,29 @@ class IniTargetIO(IniTargetStateIO, IniStorage):
     @classmethod
     def get_loaded_targets_by_id(cls):
         ret = dict()
+        loader = cls()
         for name in cls.get_all_target_names():
-            ret[name] = data.BaseTarget.load_metadata(name, cls)
+            target = data.BaseTarget(name)
+            target.load_data_by_loader(loader)
+            ret[name] = target
         return ret
 
     @classmethod
     def load_all_targets(cls):
         config = cls._load_existing_config(cls.CONFIG_FILENAME)
+        loader = cls()
         ret = []
         for name in config.sections():
-            ret.append(data.BaseTarget.load_metadata(name, cls))
+            target = data.BaseTarget(name)
+            target.load_data_by_loader(loader)
+            ret.append(target)
         return ret
 
     @classmethod
     def bulk_save_metadata(cls, targets: typing.Iterable[data.BaseTarget]):
         saver = cls()
         for t in targets:
-            t._pass_data_to_saver(saver)
+            t.pass_data_to_saver(saver)
         saver.save()
 
 
