@@ -69,10 +69,13 @@ class IniSaverBase(IniStorage):
 
     def save(self):
         with self._manipulate_existing_config(self.CONFIG_FILENAME) as config:
-            for name, data_to_save in self._data_to_save.items():
-                if name not in config:
-                    config[name] = dict()
-                config[name].update(data_to_save)
+            self._save(config)
+
+    def _save(self, all_data_to_save):
+        for name, data_to_save in self._data_to_save.items():
+            if name not in all_data_to_save:
+                all_data_to_save[name] = dict()
+            all_data_to_save[name].update(data_to_save)
 
     @classmethod
     @contextlib.contextmanager

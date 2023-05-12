@@ -8,7 +8,7 @@ import flask
 
 from . import data
 from . import inidata
-from .persistence.entrydef import ini
+from .persistence import entrydef, pollster
 
 
 class IniInDirMixin:
@@ -23,19 +23,19 @@ class IniInDirMixin:
         return ret
 
 
-class RetroTargetIO(IniInDirMixin, ini.IniTargetIO):
+class RetroTargetIO(IniInDirMixin, entrydef.ini.IniTargetIO):
     CONFIG_BASENAME = "retrospective.ini"
     WHAT_IS_THIS = "retrospective target"
 
 
-class ProjTargetIO(IniInDirMixin, ini.IniTargetIO):
+class ProjTargetIO(IniInDirMixin, entrydef.ini.IniTargetIO):
     CONFIG_BASENAME = "projective.ini"
     WHAT_IS_THIS = "projective target"
 
 
 class UserPollsterBase(data.Pollster):
     def __init__(self, username, * args, ** kwargs):
-        super().__init__(* args, ** kwargs)
+        super().__init__(* args, io_cls=pollster.ini.IniPollsterIO, ** kwargs)
         self.username = username
         self.set_namespace(f"user-{username}-")
 
@@ -46,7 +46,7 @@ class UserPollster(IniInDirMixin, UserPollsterBase, inidata.IniPollster):
 
 class AuthoritativePollsterBase(data.Pollster):
     def __init__(self, * args, ** kwargs):
-        super().__init__(* args, ** kwargs)
+        super().__init__(* args, io_cls=pollster.ini.IniPollsterIO, ** kwargs)
         self.set_namespace("***-")
 
 
