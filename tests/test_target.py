@@ -37,14 +37,6 @@ def tree_target(subtree_target):
     return ret
 
 
-@pytest.fixture
-def target_inifile(temp_filename):
-    class TmpIniTarget(tm_ini.IniTarget):
-        CONFIG_FILENAME = temp_filename
-
-    yield TmpIniTarget
-
-
 @pytest.fixture(params=("ini",))
 def target_io(request, targetio_inifile_cls):
     choices = dict(
@@ -186,3 +178,21 @@ def test_target_load_and_save_values(target_io):
     loaded_one = all_targets_by_id["one"]
     loaded_one = loaded_one.load_metadata(loaded_one.name, target_io)
     assert_targets_are_equal(one, loaded_one)
+
+
+def test_target_load_and_bulk_save(target_io):
+    one = tm.BaseTarget("one")
+    fill_target_instance_with_stuff(one)
+
+    two = tm.BaseTarget("two")
+    fill_target_instance_with_stuff(two)
+    two.title = "Second t"
+    two.tier = 6661
+
+    target_io.bulk_save_metadata([one, two])
+
+    all_targets_by_id = target_io.get_loaded_targets_by_id()
+    loaded_one = all_targets_by_id["one"]
+    assert_targets_are_equal(one, loaded_one)
+    loaded_two = all_targets_by_id["two"]
+    assert_targets_are_equal(two, loaded_two)

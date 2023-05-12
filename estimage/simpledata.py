@@ -8,6 +8,7 @@ import flask
 
 from . import data
 from . import inidata
+from .persistence.entrydef import ini
 
 
 class IniInDirMixin:
@@ -22,12 +23,14 @@ class IniInDirMixin:
         return ret
 
 
-class RetroTargetIO(IniInDirMixin, inidata.IniTargetIO):
+class RetroTargetIO(IniInDirMixin, ini.IniTargetIO):
     CONFIG_BASENAME = "retrospective.ini"
+    WHAT_IS_THIS = "retrospective target"
 
 
-class ProjTargetIO(IniInDirMixin, inidata.IniTargetIO):
+class ProjTargetIO(IniInDirMixin, ini.IniTargetIO):
     CONFIG_BASENAME = "projective.ini"
+    WHAT_IS_THIS = "projective target"
 
 
 class UserPollsterBase(data.Pollster):

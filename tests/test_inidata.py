@@ -5,6 +5,7 @@ import datetime
 import pytest
 
 import estimage.inidata as tm
+from estimage.persistence.entrydef import ini
 import estimage.data as data
 from test_events import early_event, less_early_event
 
@@ -21,18 +22,10 @@ def temp_filename():
 
 @pytest.fixture
 def targetio_inifile_cls(temp_filename):
-    class TmpIniTargetIO(tm.IniTargetIO):
+    class TmpIniTargetIO(ini.IniTargetIO):
         CONFIG_FILENAME = temp_filename
 
     yield TmpIniTargetIO
-
-
-@pytest.fixture
-def target_inifile(temp_filename):
-    class TmpIniTarget(tm.IniTarget):
-        CONFIG_FILENAME = temp_filename
-
-    yield TmpIniTarget
 
 
 @pytest.fixture

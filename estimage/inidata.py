@@ -1,5 +1,6 @@
 import configparser
 import dataclasses
+import collections
 import contextlib
 import typing
 import datetime
@@ -10,6 +11,9 @@ from . import data
 
 class IniStorage:
     CONFIG_FILENAME = ""
+
+    def __init__(self, * args, ** kwargs):
+        super().__init__(* args, ** kwargs)
 
     @staticmethod
     def _pack_list(string_list: typing.Container[str]):
@@ -50,163 +54,53 @@ class IniStorage:
             yield callback
 
 
-class IniTargetStateIO(IniStorage):
-    def load_status_update(self, t):
-        t.status_summary = self._get_our("status_summary")
-        time_str = self._get_our("status_summary_time")
-        if time_str:
-            t.status_summary_time = datetime.datetime.fromisoformat(time_str)
+class IniSaverBase(IniStorage):
+    WHAT_IS_THIS = "entity"
 
-    def save_status_update(self, t):
-        self.data["status_summary"] = t.status_summary
-        if t.status_summary_time:
-            self.data["status_summary_time"] = t.status_summary_time.isoformat()
+    def __init__(self, * args, ** kwargs):
+        super().__init__(* args, ** kwargs)
+        self._data_to_save = collections.defaultdict(dict)
 
+    def _write_items_attribute(self, item_id, attribute_id, value):
+        if not item_id:
+            msg = f"Coudln't save {self.WHAT_IS_THIS}, because its name is blank."
+            raise RuntimeError(msg)
+        self._data_to_save[item_id][attribute_id] = value
 
-class IniTargetIO(IniTargetStateIO, IniStorage):
-    def __init__(self):
-        self.name = None
-        self.all_data = dict()
-        self.all_data = self._load_existing_config(self.CONFIG_FILENAME)
-        self.data = dict()
-
-    def _get_our(self, attribute, fallback=""):
-        if self.name not in self.all_data:
-            raise RuntimeError(f"Couldn't load '{self.name}' from '{self.CONFIG_FILENAME}'")
-        return self.all_data.get(self.name, attribute, fallback=fallback)
+    def save(self):
+        with self._manipulate_existing_config(self.CONFIG_FILENAME) as config:
+            for name, data_to_save in self._data_to_save.items():
+                if name not in config:
+                    config[name] = dict()
+                config[name].update(data_to_save)
 
     @classmethod
     @contextlib.contextmanager
-    def saver(cls):
+    def get_saver(cls):
         saver = cls()
         yield saver
         saver.save()
 
-    def load_name_title_and_desc(self, t):
-        t.name = self.name
-        t.title = self._get_our("title")
-        t.description = self._get_our("description")
 
-    def load_costs(self, t):
-        t.point_cost = float(self._get_our("point_cost", 0))
+class IniLoaderBase(IniStorage):
+    WHAT_IS_THIS = "entity"
 
-    def load_dependents(self, t):
-        all_deps = self._get_our("depnames")
-        original_name = self.name
-        for n in self._unpack_list(all_deps):
-            if not n:
-                continue
-            self.name = n
-            new = data.BaseTarget(n)
-            new.load_data_by_loader(self)
-            t.dependents.append(new)
-        self.name = original_name
+    def __init__(self, * args, ** kwargs):
+        super().__init__(* args, ** kwargs)
+        self._loaded_data = dict()
 
-    def load_assignee_and_collab(self, t):
-        t.assignee = self._get_our("assignee")
-        t.collaborators = self._unpack_list(self._get_our("collaborators"))
-
-    def load_priority_and_state(self, t):
-        state = self._get_our("state", data.State.unknown)
-        t.state = data.State(int(state))
-        t.priority = float(self._get_our("priority", t.priority))
-
-    def load_tier(self, t):
-        t.tier = int(self._get_our("tier", t.tier))
-
-    def load_tags(self, t):
-        t.tags = self._unpack_list(self._get_our("tags"))
-
-    def load_work_span(self, t):
-        span = [
-            self._get_our("work_start", None),
-            self._get_our("work_end", None)]
-        for index, date_str in enumerate(span):
-            if date_str is not None:
-                span[index] = datetime.datetime.fromisoformat(date_str)
-        if span[0] or span[1]:
-            t.work_span = tuple(span)
-
-    def load_uri_and_plugin(self, t):
-        t.loading_plugin = self._get_our("loading_plugin", t.loading_plugin)
-        t.uri = self._get_our("uri", t.uri)
-
-    def save_name_title_and_desc(self, t):
-        if not t.name:
-            msg = "Coudln't save target, because its name is blank."
+    def _read_items_attribute(self, item_id, attribute_id, fallback):
+        if item_id not in self._loaded_data:
+            msg = f"Couldn't load {self.WHAT_IS_THIS} '{item_id}' from '{self.CONFIG_FILENAME}'"
             raise RuntimeError(msg)
-        self.name = t.name
-        self.data["title"] = t.title
-        self.data["description"] = t.description
-
-    def save_costs(self, t):
-        self.data["point_cost"] = str(t.point_cost)
-
-    def save_dependents(self, t):
-        self.data["depnames"] = self._pack_list([dep.name for dep in t.dependents])
-
-    def save_assignee_and_collab(self, t):
-        self.data["assignee"] = t.assignee
-        self.data["collaborators"] = self._pack_list(t.collaborators)
-
-    def save_priority_and_state(self, t):
-        self.data["state"] = str(int(t.state))
-        self.data["priority"] = str(float(t.priority))
-
-    def save_tier(self, t):
-        self.data["tier"] = str(int(t.tier))
-
-    def save_tags(self, t):
-        self.data["tags"] = self._pack_list(t.tags)
-
-    def save_work_span(self, t):
-        if t.work_span and t.work_span[0] is not None:
-            self.data["work_start"] = t.work_span[0].isoformat()
-        if t.work_span and t.work_span[1] is not None:
-            self.data["work_end"] = t.work_span[1].isoformat()
-
-    def save_uri_and_plugin(self, t):
-        self.data["loading_plugin"] = t.loading_plugin
-        self.data["uri"] = t.uri
-
-    def save(self):
-        with self._manipulate_existing_config(self.CONFIG_FILENAME) as config:
-            if self.name not in config:
-                config[self.name] = dict()
-            config[self.name].update(self.data)
+        return self._loaded_data.get(item_id, attribute_id, fallback=fallback)
 
     @classmethod
-    def get_all_target_names(cls):
-        config = cls._load_existing_config(cls.CONFIG_FILENAME)
-        return set(config.sections())
-
-    @classmethod
-    def get_loaded_targets_by_id(cls):
-        ret = dict()
+    @contextlib.contextmanager
+    def get_loader(cls):
         loader = cls()
-        for name in cls.get_all_target_names():
-            target = data.BaseTarget(name)
-            target.load_data_by_loader(loader)
-            ret[name] = target
-        return ret
-
-    @classmethod
-    def load_all_targets(cls):
-        config = cls._load_existing_config(cls.CONFIG_FILENAME)
-        loader = cls()
-        ret = []
-        for name in config.sections():
-            target = data.BaseTarget(name)
-            target.load_data_by_loader(loader)
-            ret.append(target)
-        return ret
-
-    @classmethod
-    def bulk_save_metadata(cls, targets: typing.Iterable[data.BaseTarget]):
-        saver = cls()
-        for t in targets:
-            t.pass_data_to_saver(saver)
-        saver.save()
+        loader._loaded_data = cls._load_existing_config(cls.CONFIG_FILENAME)
+        yield loader
 
 
 class IniPollster(data.Pollster, IniStorage):

@@ -37,7 +37,9 @@ class xBaseTarget:
     uri: str
     loading_plugin: str
 
-    def __init__(self, name: str):
+    def __init__(self, name: str, * args, **kwargs):
+        super().__init__(* args, ** kwargs)
+
         self.point_cost = 0
         self.name = name
         self.title = ""
@@ -74,11 +76,11 @@ class xBaseTarget:
         self.dependents.append(what)
 
     def save_metadata(self, saver_cls):
-        with saver_cls.saver() as saver:
+        with saver_cls.get_saver() as saver:
             self.pass_data_to_saver(saver)
 
     def pass_data_to_saver(self, saver):
-        saver.save_name_title_and_desc(self)
+        saver.save_title_and_desc(self)
         saver.save_costs(self)
         saver.save_dependents(self)
         saver.save_assignee_and_collab(self)
@@ -89,8 +91,7 @@ class xBaseTarget:
         saver.save_uri_and_plugin(self)
 
     def load_data_by_loader(self, loader):
-        loader.name = self.name
-        loader.load_name_title_and_desc(self)
+        loader.load_title_and_desc(self)
         loader.load_costs(self)
         loader.load_dependents(self)
         loader.load_assignee_and_collab(self)
@@ -99,11 +100,6 @@ class xBaseTarget:
         loader.load_tags(self)
         loader.load_work_span(self)
         loader.load_uri_and_plugin(self)
-
-    @staticmethod
-    def bulk_save_metadata(targets: typing.Iterable["BaseTarget"]):
-        for target in targets:
-            target.save_metadata()
 
     def __contains__(self, lhs: "BaseTarget"):
         lhs_name = lhs.name
@@ -121,8 +117,8 @@ class xBaseTarget:
     @classmethod
     def load_metadata(cls, name: str, loader_cls):
         ret = cls(name)
-        loader = loader_cls()
-        ret.load_data_by_loader(loader)
+        with loader_cls.get_loader() as loader:
+            ret.load_data_by_loader(loader)
         return ret
 
     @classmethod
@@ -150,8 +146,9 @@ class BaseTarget(xBaseTarget):
     status_summary: str
     status_summary_time: datetime.datetime
 
-    def __init__(self, name: str):
-        super().__init__(name)
+    def __init__(self, * args, **kwargs):
+        super().__init__(* args, ** kwargs)
+
         self.status_summary = ""
         self.status_summary_time = None
 
