@@ -11,28 +11,36 @@ from . import data
 class IniStorage:
     CONFIG_FILENAME = ""
 
+    @staticmethod
+    def _pack_list(string_list: typing.Container[str]):
+        return ",".join(string_list)
+
+    @staticmethod
+    def _unpack_list(string_list: str):
+        return string_list.split(",")
+
     @classmethod
-    def _load_existing_config(cls):
+    def _load_existing_config(cls, filename):
         config = configparser.ConfigParser(interpolation=None)
         try:
-            config.read(cls.CONFIG_FILENAME)
+            config.read(filename)
         except configparser.MissingSectionHeaderError:
             pass
         return config
 
     @classmethod
     @contextlib.contextmanager
-    def _manipulate_existing_config(cls):
-        config = cls._load_existing_config()
+    def _manipulate_existing_config(cls, filename):
+        config = cls._load_existing_config(filename)
         try:
             yield config
         finally:
-            with open(cls.CONFIG_FILENAME, "w") as f:
+            with open(filename, "w") as f:
                 config.write(f)
 
     @contextlib.contextmanager
-    def _update_key_with_dictionary(self, key):
-        with self._manipulate_existing_config() as config:
+    def _update_key_with_dictionary(self, filename, key):
+        with self._manipulate_existing_config(filename) as config:
             if key in config:
                 def callback(d):
                     config[key].update(d)
@@ -42,114 +50,149 @@ class IniStorage:
             yield callback
 
 
-class IniTarget(data.BaseTarget, IniStorage):
-    def save_metadata(self):
-        with self._manipulate_existing_config() as config:
-            self._save_metadata(config)
+class IniTargetStateIO(IniStorage):
+    def load_status_update(self, t):
+        t.status_summary = self._get_our("status_summary")
+        time_str = self._get_our("status_summary_time")
+        if time_str:
+            t.status_summary_time = datetime.datetime.fromisoformat(time_str)
 
-    def _save_metadata(self, config):
-        for dep in self.dependents:
-            dep._save_metadata(config)
-        if not self.name:
+    def save_status_update(self, t):
+        self.data["status_summary"] = t.status_summary
+        if t.status_summary_time:
+            self.data["status_summary_time"] = t.status_summary_time.isoformat()
+
+
+class IniTargetIO(IniTargetStateIO, IniStorage):
+    def __init__(self):
+        self.name = None
+        self.all_data = dict()
+        self.all_data = self._load_existing_config(self.CONFIG_FILENAME)
+        self.data = dict()
+
+    def _get_our(self, attribute, fallback=""):
+        if self.name not in self.all_data:
+            raise RuntimeError(f"Couldn't load '{self.name}' from '{self.CONFIG_FILENAME}'")
+        return self.all_data.get(self.name, attribute, fallback=fallback)
+
+    def load_name_title_and_desc(self, t):
+        t.name = self.name
+        t.title = self._get_our("title")
+        t.description = self._get_our("description")
+
+    def load_costs(self, t):
+        t.point_cost = float(self._get_our("point_cost", 0))
+
+    def load_dependents(self, t):
+        all_deps = self._get_our("depnames")
+        original_name = self.name
+        for n in self._unpack_list(all_deps):
+            if not n:
+                continue
+            self.name = n
+            new = t.load_metadata(n, self.__class__)
+            t.dependents.append(new)
+        self.name = original_name
+
+    def load_assignee_and_collab(self, t):
+        t.assignee = self._get_our("assignee")
+        t.collaborators = self._unpack_list(self._get_our("collaborators"))
+
+    def load_priority_and_state(self, t):
+        state = self._get_our("state", data.State.unknown)
+        t.state = data.State(int(state))
+        t.priority = float(self._get_our("priority", t.priority))
+
+    def load_tier(self, t):
+        t.tier = int(self._get_our("tier", t.tier))
+
+    def load_tags(self, t):
+        t.tags = self._unpack_list(self._get_our("tags"))
+
+    def load_work_span(self, t):
+        span = [
+            self._get_our("work_start", None),
+            self._get_our("work_end", None)]
+        for index, date_str in enumerate(span):
+            if date_str is not None:
+                span[index] = datetime.datetime.fromisoformat(date_str)
+        if span[0] or span[1]:
+            t.work_span = tuple(span)
+
+    def load_uri_and_plugin(self, t):
+        t.loading_plugin = self._get_our("loading_plugin", t.loading_plugin)
+        t.uri = self._get_our("uri", t.uri)
+
+    def save_name_title_and_desc(self, t):
+        if not t.name:
             msg = "Coudln't save target, because its name is blank."
             raise RuntimeError(msg)
-        metadata = dict(
-            title=self.title,
-            description=self.description,
-            depnames=",".join([dep.name for dep in self.dependents]),
-            state=str(int(self.state)),
-            collaborators=",".join(self.collaborators),
-            assignee=self.assignee,
-            priority=str(float(self.priority)),
-            status_summary=self.status_summary,
-            tags=",".join(self.tags),
-            tier=str(self.tier),
-            uri=self.uri,
-            point_cost=str(self.point_cost),
-            loading_plugin=self.loading_plugin,
-        )
-        if self.work_span and self.work_span[0] is not None:
-            metadata["work_start"] = self.work_span[0].isoformat()
-        if self.work_span and self.work_span[1] is not None:
-            metadata["work_end"] = self.work_span[1].isoformat()
-        if self.status_summary_time:
-            metadata["status_summary_time"] = self.status_summary_time.isoformat()
-        if self.name not in config:
-            config[self.name] = dict()
-        config[self.name].update(metadata)
+        self.name = t.name
+        self.data["title"] = t.title
+        self.data["description"] = t.description
+
+    def save_costs(self, t):
+        self.data["point_cost"] = str(t.point_cost)
+
+    def save_dependents(self, t):
+        self.data["depnames"] = self._pack_list([dep.name for dep in t.dependents])
+
+    def save_assignee_and_collab(self, t):
+        self.data["assignee"] = t.assignee
+        self.data["collaborators"] = self._pack_list(t.collaborators)
+
+    def save_priority_and_state(self, t):
+        self.data["state"] = str(int(t.state))
+        self.data["priority"] = str(float(t.priority))
+
+    def save_tier(self, t):
+        self.data["tier"] = str(int(t.tier))
+
+    def save_tags(self, t):
+        self.data["tags"] = self._pack_list(t.tags)
+
+    def save_work_span(self, t):
+        if t.work_span and t.work_span[0] is not None:
+            self.data["work_start"] = t.work_span[0].isoformat()
+        if t.work_span and t.work_span[1] is not None:
+            self.data["work_end"] = t.work_span[1].isoformat()
+
+    def save_uri_and_plugin(self, t):
+        self.data["loading_plugin"] = t.loading_plugin
+        self.data["uri"] = t.uri
+
+    def save(self):
+        with self._manipulate_existing_config(self.CONFIG_FILENAME) as config:
+            if self.name not in config:
+                config[self.name] = dict()
+            config[self.name].update(self.data)
 
     @classmethod
     def get_all_target_names(cls):
-        config = cls._load_existing_config()
+        config = cls._load_existing_config(cls.CONFIG_FILENAME)
         return set(config.sections())
 
     @classmethod
     def get_loaded_targets_by_id(cls):
-        config = cls._load_existing_config()
-        return {
-            name: cls._load_metadata(name, config)
-            for name in cls.get_all_target_names()
-        }
+        ret = dict()
+        for name in cls.get_all_target_names():
+            ret[name] = data.BaseTarget.load_metadata(name, cls)
+        return ret
 
     @classmethod
     def load_all_targets(cls):
-        config = cls._load_existing_config()
-        return [
-            cls._load_metadata(name, config)
-            for name in config.sections()
-        ]
+        config = cls._load_existing_config(cls.CONFIG_FILENAME)
+        ret = []
+        for name in config.sections():
+            ret.append(data.BaseTarget.load_metadata(name, cls))
+        return ret
 
     @classmethod
     def bulk_save_metadata(cls, targets: typing.Iterable[data.BaseTarget]):
-        with cls._manipulate_existing_config() as config:
-            for t in targets:
-                t._save_metadata(config)
-
-    @classmethod
-    def load_metadata(cls, name):
-        config = cls._load_existing_config()
-        return cls._load_metadata(name, config)
-
-    @classmethod
-    def _load_metadata(cls, name, config):
-        if name not in config:
-            msg = f"{name} couldnt be loaded"
-            raise RuntimeError(msg)
-        ret = cls()
-        ret.name = name
-        our_config = config[name]
-        ret.title = our_config.get("title", "")
-        ret.description = our_config.get("description", "")
-        state = our_config.get("state", data.State.unknown)
-        ret.state = data.State(int(state))
-
-        ret.point_cost = float(our_config.get("point_cost", 0))
-
-        ret.priority = float(our_config.get("priority", ret.priority))
-        ret.status_summary = our_config.get("status_summary", "")
-        ret.collaborators = our_config.get("collaborators", "").split(",")
-        ret.assignee = our_config.get("assignee", "")
-        ret.tags = set(our_config.get("tags", "").split(","))
-        ret.tier = int(our_config.get("tier", "0"))
-        ret.uri = our_config.get("uri", "")
-        ret.loading_plugin = our_config.get("loading_plugin", "")
-
-        span = [None, None]
-        if "work_start" in our_config:
-            span[0] = datetime.datetime.fromisoformat(our_config["work_start"])
-        if "work_end" in our_config:
-            span[1] = datetime.datetime.fromisoformat(our_config["work_end"])
-        if span[0] or span[1]:
-            ret.work_span = tuple(span)
-        if "status_summary_time" in our_config:
-            ret.status_summary_time = datetime.datetime.fromisoformat(our_config["status_summary_time"])
-
-        for n in our_config.get("depnames", "").split(","):
-            if not n:
-                continue
-            new = cls._load_metadata(n, config)
-            ret.dependents.append(new)
-        return ret
+        saver = cls()
+        for t in targets:
+            t._pass_data_to_saver(saver)
+        saver.save()
 
 
 class IniPollster(data.Pollster, IniStorage):
@@ -161,7 +204,7 @@ class IniPollster(data.Pollster, IniStorage):
         keyname = self._keyname(ns, name)
 
         if not config:
-            config = self._load_existing_config()
+            config = self._load_existing_config(self.CONFIG_FILENAME)
         if keyname in config:
             ret = data.EstimInput()
             ret.most_likely = float(config[keyname]["most_likely"])
@@ -175,7 +218,7 @@ class IniPollster(data.Pollster, IniStorage):
         keyname = self._keyname(ns, name)
 
         if config is None:
-            config = self._load_existing_config()
+            config = self._load_existing_config(self.CONFIG_FILENAME)
         if keyname in config:
             return True
         return False
@@ -183,7 +226,7 @@ class IniPollster(data.Pollster, IniStorage):
     def _tell_points(self, ns, name, points: data.EstimInput):
         keyname = self._keyname(ns, name)
 
-        with self._manipulate_existing_config() as config:
+        with self._manipulate_existing_config(self.CONFIG_FILENAME) as config:
             config[keyname] = dict(
                 most_likely=points.most_likely,
                 optimistic=points.optimistic,
@@ -193,12 +236,12 @@ class IniPollster(data.Pollster, IniStorage):
     def _forget_points(self, ns, name):
         keyname = self._keyname(ns, name)
 
-        with self._manipulate_existing_config() as config:
+        with self._manipulate_existing_config(self.CONFIG_FILENAME) as config:
             config.pop(keyname)
 
     def provide_info_about(self, names: typing.Iterable[str], config=None) -> typing.Dict[str, data.Estimate]:
         if not config:
-            config = self._load_existing_config()
+            config = self._load_existing_config(self.CONFIG_FILENAME)
         ret = dict()
         for name in names:
             if self._knows_points(self._namespace, name, config=config):
@@ -209,7 +252,7 @@ class IniPollster(data.Pollster, IniStorage):
 class IniEvents(data.EventManager, IniStorage):
     def save(self):
         task_names = self.get_referenced_task_names()
-        with self._manipulate_existing_config() as config:
+        with self._manipulate_existing_config(self.CONFIG_FILENAME) as config:
             for name in task_names:
                 self._save_task_events(config, name, self._events[name])
 
@@ -258,7 +301,7 @@ class IniEvents(data.EventManager, IniStorage):
 
     def _load_events(self, name, config=None):
         if config is None:
-            config = self._load_existing_config()
+            config = self._load_existing_config(self.CONFIG_FILENAME)
         events = []
         for key, value in config.items():
             if "-" in key and name == key.split("-", 1)[1]:
@@ -269,7 +312,7 @@ class IniEvents(data.EventManager, IniStorage):
     @classmethod
     def load(cls):
         result = cls()
-        config = result._load_existing_config()
+        config = result._load_existing_config(cls.CONFIG_FILENAME)
         for key, value in config.items():
             if "-" not in key:
                 continue
@@ -280,7 +323,7 @@ class IniEvents(data.EventManager, IniStorage):
 
     def _load_event_names(self, config=None):
         if config is None:
-            config = self._load_existing_config()
+            config = self._load_existing_config(self.CONFIG_FILENAME)
         names = set()
         for key in config:
             if "-" not in key:
@@ -322,7 +365,7 @@ class IniAppdata(IniStorage):
             retrospective=self.RETROSPECTIVE_QUARTER,
         )
 
-        with self._manipulate_existing_config() as config:
+        with self._manipulate_existing_config(self.CONFIG_FILENAME) as config:
             config.update(to_save)
 
     def _load_retrospective_period(self, config):
@@ -346,7 +389,7 @@ class IniAppdata(IniStorage):
     @classmethod
     def load(cls):
         result = cls()
-        config = result._load_existing_config()
+        config = result._load_existing_config(cls.CONFIG_FILENAME)
         result._load_retrospective_period(config)
         result._load_quarters(config)
         return result

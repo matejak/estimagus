@@ -22,11 +22,11 @@ class IniInDirMixin:
         return ret
 
 
-class RetroTarget(IniInDirMixin, inidata.IniTarget):
+class RetroTargetIO(IniInDirMixin, inidata.IniTargetIO):
     CONFIG_BASENAME = "retrospective.ini"
 
 
-class ProjTarget(IniInDirMixin, inidata.IniTarget):
+class ProjTargetIO(IniInDirMixin, inidata.IniTargetIO):
     CONFIG_BASENAME = "projective.ini"
 
 

@@ -41,12 +41,12 @@ def feed_estimation_to_form(estimation, form_data):
 
 
 def projective_retrieve_task(task_id):
-    ret = webdata.ProjTarget.load_metadata(task_id)
+    ret = data.BaseTarget.load_metadata(task_id, webdata.ProjTargetIO)
     return ret
 
 
 def retro_retrieve_task(task_id):
-    ret = webdata.RetroTarget.load_metadata(task_id)
+    ret = data.BaseTarget.load_metadata(task_id, webdata.RetroTargetIO)
     return ret
 
 
@@ -155,8 +155,8 @@ def get_similar_targets_with_estimations(user_id, task_name):
     similar_targets = []
     similar_tasks = get_similar_tasks(user_id, task_name)
 
-    all_targets = webdata.ProjTarget.get_loaded_targets_by_id()
-    all_targets.update(webdata.RetroTarget.get_loaded_targets_by_id())
+    all_targets = webdata.ProjTargetIO.get_loaded_targets_by_id()
+    all_targets.update(webdata.RetroTargetIO.get_loaded_targets_by_id())
     for task in similar_tasks:
         target = all_targets[task.name]
         target.point_estimate = task.nominal_point_estimate
@@ -210,7 +210,7 @@ def view_epic(epic_name):
     user = flask_login.current_user
 
     user_id = user.get_id()
-    model = web_utils.get_user_model(user_id, webdata.ProjTarget)
+    model = web_utils.get_user_model(user_id, webdata.ProjTargetIO)
 
     estimate = model.nominal_point_estimate_of(epic_name)
 
@@ -228,7 +228,7 @@ def view_epic(epic_name):
 
 def get_similar_tasks(user_id, task_name):
     all_tasks = []
-    for cls in (webdata.RetroTarget, webdata.ProjTarget):
+    for cls in (webdata.RetroTargetIO, webdata.ProjTargetIO):
         model = web_utils.get_user_model(user_id, cls)
         all_tasks.extend(model.get_all_task_models())
     return webdata.order_nearby_tasks(model.get_element(task_name), all_tasks, 0.5, 2)
@@ -264,9 +264,9 @@ def tree_view():
     user = flask_login.current_user
     user_id = user.get_id()
 
-    all_targets = webdata.ProjTarget.load_all_targets()
+    all_targets = webdata.ProjTargetIO.load_all_targets()
     targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(all_targets)
-    model = web_utils.get_user_model(user_id, webdata.ProjTarget, targets_tree_without_duplicates)
+    model = web_utils.get_user_model(user_id, webdata.ProjTargetIO, targets_tree_without_duplicates)
     return web_utils.render_template(
         "tree_view.html", title="Tasks tree view",
         targets=targets_tree_without_duplicates, model=model)
@@ -299,7 +299,7 @@ def executive_summary_of_points_and_velocity(targets):
 
     velocity_array = aggregation.get_velocity_array()
     velocity_stdev = velocity_array.var()**0.5
-    velocity_stdev_while_working = velocity_array[velocity_array>0].var()**0.5
+    velocity_stdev_while_working = velocity_array[velocity_array > 0].var() ** 0.5
 
     output = dict(
         initial_todo=not_done_on_start,
@@ -317,14 +317,14 @@ def executive_summary_of_points_and_velocity(targets):
 @bp.route('/retrospective')
 @flask_login.login_required
 def tree_view_retro():
-    all_targets = webdata.RetroTarget.load_all_targets()
+    all_targets = webdata.RetroTargetIO.load_all_targets()
     tier0_targets = [t for t in all_targets if t.tier == 0]
     tier0_targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(tier0_targets)
     targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(all_targets)
 
     user = flask_login.current_user
     user_id = user.get_id()
-    model = web_utils.get_user_model(user_id, webdata.RetroTarget, targets_tree_without_duplicates)
+    model = web_utils.get_user_model(user_id, webdata.RetroTargetIO, targets_tree_without_duplicates)
     model.update_targets_with_values(tier0_targets_tree_without_duplicates)
     model.update_targets_with_values(targets_tree_without_duplicates)
 
@@ -351,7 +351,7 @@ def view_epic_retro(epic_name):
 
     user = flask_login.current_user
     user_id = user.get_id()
-    model = web_utils.get_user_model(user_id, webdata.RetroTarget, [t])
+    model = web_utils.get_user_model(user_id, webdata.RetroTargetIO, [t])
 
     return web_utils.render_template(
         'epic_view_retrospective.html', title='View epic',

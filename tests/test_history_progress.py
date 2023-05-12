@@ -13,8 +13,7 @@ from test_events import early_event, less_early_event, late_event, ONE_DAY, PERI
 
 @pytest.fixture
 def simple_target():
-    ret = target.BaseTarget()
-    ret.name = "task"
+    ret = target.BaseTarget("task")
     ret.point_cost = 8
     return ret
 

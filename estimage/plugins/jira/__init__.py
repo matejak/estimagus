@@ -267,8 +267,7 @@ class Importer:
         return ret
 
     def merge_jira_item_without_children(self, item):
-        result = target.BaseTarget()
-        result.name = item.key
+        result = target.BaseTarget(item.key)
         result.uri = item.permalink()
         result.loading_plugin = "jira"
         result.title = item.get_field("summary") or ""

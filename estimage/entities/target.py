@@ -21,9 +21,8 @@ class State(enum.IntEnum):
 
 
 @dataclasses.dataclass(init=False)
-class BaseTarget:
+class xBaseTarget:
     point_cost: float
-    time_cost: float
     name: str
     title: str
     description: str
@@ -32,18 +31,15 @@ class BaseTarget:
     collaborators: typing.List[str]
     assignee: str
     priority: float
-    status_summary: str
-    status_summary_time: datetime.datetime
     tags: typing.Set[str]
     work_span: typing.Tuple[datetime.datetime, datetime.datetime]
     tier: int
     uri: str
     loading_plugin: str
 
-    def __init__(self):
+    def __init__(self, name: str):
         self.point_cost = 0
-        self.time_cost = 0
-        self.name = ""
+        self.name = name
         self.title = ""
         self.description = ""
         self.dependents = []
@@ -51,25 +47,11 @@ class BaseTarget:
         self.collaborators = []
         self.assignee = ""
         self.priority = 50.0
-        self.status_summary = ""
-        self.status_summary_time = None
         self.tags = set()
         self.work_span = None
         self.tier = 0
         self.uri = ""
         self.loading_plugin = ""
-
-    def as_class(self, cls):
-        ret = cls()
-        for fieldname in (
-            "point_cost", "time_cost", "name", "title", "description", "state",
-            "collaborators", "assignee", "priority", "status_summary", "status_summary_time",
-            "tags", "work_span", "tier", "uri", "loading_plugin",
-        ):
-            setattr(ret, fieldname, getattr(self, fieldname))
-        ret.dependents = [d.as_class(cls) for d in self.dependents]
-
-        return ret
 
     def _convert_into_composition(self):
         ret = Composition(self.name)
@@ -84,8 +66,6 @@ class BaseTarget:
         ret = TaskModel(self.name)
         if self.point_cost:
             ret.point_estimate = Estimate(self.point_cost, 0)
-        if self.time_cost:
-            ret.time_estimate = Estimate(self.time_cost, 0)
         if self.state in (State.abandoned, State.done):
             ret.mask()
         return ret
@@ -93,8 +73,33 @@ class BaseTarget:
     def add_element(self, what: "BaseTarget"):
         self.dependents.append(what)
 
-    def save_metadata(self):
-        raise NotImplementedError()
+    def save_metadata(self, saver_cls):
+        saver = saver_cls()
+        self._pass_data_to_saver(saver)
+        saver.save()
+
+    def _pass_data_to_saver(self, saver):
+        saver.save_name_title_and_desc(self)
+        saver.save_costs(self)
+        saver.save_dependents(self)
+        saver.save_assignee_and_collab(self)
+        saver.save_priority_and_state(self)
+        saver.save_tier(self)
+        saver.save_tags(self)
+        saver.save_work_span(self)
+        saver.save_uri_and_plugin(self)
+
+    def _load_data_by_loader(self, loader):
+        loader.name = self.name
+        loader.load_name_title_and_desc(self)
+        loader.load_costs(self)
+        loader.load_dependents(self)
+        loader.load_assignee_and_collab(self)
+        loader.load_priority_and_state(self)
+        loader.load_tier(self)
+        loader.load_tags(self)
+        loader.load_work_span(self)
+        loader.load_uri_and_plugin(self)
 
     @staticmethod
     def bulk_save_metadata(targets: typing.Iterable["BaseTarget"]):
@@ -114,9 +119,13 @@ class BaseTarget:
                 return True
         return False
 
+    #TODO: The class as an argument prevent reuse of data
     @classmethod
-    def load_metadata(cls, name: str):
-        raise NotImplementedError()
+    def load_metadata(cls, name: str, loader_cls):
+        ret = cls(name)
+        loader = loader_cls()
+        ret._load_data_by_loader(loader)
+        return ret
 
     @classmethod
     def to_tree(cls, targets: typing.List["BaseTarget"]):
@@ -136,3 +145,22 @@ class BaseTarget:
 
     def get_tree(self):
         return self.to_tree([self])
+
+
+@dataclasses.dataclass(init=False)
+class BaseTarget(xBaseTarget):
+    status_summary: str
+    status_summary_time: datetime.datetime
+
+    def __init__(self, name: str):
+        super().__init__(name)
+        self.status_summary = ""
+        self.status_summary_time = None
+
+    def _pass_data_to_saver(self, saver):
+        super()._pass_data_to_saver(saver)
+        saver.save_status_update(self)
+
+    def _load_data_by_loader(self, loader):
+        super()._load_data_by_loader(loader)
+        loader.load_status_update(self)

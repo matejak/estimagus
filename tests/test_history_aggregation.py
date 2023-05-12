@@ -14,16 +14,14 @@ from test_history_progress import simple_target, repre, oneday_repre, twoday_rep
 
 @pytest.fixture
 def supertask_target(simple_target):
-    ret = target.BaseTarget()
-    ret.name = "supertask"
+    ret = target.BaseTarget("supertask")
     ret.add_element(simple_target)
     return ret
 
 
 @pytest.fixture
 def another_supertask_target(simple_target):
-    ret = target.BaseTarget()
-    ret.name = "another-supertask"
+    ret = target.BaseTarget("another-supertask")
     subtask = simple_target
     subtask.name = "subtask"
     ret.add_element(subtask)
@@ -114,8 +112,7 @@ def test_supertask_with_more_subtasks_to_aggregation_long(supertask_target):
     start = PERIOD_START
     end = LONG_PERIOD_END
 
-    next_subtask = target.BaseTarget()
-    next_subtask.name = "next_subtask"
+    next_subtask = target.BaseTarget("next_subtask")
     supertask_target.add_element(next_subtask)
 
     aggregation = tm.Aggregation.from_target(supertask_target, start, end)
@@ -173,9 +170,9 @@ def test_aggregation_point_velocity_trivial(twoday_repre_done_in_day):
 
 def test_target_span_propagates_to_children():
     END = PERIOD_START + 5 * ONE_DAY
-    parent = target.BaseTarget()
+    parent = target.BaseTarget("p")
     parent.work_span = (PERIOD_START + ONE_DAY, END)
-    child = target.BaseTarget()
+    child = target.BaseTarget("c")
     parent.add_element(child)
 
     r = tm.convert_target_to_representations_of_leaves(parent, PERIOD_START, END)[0]
@@ -194,7 +191,7 @@ def test_target_span_propagates_to_children():
 
 def test_target_span_incomplete_works():
     END = PERIOD_START + 5 * ONE_DAY
-    t = target.BaseTarget()
+    t = target.BaseTarget("")
     t.work_span = (None, END - ONE_DAY)
     r = tm.convert_target_to_representations_of_leaves(t, PERIOD_START, END)[0]
     assert r.remainder_timeline.value_at(PERIOD_START + ONE_DAY) == 0.75
@@ -217,7 +214,7 @@ def test_target_span_incomplete_works():
 
 def test_target_span_not_started_works():
     END = PERIOD_START + 5 * ONE_DAY
-    t = target.BaseTarget()
+    t = target.BaseTarget("")
 
     t.work_span = (PERIOD_START - ONE_DAY, PERIOD_START - ONE_DAY)
     r = tm.convert_target_to_representations_of_leaves(t, PERIOD_START, END)[0]
@@ -232,7 +229,7 @@ def test_target_span_not_started_works():
 
 def test_target_span_propagates():
     END = PERIOD_START + 5 * ONE_DAY
-    t = target.BaseTarget()
+    t = target.BaseTarget("")
     r = tm.convert_target_to_representations_of_leaves(t, PERIOD_START, END)[0]
 
     assert r.remainder_timeline.value_at(PERIOD_START) == 1
@@ -253,7 +250,7 @@ def test_target_span_propagates():
 
 def test_target_span_starting_before_is_correctly_recalculated():
     END = PERIOD_START + 5 * ONE_DAY
-    t = target.BaseTarget()
+    t = target.BaseTarget("")
     t.work_span = (PERIOD_START - ONE_DAY, END - ONE_DAY)
     r = tm.convert_target_to_representations_of_leaves(t, PERIOD_START, END)[0]
     assert r.remainder_timeline.value_at(PERIOD_START) == 0.8
@@ -261,7 +258,7 @@ def test_target_span_starting_before_is_correctly_recalculated():
 
 def test_target_span_ending_after_is_recalculated():
     END = PERIOD_START + 5 * ONE_DAY
-    t = target.BaseTarget()
+    t = target.BaseTarget("")
     t.work_span = (PERIOD_START + ONE_DAY, END + ONE_DAY)
     r = tm.convert_target_to_representations_of_leaves(t, PERIOD_START, END)[0]
     overflowing_ratio = ONE_DAY / (t.work_span[1] - t.work_span[0])
