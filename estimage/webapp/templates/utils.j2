@@ -45,9 +45,11 @@
         {%- endif %}
 
               </div>
+              {% if model.remaining_point_estimate_of(epic.name).expected > 0 %}
               <div class="col">
     <img src="{{ url_for('vis.visualize_epic_burndown', epic_name=epic.name, size="small") }}" alt="Epic Burndown"/>
               </div>
+              {% endif %}
            </div>
         </div>
         </div>
