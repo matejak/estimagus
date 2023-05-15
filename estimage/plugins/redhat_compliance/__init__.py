@@ -130,9 +130,9 @@ class Importer(jira.Importer):
         if work_span[0] or work_span[-1]:
             result.work_span = tuple(work_span)
 
-    def save(self, retro_target_class, proj_target_class, event_manager_class):
+    def save(self, retro_target_io_class, proj_target_io_class, event_manager_class):
         apply_some_events_into_issues(self._targets_by_id, self._all_events)
-        return super().save(retro_target_class, proj_target_class, event_manager_class)
+        return super().save(retro_target_io_class, proj_target_io_class, event_manager_class)
 
 
 def refresh_targets(names, mode, token):
@@ -150,4 +150,4 @@ def refresh_targets(names, mode, token):
 def do_stuff(spec):
     importer = Importer(spec)
     importer.import_data(spec)
-    importer.save(simpledata.RetroTarget, simpledata.ProjTarget, simpledata.EventManager)
+    importer.save(simpledata.RetroTargetIO, simpledata.ProjTargetIO, simpledata.EventManager)

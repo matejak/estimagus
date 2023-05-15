@@ -114,9 +114,9 @@ def resolve_inheritance_of_attributes(name, all_items_by_id, parents_child_keyma
         resolve_inheritance_of_attributes(child_name, all_items_by_id, parents_child_keymap)
 
 
-def save_exported_jira_tasks(all_targets_by_id, id_selection, target_class):
-    to_save = [all_targets_by_id[tid].as_class(target_class) for tid in id_selection]
-    target_class.bulk_save_metadata(to_save)
+def save_exported_jira_tasks(all_targets_by_id, id_selection, target_io_class):
+    to_save = [all_targets_by_id[tid] for tid in id_selection]
+    target_io_class.bulk_save_metadata(to_save)
 
 
 def jira_datetime_to_datetime(jira_datetime):
@@ -284,9 +284,9 @@ class Importer:
 
         return result
 
-    def save(self, retro_target_class, proj_target_class, event_manager_class):
-        save_exported_jira_tasks(self._targets_by_id, self._retro_targets, retro_target_class)
-        save_exported_jira_tasks(self._targets_by_id, self._projective_targets, proj_target_class)
+    def save(self, retro_target_io_class, proj_target_io_class, event_manager_class):
+        save_exported_jira_tasks(self._targets_by_id, self._retro_targets, retro_target_io_class)
+        save_exported_jira_tasks(self._targets_by_id, self._projective_targets, proj_target_io_class)
 
         storer = event_manager_class()
         for e in self._all_events:
