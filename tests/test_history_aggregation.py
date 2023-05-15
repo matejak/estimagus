@@ -8,7 +8,7 @@ from estimage import history, data
 import estimage.history.aggregation as tm
 import estimage.entities.target as target
 
-from test_events import early_event, ONE_DAY, PERIOD_START, LONG_PERIOD_END
+from test_events import mgr, early_event, ONE_DAY, PERIOD_START, LONG_PERIOD_END
 from test_history_progress import simple_target, repre, oneday_repre, twoday_repre, twoday_repre_done_in_day
 
 
@@ -295,8 +295,7 @@ def test_event_processing(simple_long_period_aggregation):
     assert repre.get_points_at(start) == 1
 
 
-def test_aggregation_and_event_manager(simple_long_period_aggregation, simple_target, early_event):
-    mgr = data.EventManager()
+def test_aggregation_and_event_manager(mgr, simple_long_period_aggregation, simple_target, early_event):
     early_event.quantity = "points"
     simple_long_period_aggregation.process_event_manager(mgr)
     repre = simple_long_period_aggregation.repres[0]

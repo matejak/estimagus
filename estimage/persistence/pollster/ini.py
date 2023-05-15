@@ -59,5 +59,4 @@ class IniPollsterLoader(inidata.IniLoaderBase, IniPollsterBase):
 
 
 class IniPollsterIO(IniPollsterLoader, IniPollsterSaver):
-    def __init__(self, * args, ** kwargs):
-        super().__init__(* args, ** kwargs)
+    pass

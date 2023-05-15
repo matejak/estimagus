@@ -5,7 +5,7 @@ import datetime
 import pytest
 
 import estimage.inidata as tm
-from estimage.persistence.entrydef import ini
+from estimage.persistence import entrydef, event
 import estimage.data as data
 from test_events import early_event, less_early_event
 
@@ -22,15 +22,15 @@ def temp_filename():
 
 @pytest.fixture
 def targetio_inifile_cls(temp_filename):
-    class TmpIniTargetIO(ini.IniTargetIO):
+    class TmpIniTargetIO(entrydef.ini.IniTargetIO):
         CONFIG_FILENAME = temp_filename
 
     yield TmpIniTargetIO
 
 
 @pytest.fixture
-def eventmgr_inifile(temp_filename):
-    class TmpIniEventMgr(tm.IniEvents):
+def eventmgr_relevant_io(temp_filename):
+    class TmpIniEventMgr(event.ini.IniEventsIO):
         CONFIG_FILENAME = temp_filename
 
     yield TmpIniEventMgr
@@ -101,12 +101,13 @@ def test_save_something2_load_same(targetio_inifile_cls):
     assert target.title == data2.title
 
 
-def test_eventmgr_storage(eventmgr_inifile, early_event, less_early_event):
-    mgr_one = eventmgr_inifile()
+def test_eventmgr_storage(eventmgr_relevant_io, early_event, less_early_event):
+    mgr_one = data.EventManager(eventmgr_relevant_io)
     mgr_one.add_event(early_event)
     mgr_one.save()
 
-    mgr_two = eventmgr_inifile.load()
+    mgr_two = data.EventManager(eventmgr_relevant_io)
+    mgr_two.load()
     assert mgr_two.get_chronological_task_events_by_type(early_event.task_name) == {None: [early_event]}
 
     less_early_event.value_before = "rano"
@@ -115,7 +116,8 @@ def test_eventmgr_storage(eventmgr_inifile, early_event, less_early_event):
     mgr_one.add_event(less_early_event)
 
     mgr_one.save()
-    mgr_two = eventmgr_inifile.load()
+    mgr_two = data.EventManager(eventmgr_relevant_io)
+    mgr_two.load()
 
     assert mgr_two.get_chronological_task_events_by_type(
         less_early_event.task_name) == {None: [less_early_event]}
@@ -124,32 +126,35 @@ def test_eventmgr_storage(eventmgr_inifile, early_event, less_early_event):
     mgr_one.add_event(less_early_event)
 
     mgr_one.save()
-    mgr_two = eventmgr_inifile.load()
+    mgr_two = data.EventManager(eventmgr_relevant_io)
+    mgr_two.load()
 
     assert mgr_two.get_chronological_task_events_by_type(early_event.task_name) == {None: [early_event, less_early_event]}
 
 
-def test_eventmgr_storage_float(eventmgr_inifile, early_event):
-    mgr_one = eventmgr_inifile()
+def test_eventmgr_storage_float(eventmgr_relevant_io, early_event):
+    mgr_one = data.EventManager(eventmgr_relevant_io)
     early_event.value_after = 8.5
     early_event.value_before = 5.4
     early_event.quantity = "points"
     mgr_one.add_event(early_event)
     mgr_one.save()
 
-    mgr_two = eventmgr_inifile.load()
+    mgr_two = data.EventManager(eventmgr_relevant_io)
+    mgr_two.load()
     assert mgr_two.get_chronological_task_events_by_type(early_event.task_name) == {"points": [early_event]}
 
 
-def test_eventmgr_storage_state(eventmgr_inifile, early_event):
-    mgr_one = eventmgr_inifile()
+def test_eventmgr_storage_state(eventmgr_relevant_io, early_event):
+    mgr_one = data.EventManager(eventmgr_relevant_io)
     early_event.value_after = data.State.abandoned
     early_event.value_before = data.State.in_progress
     early_event.quantity = "state"
     mgr_one.add_event(early_event)
     mgr_one.save()
 
-    mgr_two = eventmgr_inifile.load()
+    mgr_two = data.EventManager(eventmgr_relevant_io)
+    mgr_two.load()
     assert mgr_two.get_chronological_task_events_by_type(early_event.task_name) == {"state": [early_event]}
 
 

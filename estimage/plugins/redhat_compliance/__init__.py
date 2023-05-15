@@ -3,7 +3,7 @@ import datetime
 import dateutil.relativedelta
 import collections
 
-from ... import simpledata, utilities
+from ... import simpledata, utilities, data
 from .. import jira
 from . import forms
 
@@ -95,6 +95,7 @@ class Importer(jira.Importer):
 
         result.point_cost = float(item.get_field(self.STORY_POINTS) or 0)
         result.status_summary = self._get_contents_of_rendered_field(item, self.STATUS_SUMMARY)
+        result.loading_plugin = "jira-rhcompliance"
         self._record_collaborators(result, item)
         self._record_commitment_as_tier_and_tags(result, item)
         self._record_work_span(result, item)
@@ -130,24 +131,24 @@ class Importer(jira.Importer):
         if work_span[0] or work_span[-1]:
             result.work_span = tuple(work_span)
 
-    def save(self, retro_target_io_class, proj_target_io_class, event_manager_class):
+    def save(self, retro_target_io_class, proj_target_io_class, event_manager_io_class):
         apply_some_events_into_issues(self._targets_by_id, self._all_events)
-        return super().save(retro_target_io_class, proj_target_io_class, event_manager_class)
+        return super().save(retro_target_io_class, proj_target_io_class, event_manager_io_class)
 
 
 def refresh_targets(names, mode, token):
     Spec = collections.namedtuple("Spec", ["server_url", "token"])
     spec = Spec(server_url="https://issues.redhat.com", token=token)
     if mode == "projective":
-        cls = simpledata.ProjTarget
+        io_cls = simpledata.ProjTargetIO
     else:
-        cls = simpledata.RetroTarget
-    real_targets = [cls.load_metadata(name) for name in names]
+        io_cls = simpledata.RetroTargetIO
+    real_targets = [data.BaseTarget.load_metadata(name, io_cls) for name in names]
     importer = Importer(spec)
-    importer.refresh_targets(real_targets)
+    importer.refresh_targets(real_targets, io_cls)
 
 
 def do_stuff(spec):
     importer = Importer(spec)
     importer.import_data(spec)
-    importer.save(simpledata.RetroTargetIO, simpledata.ProjTargetIO, simpledata.EventManager)
+    importer.save(simpledata.RetroTargetIO, simpledata.ProjTargetIO, simpledata.EventManagerIO)

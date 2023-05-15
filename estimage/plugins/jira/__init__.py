@@ -5,7 +5,7 @@ import typing
 
 from jira import JIRA
 
-from estimage.entities import target
+from estimage.entities import target, event
 from estimage import simpledata
 import estimage.entities.event as evts
 
@@ -231,12 +231,12 @@ class Importer:
         query = f"id in ({target_ids_sequence})"
         return self.jira.search_issues(query)
 
-    def refresh_targets(self, real_targets: typing.Iterable[target.BaseTarget]):
+    def refresh_targets(self, real_targets: typing.Iterable[target.BaseTarget], io_cls):
         if not real_targets:
             return
         fresh = self.find_targets([t.name for t in real_targets])
         refreshed = [self._apply_refresh(real, jira) for real, jira in zip(real_targets, fresh)]
-        refreshed[0].bulk_save_metadata(refreshed)
+        io_cls.bulk_save_metadata(refreshed)
 
     def _get_refreshed_target(self, real_target: target.BaseTarget):
         jira_target = self.jira.issue(real_target.name, expand="renderedFields")
@@ -245,8 +245,7 @@ class Importer:
     def _apply_refresh(self, real_target: target.BaseTarget, jira_target):
         fresh_target = self.merge_jira_item_without_children(jira_target)
         fresh_target.dependents = real_target.dependents
-        real_target = fresh_target.as_class(real_target.__class__)
-        return real_target
+        return fresh_target
 
     def export_jira_epic_chain_to_targets(self, root_names):
         all_targets_by_id = dict()
@@ -284,11 +283,11 @@ class Importer:
 
         return result
 
-    def save(self, retro_target_io_class, proj_target_io_class, event_manager_class):
+    def save(self, retro_target_io_class, proj_target_io_class, event_manager_io_class):
         save_exported_jira_tasks(self._targets_by_id, self._retro_targets, retro_target_io_class)
         save_exported_jira_tasks(self._targets_by_id, self._projective_targets, proj_target_io_class)
 
-        storer = event_manager_class()
+        storer = event.EventManager(event_manager_io_class)
         for e in self._all_events:
             storer.add_event(e)
         storer.save()
@@ -298,4 +297,4 @@ class Importer:
 def do_stuff(spec):
     importer = Importer(spec)
     importer.import_data(spec)
-    importer.save(simpledata.RetroTarget, simpledata.ProjTarget, simpledata.EventManager)
+    importer.save(simpledata.RetroTargetIO, simpledata.ProjTargetIO, simpledata.EventManagerIO)

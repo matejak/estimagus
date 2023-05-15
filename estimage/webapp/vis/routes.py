@@ -58,7 +58,8 @@ def visualize_velocity(epic_name):
 
     user = flask_login.current_user
     user_id = user.get_id()
-    all_events = webdata.EventManager.load()
+    all_events = webdata.EventManager()
+    all_events.load()
 
     start, end = flask.current_app.config["RETROSPECTIVE_PERIOD"]
 
@@ -161,7 +162,8 @@ def visualize_overall_burndown(tier, size):
 
 def output_burndown(target_tree, size):
     start, end = flask.current_app.config["RETROSPECTIVE_PERIOD"]
-    all_events = webdata.EventManager.load()
+    all_events = webdata.EventManager()
+    all_events.load()
 
     aggregation = history.Aggregation.from_targets(target_tree, start, end)
     aggregation.process_event_manager(all_events)
