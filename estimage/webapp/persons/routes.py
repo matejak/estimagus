@@ -16,9 +16,9 @@ def projective_workload():
     user = flask_login.current_user
 
     user_id = user.get_id()
-    all_targets = webdata.ProjTarget.get_loaded_targets_by_id()
+    all_targets = webdata.ProjTargetIO.get_loaded_targets_by_id()
     targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(list(all_targets.values()))
-    model = web_utils.get_user_model(user_id, webdata.ProjTarget)
+    model = web_utils.get_user_model(user_id, webdata.ProjTargetIO)
 
     simple_workloads = persons.SimpleWorkloads(targets_tree_without_duplicates, model)
     simple_workloads.solve_problem()

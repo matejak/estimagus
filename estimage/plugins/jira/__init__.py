@@ -283,11 +283,11 @@ class Importer:
 
         return result
 
-    def save(self, retro_target_io_class, proj_target_io_class, event_manager_io_class):
+    def save(self, retro_target_io_class, proj_target_io_class, event_manager_class):
         save_exported_jira_tasks(self._targets_by_id, self._retro_targets, retro_target_io_class)
         save_exported_jira_tasks(self._targets_by_id, self._projective_targets, proj_target_io_class)
 
-        storer = event.EventManager(event_manager_io_class)
+        storer = event_manager_class()
         for e in self._all_events:
             storer.add_event(e)
         storer.save()
@@ -297,4 +297,4 @@ class Importer:
 def do_stuff(spec):
     importer = Importer(spec)
     importer.import_data(spec)
-    importer.save(simpledata.RetroTargetIO, simpledata.ProjTargetIO, simpledata.EventManagerIO)
+    importer.save(simpledata.RetroTargetIO, simpledata.ProjTargetIO, simpledata.EventManager)
