@@ -110,7 +110,6 @@ class EstiModel:
         target.time_cost = element.nominal_time_estimate.expected
 
     def export_element(self, name: str) -> BaseTarget:
-        target = BaseTarget()
-        target.name = name
+        target = BaseTarget(name)
         self._update_target(target)
         return target

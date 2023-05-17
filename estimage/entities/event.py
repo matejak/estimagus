@@ -55,8 +55,9 @@ class Event:
 class EventManager:
     _events: typing.Dict[str, typing.List[Event]]
 
-    def __init__(self):
+    def __init__(self, io_cls):
         self._events = collections.defaultdict(list)
+        self._io_cls = io_cls
 
     def add_event(self, event: Event):
         events = self._events[event.task_name]
@@ -78,23 +79,12 @@ class EventManager:
         return events_by_type
 
     def save(self):
-        task_names = self.get_referenced_task_names()
-        for name in task_names:
-            self._save_task_events(name, self._events[name])
+        with self._io_cls.get_saver() as saver:
+            for subject_name, its_events in self._events.items():
+                saver.save_events(subject_name, its_events)
 
-    def _save_task_events(self, task_name: str, event_list: typing.List[Event]):
-        raise NotImplementedError()
-
-    @classmethod
-    def load(cls):
-        result = cls()
-        events_task_names = result._load_event_names()
-        for name in events_task_names:
-            result._events[name] = result._load_events(name)
-        return result
-
-    def _load_events(self, name):
-        raise NotImplementedError()
-
-    def _load_event_names(self):
-        raise NotImplementedError()
+    def load(self):
+        with self._io_cls.get_loader() as loader:
+            events_task_names = loader.load_event_names()
+            for name in events_task_names:
+                self._events[name] = loader.load_events_of(name)

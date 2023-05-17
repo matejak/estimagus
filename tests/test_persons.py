@@ -32,7 +32,7 @@ def evaluate_workloads(workloads):
 
 
 def test_target_association(shared_target):
-    target = data.BaseTarget()
+    target = data.BaseTarget("")
     assert len(tm.get_people_associaged_with(target)) == 0
 
     target.collaborators = ["lu", "men"]

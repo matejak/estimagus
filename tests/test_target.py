@@ -6,88 +6,41 @@ import estimage.data as tm
 import estimage.entities.target as target
 import estimage.inidata as tm_ini
 
-from test_inidata import temp_filename
-
-
-@pytest.fixture
-def personweek_target():
-    ret = tm.BaseTarget()
-    ret.TIME_UNIT = "pw"
-    return ret
-
-
-@pytest.mark.dependency(name="basic_target")
-def test_basic_target_properties(personweek_target):
-    subject = personweek_target
-    cost = subject.point_cost
-    assert cost >= 0
-
-    cost2 = subject.time_cost
-    assert cost2 >= 0
-
-
-@pytest.mark.dependency(depends=["basic_target"])
-def test_target_value_parsing(personweek_target):
-    subject = personweek_target
-    assert subject.parse_point_cost("5") == 5
-
-    subject.TIME_UNIT = "pw"
-    assert subject.parse_time_cost("5pw") == 5
-    assert subject.parse_time_cost("5 pw") == 5
-
-    assert subject.format_time_cost(8.2) == "8 pw"
-
-    subject.TIME_UNIT = "x"
-    with pytest.raises(ValueError):
-        subject.parse_time_cost("5pw")
+from test_inidata import temp_filename, targetio_inifile_cls
 
 
 @pytest.fixture
 def leaf_target():
-    ret = tm.BaseTarget()
-    ret.name = "leaf"
+    ret = tm.BaseTarget("leaf")
     ret.point_cost = 4
-    ret.time_cost = 3
     return ret
 
 
 @pytest.fixture
 def standalone_leaf_target():
-    ret = tm.BaseTarget()
-    ret.name = "feal"
+    ret = tm.BaseTarget("feal")
     ret.point_cost = 2
-    ret.time_cost = 1
     return ret
 
 
 @pytest.fixture
 def subtree_target(leaf_target):
-    ret = tm.BaseTarget()
-    ret.name = "subtree"
+    ret = tm.BaseTarget("subtree")
     ret.add_element(leaf_target)
     return ret
 
 
 @pytest.fixture
 def tree_target(subtree_target):
-    ret = tm.BaseTarget()
-    ret.name = "tree"
+    ret = tm.BaseTarget("tree")
     ret.add_element(subtree_target)
     return ret
 
 
-@pytest.fixture
-def target_inifile(temp_filename):
-    class TmpIniTarget(tm_ini.IniTarget):
-        CONFIG_FILENAME = temp_filename
-
-    yield TmpIniTarget
-
-
 @pytest.fixture(params=("ini",))
-def persistent_target_class(request, target_inifile):
+def target_io(request, targetio_inifile_cls):
     choices = dict(
-        ini=target_inifile,
+        ini=targetio_inifile_cls,
     )
     return choices[request.param]
 
@@ -97,7 +50,6 @@ def test_leaf_properties(leaf_target):
 
     assert leaf_target.name == result.name
     assert leaf_target.point_cost == result.nominal_point_estimate.expected
-    assert leaf_target.time_cost == result.nominal_time_estimate.expected
     assert not result.masked
 
 
@@ -124,7 +76,6 @@ def test_subtree_properties(leaf_target, subtree_target, tree_target):
     assert composition.elements[0].name == leaf_target.name
 
     assert leaf_target.point_cost == composition.nominal_point_estimate.expected
-    assert leaf_target.time_cost == composition.nominal_time_estimate.expected
 
 
 def test_tree_properties(leaf_target, subtree_target, tree_target):
@@ -147,8 +98,6 @@ def test_estimated_target_to_tree(leaf_target):
     assert simple_tree.nominal_point_estimate.sigma == 0
     assert simple_tree.nominal_point_estimate == tm.Estimate(leaf_target.point_cost, 0)
 
-    assert simple_tree.nominal_time_estimate == tm.Estimate(leaf_target.time_cost, 0)
-
 
 def test_leaf_target_to_tree(leaf_target, standalone_leaf_target):
     tree = tm.BaseTarget.to_tree([leaf_target])
@@ -163,10 +112,8 @@ def test_leaf_target_to_tree(leaf_target, standalone_leaf_target):
 
 def test_estimated_tree_considers_only_leaf_cost(leaf_target, subtree_target):
     subtree_target.point_cost = 8
-    subtree_target.time_cost = 7
     composition = tm.BaseTarget.to_tree([leaf_target, subtree_target])
     assert composition.nominal_point_estimate.expected == leaf_target.point_cost
-    assert composition.nominal_time_estimate.expected == leaf_target.time_cost
 
 
 def test_tree_target_to_tree(leaf_target, standalone_leaf_target, subtree_target):
@@ -176,24 +123,21 @@ def test_tree_target_to_tree(leaf_target, standalone_leaf_target, subtree_target
     assert result == tm.BaseTarget.to_tree([leaf_target, standalone_leaf_target, subtree_target])
 
 
-def test_target_load_all(persistent_target_class):
-    one = persistent_target_class()
-    one.name = "one"
-    one.save_metadata()
+def test_target_load_all(target_io):
+    one = tm.BaseTarget("one")
+    one.save_metadata(target_io)
 
-    two = persistent_target_class()
-    two.name = "two"
-    two.save_metadata()
+    two = tm.BaseTarget("two")
+    two.save_metadata(target_io)
 
-    assert set(persistent_target_class.get_all_target_names()) == {"one", "two"}
+    assert set(target_io.get_all_target_names()) == {"one", "two"}
 
-    all_targets_by_id = persistent_target_class.get_loaded_targets_by_id()
+    all_targets_by_id = target_io.get_loaded_targets_by_id()
     assert all_targets_by_id["one"].name == one.name
 
 
 def fill_target_instance_with_stuff(t):
     t.point_cost = 5
-    t.time_cost = 8
     t.title = "Issue One"
     t.state = target.State.in_progress
     t.collaborators = ["a", "b"]
@@ -211,7 +155,6 @@ def fill_target_instance_with_stuff(t):
 def assert_targets_are_equal(lhs, rhs):
     assert lhs.name == rhs.name
     assert lhs.point_cost == rhs.point_cost
-    assert lhs.time_cost == rhs.time_cost
     assert lhs.title == rhs.title
     assert lhs.state == rhs.state
     assert lhs.collaborators == rhs.collaborators
@@ -226,49 +169,30 @@ def assert_targets_are_equal(lhs, rhs):
     assert lhs.uri == rhs.uri
 
 
-def test_target_load_and_save_values(persistent_target_class):
-    persistent_target_class.TIME_UNIT = "week"
-    one = persistent_target_class()
-    one.name = "one"
+def test_target_load_and_save_values(target_io):
+    one = tm.BaseTarget("one")
     fill_target_instance_with_stuff(one)
-    one.save_point_cost()
-    one.save_time_cost()
-    one.save_metadata()
+    one.save_metadata(target_io)
 
-    all_targets_by_id = persistent_target_class.get_loaded_targets_by_id()
+    all_targets_by_id = target_io.get_loaded_targets_by_id()
     loaded_one = all_targets_by_id["one"]
-    loaded_one.load_point_cost()
-    loaded_one.load_time_cost()
-    loaded_one.load_metadata(loaded_one.name)
+    loaded_one = loaded_one.load_metadata(loaded_one.name, target_io)
     assert_targets_are_equal(one, loaded_one)
 
 
-def create_given_target_and_dependency(cls):
-    bottom = cls()
-    bottom.TIME_UNIT = "pw"
-    bottom.name = "pwt"
-    fill_target_instance_with_stuff(bottom)
-    bottom.description = "desc"
-    bottom.time_cost = 1.2
-    bottom.state = tm.State.todo
+def test_target_load_and_bulk_save(target_io):
+    one = tm.BaseTarget("one")
+    fill_target_instance_with_stuff(one)
 
-    top = cls()
-    top.TIME_UNIT = "pw"
-    top.name = "PWT"
-    top.description = "DESC"
-    top.point_cost = 5.3
-    top.add_element(bottom)
-    top.state = tm.State.abandoned
+    two = tm.BaseTarget("two")
+    fill_target_instance_with_stuff(two)
+    two.title = "Second t"
+    two.tier = 6661
 
-    return top
+    target_io.bulk_save_metadata([one, two])
 
-
-def test_target_conversion():
-    personweek_target = create_given_target_and_dependency(tm.BaseTarget)
-
-    assert personweek_target == personweek_target
-
-    assert personweek_target == personweek_target.as_class(tm.BaseTarget)
-
-    personweek_ini_target = create_given_target_and_dependency(tm_ini.IniTarget)
-    assert personweek_ini_target == personweek_target.as_class(tm_ini.IniTarget)
+    all_targets_by_id = target_io.get_loaded_targets_by_id()
+    loaded_one = all_targets_by_id["one"]
+    assert_targets_are_equal(one, loaded_one)
+    loaded_two = all_targets_by_id["two"]
+    assert_targets_are_equal(two, loaded_two)

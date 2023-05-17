@@ -3,6 +3,7 @@ import datetime
 import pytest
 
 import estimage.entities.event as data
+from estimage.persistence.event import memory
 
 
 ONE_DAY = datetime.timedelta(days=1)
@@ -35,8 +36,12 @@ def late_event():
     return late_event
 
 
-def test_event_manager_trivial(early_event):
-    mgr = data.EventManager()
+@pytest.fixture
+def mgr():
+    return data.EventManager(memory.MemoryEventsIO)
+
+
+def test_event_manager_trivial(mgr, early_event):
     assert mgr.get_chronological_task_events_by_type(early_event.task_name) == dict()
     assert mgr.get_referenced_task_names() == set()
 
@@ -47,8 +52,7 @@ def test_event_manager_trivial(early_event):
     assert mgr.get_chronological_task_events_by_type("x") == dict()
 
 
-def test_event_manager(early_event, less_early_event):
-    mgr = data.EventManager()
+def test_event_manager(mgr, early_event, less_early_event):
     mgr.add_event(less_early_event)
     mgr.add_event(early_event)
     events = mgr.get_chronological_task_events_by_type(early_event.task_name)

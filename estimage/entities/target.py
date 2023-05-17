@@ -21,10 +21,8 @@ class State(enum.IntEnum):
 
 
 @dataclasses.dataclass(init=False)
-class BaseTarget:
-    TIME_UNIT: str = None
+class xBaseTarget:
     point_cost: float
-    time_cost: float
     name: str
     title: str
     description: str
@@ -33,18 +31,17 @@ class BaseTarget:
     collaborators: typing.List[str]
     assignee: str
     priority: float
-    status_summary: str
-    status_summary_time: datetime.datetime
     tags: typing.Set[str]
     work_span: typing.Tuple[datetime.datetime, datetime.datetime]
     tier: int
     uri: str
     loading_plugin: str
 
-    def __init__(self):
+    def __init__(self, name: str, * args, **kwargs):
+        super().__init__(* args, ** kwargs)
+
         self.point_cost = 0
-        self.time_cost = 0
-        self.name = ""
+        self.name = name
         self.title = ""
         self.description = ""
         self.dependents = []
@@ -52,29 +49,11 @@ class BaseTarget:
         self.collaborators = []
         self.assignee = ""
         self.priority = 50.0
-        self.status_summary = ""
-        self.status_summary_time = None
         self.tags = set()
         self.work_span = None
         self.tier = 0
         self.uri = ""
         self.loading_plugin = ""
-
-    def as_class(self, cls):
-        ret = cls()
-        ret.TIME_UNIT = self.TIME_UNIT
-        for fieldname in (
-            "point_cost", "time_cost", "name", "title", "description", "state",
-            "collaborators", "assignee", "priority", "status_summary", "status_summary_time",
-            "tags", "work_span", "tier", "uri", "loading_plugin",
-        ):
-            setattr(ret, fieldname, getattr(self, fieldname))
-        ret.dependents = [d.as_class(cls) for d in self.dependents]
-
-        return ret
-
-    def parse_point_cost(self, cost):
-        return float(cost)
 
     def _convert_into_composition(self):
         ret = Composition(self.name)
@@ -89,8 +68,6 @@ class BaseTarget:
         ret = TaskModel(self.name)
         if self.point_cost:
             ret.point_estimate = Estimate(self.point_cost, 0)
-        if self.time_cost:
-            ret.time_estimate = Estimate(self.time_cost, 0)
         if self.state in (State.abandoned, State.done):
             ret.mask()
         return ret
@@ -98,49 +75,31 @@ class BaseTarget:
     def add_element(self, what: "BaseTarget"):
         self.dependents.append(what)
 
-    def parse_time_cost(self, cost):
-        if not self.TIME_UNIT:
-            raise RuntimeError("No time estimates are expected.")
-        match = re.match(rf"([0-9.]+)\s*{self.TIME_UNIT}", cost)
-        if match is None:
-            raise ValueError(f"Couldn't parse cost {cost} in units {self.TIME_UNIT}")
+    def save_metadata(self, saver_cls):
+        with saver_cls.get_saver() as saver:
+            self.pass_data_to_saver(saver)
 
-        return float(match.groups()[0])
+    def pass_data_to_saver(self, saver):
+        saver.save_title_and_desc(self)
+        saver.save_costs(self)
+        saver.save_dependents(self)
+        saver.save_assignee_and_collab(self)
+        saver.save_priority_and_state(self)
+        saver.save_tier(self)
+        saver.save_tags(self)
+        saver.save_work_span(self)
+        saver.save_uri_and_plugin(self)
 
-    def _load_point_cost(self) -> str:
-        raise NotImplementedError()
-
-    def _load_time_cost(self) -> str:
-        raise NotImplementedError()
-
-    def load_point_cost(self):
-        cost_str = self._load_point_cost()
-        self.point_cost = self.parse_point_cost(cost_str)
-
-    def load_time_cost(self):
-        cost_str = self._load_time_cost()
-        self.time_cost = self.parse_time_cost(cost_str)
-
-    def _save_point_cost(self, cost_str: str):
-        raise NotImplementedError()
-
-    def _save_time_cost(self, cost_str: str):
-        raise NotImplementedError()
-
-    def save_point_cost(self):
-        cost = str(int(round(self.point_cost)))
-        return self._save_point_cost(cost)
-
-    def format_time_cost(self, cost):
-        cost = int(round(cost))
-        return f"{cost} {self.TIME_UNIT}"
-
-    def save_time_cost(self):
-        cost = self.format_time_cost(self.time_cost)
-        return self._save_time_cost(cost)
-
-    def save_metadata(self):
-        raise NotImplementedError()
+    def load_data_by_loader(self, loader):
+        loader.load_title_and_desc(self)
+        loader.load_costs(self)
+        loader.load_dependents(self)
+        loader.load_assignee_and_collab(self)
+        loader.load_priority_and_state(self)
+        loader.load_tier(self)
+        loader.load_tags(self)
+        loader.load_work_span(self)
+        loader.load_uri_and_plugin(self)
 
     def __contains__(self, lhs: "BaseTarget"):
         lhs_name = lhs.name
@@ -156,8 +115,11 @@ class BaseTarget:
         return False
 
     @classmethod
-    def load_metadata(cls, name: str):
-        raise NotImplementedError()
+    def load_metadata(cls, name: str, loader_cls):
+        ret = cls(name)
+        with loader_cls.get_loader() as loader:
+            ret.load_data_by_loader(loader)
+        return ret
 
     @classmethod
     def to_tree(cls, targets: typing.List["BaseTarget"]):
@@ -177,3 +139,23 @@ class BaseTarget:
 
     def get_tree(self):
         return self.to_tree([self])
+
+
+@dataclasses.dataclass(init=False)
+class BaseTarget(xBaseTarget):
+    status_summary: str
+    status_summary_time: datetime.datetime
+
+    def __init__(self, * args, **kwargs):
+        super().__init__(* args, ** kwargs)
+
+        self.status_summary = ""
+        self.status_summary_time = None
+
+    def pass_data_to_saver(self, saver):
+        super().pass_data_to_saver(saver)
+        saver.save_status_update(self)
+
+    def load_data_by_loader(self, loader):
+        super().load_data_by_loader(loader)
+        loader.load_status_update(self)

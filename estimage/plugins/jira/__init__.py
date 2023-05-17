@@ -5,7 +5,7 @@ import typing
 
 from jira import JIRA
 
-from estimage.entities import target
+from estimage.entities import target, event
 from estimage import simpledata
 import estimage.entities.event as evts
 
@@ -114,12 +114,9 @@ def resolve_inheritance_of_attributes(name, all_items_by_id, parents_child_keyma
         resolve_inheritance_of_attributes(child_name, all_items_by_id, parents_child_keymap)
 
 
-def save_exported_jira_tasks(all_targets_by_id, id_selection, target_class):
-    for tid in id_selection:
-        t = all_targets_by_id[tid].as_class(target_class)
-        t.save_metadata()
-        t.save_point_cost()
-        t.save_time_cost()
+def save_exported_jira_tasks(all_targets_by_id, id_selection, target_io_class):
+    to_save = [all_targets_by_id[tid] for tid in id_selection]
+    target_io_class.bulk_save_metadata(to_save)
 
 
 def jira_datetime_to_datetime(jira_datetime):
@@ -229,20 +226,26 @@ class Importer:
             self._all_events.extend(new_events)
         print(f"Collected {len(self._all_events)} events")
 
-    def refresh_targets(self, real_targets: typing.Iterable[target.BaseTarget]):
+    def find_targets(self, target_names: typing.Iterable[str]):
+        target_ids_sequence = ", ".join(target_names)
+        query = f"id in ({target_ids_sequence})"
+        return self.jira.search_issues(query)
+
+    def refresh_targets(self, real_targets: typing.Iterable[target.BaseTarget], io_cls):
         if not real_targets:
             return
-        refreshed = [self.get_refreshed_target(t) for t in real_targets]
-        for t in refreshed:
-            t.save_metadata()
-            t.save_point_cost()
+        fresh = self.find_targets([t.name for t in real_targets])
+        refreshed = [self._apply_refresh(real, jira) for real, jira in zip(real_targets, fresh)]
+        io_cls.bulk_save_metadata(refreshed)
 
-    def get_refreshed_target(self, real_target: target.BaseTarget):
+    def _get_refreshed_target(self, real_target: target.BaseTarget):
         jira_target = self.jira.issue(real_target.name, expand="renderedFields")
+        return self._apply_refresh(real_target, jira_target)
+
+    def _apply_refresh(self, real_target: target.BaseTarget, jira_target):
         fresh_target = self.merge_jira_item_without_children(jira_target)
         fresh_target.dependents = real_target.dependents
-        real_target = fresh_target.as_class(real_target.__class__)
-        return real_target
+        return fresh_target
 
     def export_jira_epic_chain_to_targets(self, root_names):
         all_targets_by_id = dict()
@@ -263,8 +266,7 @@ class Importer:
         return ret
 
     def merge_jira_item_without_children(self, item):
-        result = target.BaseTarget()
-        result.name = item.key
+        result = target.BaseTarget(item.key)
         result.uri = item.permalink()
         result.loading_plugin = "jira"
         result.title = item.get_field("summary") or ""
@@ -281,9 +283,9 @@ class Importer:
 
         return result
 
-    def save(self, retro_target_class, proj_target_class, event_manager_class):
-        save_exported_jira_tasks(self._targets_by_id, self._retro_targets, retro_target_class)
-        save_exported_jira_tasks(self._targets_by_id, self._projective_targets, proj_target_class)
+    def save(self, retro_target_io_class, proj_target_io_class, event_manager_class):
+        save_exported_jira_tasks(self._targets_by_id, self._retro_targets, retro_target_io_class)
+        save_exported_jira_tasks(self._targets_by_id, self._projective_targets, proj_target_io_class)
 
         storer = event_manager_class()
         for e in self._all_events:
@@ -295,4 +297,4 @@ class Importer:
 def do_stuff(spec):
     importer = Importer(spec)
     importer.import_data(spec)
-    importer.save(simpledata.RetroTarget, simpledata.ProjTarget, simpledata.EventManager)
+    importer.save(simpledata.RetroTargetIO, simpledata.ProjTargetIO, simpledata.EventManager)

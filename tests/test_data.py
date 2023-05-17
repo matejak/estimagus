@@ -349,8 +349,7 @@ def test_supply():
 
 
 def test_model_updates_targets():
-    target_one = tm.BaseTarget()
-    target_one.name = "one"
+    target_one = tm.BaseTarget("one")
     target_one.point_cost = 5
 
     model = tm.EstiModel()
@@ -358,8 +357,7 @@ def test_model_updates_targets():
     model.use_composition(target_one.to_tree(targets))
     target_one.point_cost = 4
 
-    target_two = tm.BaseTarget()
-    target_two.name = "two"
+    target_two = tm.BaseTarget("two")
     target_two.point_cost = 1
     targets.append(target_two)
 
@@ -369,12 +367,10 @@ def test_model_updates_targets():
 
 
 def test_model_updates_nested_targets():
-    target_one = tm.BaseTarget()
-    target_one.name = "one"
+    target_one = tm.BaseTarget("one")
     target_one.point_cost = 5
 
-    target_two = tm.BaseTarget()
-    target_two.name = "two"
+    target_two = tm.BaseTarget("two")
     target_two.point_cost = 1
     target_two.dependents.append(target_one)
 

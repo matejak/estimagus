@@ -8,6 +8,7 @@ import flask
 
 from . import data
 from . import inidata
+from .persistence import entrydef, pollster, event
 
 
 class IniInDirMixin:
@@ -22,45 +23,43 @@ class IniInDirMixin:
         return ret
 
 
-class RetroTarget(IniInDirMixin, inidata.IniTarget):
+class RetroTargetIO(IniInDirMixin, entrydef.ini.IniTargetIO):
     CONFIG_BASENAME = "retrospective.ini"
+    WHAT_IS_THIS = "retrospective target"
 
 
-class ProjTarget(IniInDirMixin, inidata.IniTarget):
+class ProjTargetIO(IniInDirMixin, entrydef.ini.IniTargetIO):
     CONFIG_BASENAME = "projective.ini"
+    WHAT_IS_THIS = "projective target"
 
 
 class UserPollsterBase(data.Pollster):
     def __init__(self, username, * args, ** kwargs):
-        super().__init__(* args, ** kwargs)
+        class pollster_io_class(IniInDirMixin, pollster.ini.IniPollsterIO):
+            CONFIG_BASENAME = self.CONFIG_BASENAME
+            WHAT_IS_THIS = "user pollster"
+
+        super().__init__(* args, io_cls=pollster_io_class, ** kwargs)
         self.username = username
         self.set_namespace(f"user-{username}-")
 
 
-class UserPollster(IniInDirMixin, UserPollsterBase, inidata.IniPollster):
+class UserPollster(UserPollsterBase):
     CONFIG_BASENAME = "pollsters.ini"
 
 
 class AuthoritativePollsterBase(data.Pollster):
     def __init__(self, * args, ** kwargs):
-        super().__init__(* args, ** kwargs)
+        class pollster_io_class(IniInDirMixin, pollster.ini.IniPollsterIO):
+            CONFIG_BASENAME = self.CONFIG_BASENAME
+            WHAT_IS_THIS = "authoritative pollster"
+
+        super().__init__(* args, io_cls=pollster_io_class, ** kwargs)
         self.set_namespace("***-")
 
 
-class AuthoritativePollster(IniInDirMixin, AuthoritativePollsterBase, inidata.IniPollster):
+class AuthoritativePollster(AuthoritativePollsterBase):
     CONFIG_BASENAME = "pollsters.ini"
-
-
-class Pollster(inidata.IniPollster):
-    CONFIG_BASENAME = "pollsters.ini"
-
-    def __init__(self, poll_id_prefix, * args, ** kwargs):
-        super().__init__(* args, ** kwargs)
-        self.set_namespace(poll_id_prefix)
-
-    def _keyname(self, ns, name):
-        keyname = f"{ns}{name}"
-        return keyname
 
 
 @dataclasses.dataclass
@@ -141,8 +140,15 @@ class Context:
         return ret
 
 
-class EventManager(IniInDirMixin, inidata.IniEvents):
+class EventManager(data.EventManager):
     CONFIG_BASENAME = "events.ini"
+
+    def __init__(self, * args, ** kwargs):
+        class eventmgr_io_class(IniInDirMixin, event.ini.IniEventsIO):
+            CONFIG_BASENAME = self.CONFIG_BASENAME
+            WHAT_IS_THIS = "events manager"
+
+        super().__init__(* args, io_cls=eventmgr_io_class, ** kwargs)
 
 
 class AppData(inidata.IniAppdata):
