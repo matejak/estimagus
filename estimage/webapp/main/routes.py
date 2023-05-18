@@ -41,12 +41,14 @@ def feed_estimation_to_form(estimation, form_data):
 
 
 def projective_retrieve_task(task_id):
-    ret = data.BaseTarget.load_metadata(task_id, webdata.ProjTargetIO)
+    cls = flask.current_app.config["classes"]["BaseTarget"]
+    ret = cls.load_metadata(task_id, webdata.ProjTargetIO)
     return ret
 
 
 def retro_retrieve_task(task_id):
-    ret = data.BaseTarget.load_metadata(task_id, webdata.RetroTargetIO)
+    cls = flask.current_app.config["classes"]["BaseTarget"]
+    ret = cls.load_metadata(task_id, webdata.RetroTargetIO)
     return ret
 
 
@@ -264,7 +266,8 @@ def tree_view():
     user = flask_login.current_user
     user_id = user.get_id()
 
-    all_targets = webdata.ProjTargetIO.load_all_targets()
+    cls = flask.current_app.config["classes"]["BaseTarget"]
+    all_targets = webdata.ProjTargetIO.load_all_targets(cls)
     targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(all_targets)
     model = web_utils.get_user_model(user_id, webdata.ProjTargetIO, targets_tree_without_duplicates)
     return web_utils.render_template(
@@ -318,7 +321,8 @@ def executive_summary_of_points_and_velocity(targets):
 @bp.route('/retrospective')
 @flask_login.login_required
 def tree_view_retro():
-    all_targets = webdata.RetroTargetIO.load_all_targets()
+    cls = flask.current_app.config["classes"]["BaseTarget"]
+    all_targets = webdata.RetroTargetIO.load_all_targets(cls)
     tier0_targets = [t for t in all_targets if t.tier == 0]
     tier0_targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(tier0_targets)
     targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(all_targets)
@@ -369,7 +373,7 @@ def jira_plugin():
     form = estimage.plugins.jira.forms.JiraForm()
     if form.validate_on_submit():
 
-        task_spec = plugins.jira.InputSpec.from_dict(form)
+        task_spec = plugins.jira.InputSpec.from_form_and_app(form, flask.current_app)
         plugins.jira.do_stuff(task_spec)
 
     return web_utils.render_template(

@@ -1,7 +1,7 @@
 import typing
 import datetime
 
-from ... import data, inidata
+from ... import data, inidata, PluginResolver
 
 
 class IniTargetSaverBase(inidata.IniSaverBase):
@@ -152,12 +152,12 @@ class IniTargetIO(IniTargetStateIO, IniTargetSaver, IniTargetLoader):
         return ret
 
     @classmethod
-    def load_all_targets(cls):
+    def load_all_targets(cls, target_class=data.BaseTarget):
         config = cls._load_existing_config(cls.CONFIG_FILENAME)
         ret = []
         with cls.get_loader() as loader:
             for name in config.sections():
-                target = data.BaseTarget(name)
+                target = target_class(name)
                 target.load_data_by_loader(loader)
                 ret.append(target)
         return ret

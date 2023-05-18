@@ -46,15 +46,17 @@ class InputSpec:
     retrospective_query: str
     projective_query: str
     cutoff_date: datetime.date
+    item_class: typing.Type
 
     @classmethod
-    def from_dict(cls, input_form) -> "InputSpec":
+    def from_form_and_app(cls, input_form, app) -> "InputSpec":
         ret = cls()
         ret.token = input_form.token.data
         ret.server_url = input_form.server.data
         ret.retrospective_query = input_form.retroQuery.data
         ret.projective_query = input_form.projQuery.data
         ret.cutoff_date = input_form.cutoffDate.data
+        ret.item_class = app.config["classes"]["BaseTarget"]
         return ret
 
 
@@ -196,6 +198,7 @@ class Importer:
         self._projective_targets = set()
         self._all_events = []
         self.jira = JIRA(spec.server_url, token_auth=spec.token)
+        self.item_class = spec.item_class
 
     def import_data(self, spec):
         issue_names_requiring_events = set()
@@ -266,7 +269,7 @@ class Importer:
         return ret
 
     def merge_jira_item_without_children(self, item):
-        result = target.BaseTarget(item.key)
+        result = self.item_class(item.key)
         result.uri = item.permalink()
         result.loading_plugin = "jira"
         result.title = item.get_field("summary") or ""

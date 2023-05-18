@@ -1,20 +1,23 @@
 import re
 import datetime
-import dateutil.relativedelta
+import dataclasses
 import collections
+import dateutil.relativedelta
 
 import flask
 
 from ... import simpledata, data
 from .. import jira
 
+bp = flask.Blueprint("rhcompliance", __name__, template_folder="templates")
+
 from . import routes
 
 
-bp = flask.Blueprint("rhcompliance", __name__, template_folder="templates")
-
-
-EXPORTS = dict(PertPlotter="PertPlotter")
+EXPORTS = dict(
+    PertPlotter="PertPlotter",
+    BaseTarget="BaseTarget",
+)
 TEMPLATE_EXPORTS = dict(base="rhc-base.html")
 
 
@@ -38,7 +41,7 @@ class PertPlotter:
 
 class InputSpec(jira.InputSpec):
     @classmethod
-    def from_dict(cls, input_form) -> "InputSpec":
+    def from_form_and_app(cls, input_form, app) -> "InputSpec":
         ret = cls()
         ret.server_url = "https://issues.redhat.com"
         ret.token = input_form.token.data
@@ -49,6 +52,7 @@ class InputSpec(jira.InputSpec):
         proj_narrowing = f"(sprint = {epoch} OR fixVersion = {epoch})"
         ret.retrospective_query = " ".join((query_lead, retro_narrowing))
         ret.projective_query = " ".join((query_lead, proj_narrowing))
+        ret.item_class = app.config["classes"]["BaseTarget"]
         return ret
 
 
@@ -171,3 +175,23 @@ def do_stuff(spec):
     importer = Importer(spec)
     importer.import_data(spec)
     importer.save(simpledata.RetroTargetIO, simpledata.ProjTargetIO, simpledata.EventManager)
+
+
+@dataclasses.dataclass(init=False)
+class BaseTarget:
+    status_summary: str
+    status_summary_time: datetime.datetime
+
+    def __init__(self, * args, **kwargs):
+        super().__init__(* args, ** kwargs)
+
+        self.status_summary = ""
+        self.status_summary_time = None
+
+    def pass_data_to_saver(self, saver):
+        super().pass_data_to_saver(saver)
+        saver.save_status_update(self)
+
+    def load_data_by_loader(self, loader):
+        super().load_data_by_loader(loader)
+        loader.load_status_update(self)

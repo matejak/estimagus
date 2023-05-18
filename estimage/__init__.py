@@ -15,7 +15,8 @@ class PluginResolver:
         self.class_dict[name] = cls
 
     def add_known_overridable_classes(self):
-        self.class_dict.update(self.EXTENDABLE_CLASSES)
+        for name, cls in self.EXTENDABLE_CLASSES.items():
+            self.class_dict[name] = cls
 
     def get_class(self, name):
         return self.class_dict[name]

@@ -33,7 +33,6 @@ class PluginFriendlyFlask(Flask):
         self.plugin_resolver.add_known_overridable_classes()
 
     def set_plugins_dict(self, plugins_dict):
-        plugins_dict = dict(redhat_compliance=redhat_compliance)
         for plugin in plugins_dict.values():
             self.plugin_resolver.resolve_overrides(plugin)
         self._populate_template_overrides_map(plugins_dict)
