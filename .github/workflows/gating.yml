@@ -18,14 +18,14 @@ jobs:
             python3-jira
             python3-pytest python3-pip
 
-      - name: Install deps python
-        run: pip3 install pytest-dependency pytest-cov
-
       - name: Checkout
         uses: actions/checkout@v2
 
       - name: "Set git safe directory, ref: https://github.com/actions/checkout/issues/760"
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Install deps python
+        run: pip3 install -r "$GITHUB_WORKSPACE/requirements.txt.in" pytest-dependency pytest-cov
 
       - name: Test and collect coverage
         run: coverage run --source estimage -m pytest
