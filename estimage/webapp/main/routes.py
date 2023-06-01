@@ -41,14 +41,14 @@ def feed_estimation_to_form(estimation, form_data):
 
 
 def projective_retrieve_task(task_id):
-    cls = flask.current_app.config["classes"]["BaseTarget"]
-    ret = cls.load_metadata(task_id, webdata.ProjTargetIO)
+    cls, loader = web_utils.get_proj_loader()
+    ret = cls.load_metadata(task_id, loader)
     return ret
 
 
 def retro_retrieve_task(task_id):
-    cls = flask.current_app.config["classes"]["BaseTarget"]
-    ret = cls.load_metadata(task_id, webdata.RetroTargetIO)
+    cls, loader = web_utils.get_retro_loader()
+    ret = cls.load_metadata(task_id, loader)
     return ret
 
 
@@ -157,8 +157,10 @@ def get_similar_targets_with_estimations(user_id, task_name):
     similar_targets = []
     similar_tasks = get_similar_tasks(user_id, task_name)
 
-    all_targets = webdata.ProjTargetIO.get_loaded_targets_by_id()
-    all_targets.update(webdata.RetroTargetIO.get_loaded_targets_by_id())
+    cls, loader = web_utils.get_proj_loader()
+    all_targets = loader.get_loaded_targets_by_id(cls)
+    cls, loader = web_utils.get_retro_loader()
+    all_targets.update(loader.get_loaded_targets_by_id(cls))
     for task in similar_tasks:
         target = all_targets[task.name]
         target.point_estimate = task.nominal_point_estimate
@@ -212,7 +214,8 @@ def view_epic(epic_name):
     user = flask_login.current_user
 
     user_id = user.get_id()
-    model = web_utils.get_user_model(user_id, webdata.ProjTargetIO)
+    cls, loader = web_utils.get_proj_loader()
+    model = web_utils.get_user_model(user_id, loader)
 
     estimate = model.nominal_point_estimate_of(epic_name)
 
@@ -266,10 +269,10 @@ def tree_view():
     user = flask_login.current_user
     user_id = user.get_id()
 
-    cls = flask.current_app.config["classes"]["BaseTarget"]
-    all_targets = webdata.ProjTargetIO.load_all_targets(cls)
+    cls, loader = web_utils.get_proj_loader()
+    all_targets = loader.load_all_targets(cls)
     targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(all_targets)
-    model = web_utils.get_user_model(user_id, webdata.ProjTargetIO, targets_tree_without_duplicates)
+    model = web_utils.get_user_model(user_id, loader, targets_tree_without_duplicates)
     return web_utils.render_template(
         "tree_view.html", title="Tasks tree view",
         targets=targets_tree_without_duplicates, model=model)
@@ -321,8 +324,8 @@ def executive_summary_of_points_and_velocity(targets):
 @bp.route('/retrospective')
 @flask_login.login_required
 def tree_view_retro():
-    cls = flask.current_app.config["classes"]["BaseTarget"]
-    all_targets = webdata.RetroTargetIO.load_all_targets(cls)
+    cls, loader = web_utils.get_retro_loader()
+    all_targets = loader.load_all_targets(cls)
     tier0_targets = [t for t in all_targets if t.tier == 0]
     tier0_targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(tier0_targets)
     targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(all_targets)

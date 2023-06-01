@@ -6,7 +6,7 @@ import dateutil.relativedelta
 
 import flask
 
-from ... import simpledata, data
+from ... import simpledata, data, persistence
 from .. import jira
 
 bp = flask.Blueprint("rhcompliance", __name__, template_folder="templates")
@@ -177,7 +177,6 @@ def do_stuff(spec):
     importer.save(simpledata.RetroTargetIO, simpledata.ProjTargetIO, simpledata.EventManager)
 
 
-@dataclasses.dataclass(init=False)
 class BaseTarget:
     status_summary: str
     status_summary_time: datetime.datetime
@@ -195,3 +194,20 @@ class BaseTarget:
     def load_data_by_loader(self, loader):
         super().load_data_by_loader(loader)
         loader.load_status_update(self)
+
+
+@persistence.loader_of(BaseTarget, "ini")
+class IniTargetStateLoader:
+    def load_status_update(self, t):
+        t.status_summary = self._get_our(t, "status_summary")
+        time_str = self._get_our(t, "status_summary_time")
+        if time_str:
+            t.status_summary_time = datetime.datetime.fromisoformat(time_str)
+
+
+@persistence.saver_of(BaseTarget, "ini")
+class IniTargetStateSaver:
+    def save_status_update(self, t):
+        self._store_our(t, "status_summary")
+        if t.status_summary_time:
+            self._store_our(t, "status_summary_time", t.status_summary_time.isoformat())

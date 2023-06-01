@@ -4,9 +4,8 @@ import pytest
 
 import estimage.data as tm
 import estimage.entities.target as target
-import estimage.inidata as tm_ini
 
-from test_inidata import temp_filename, targetio_inifile_cls
+from tests.test_inidata import temp_filename, targetio_inifile_cls
 
 
 @pytest.fixture
@@ -146,8 +145,6 @@ def fill_target_instance_with_stuff(t):
     t.loading_plugin = "estimage"
     t.tier = 1
     t.uri = "http://localhost/issue"
-    t.status_summary = "Lorem Ipsum and So On"
-    t.status_summary_time = datetime.datetime(1918, 8, 3)
     t.tags = ["t1", "l2", "t1"]
     t.work_span = (datetime.datetime(1939, 9, 1), datetime.datetime(1945, 5, 7))
 
@@ -159,25 +156,29 @@ def assert_targets_are_equal(lhs, rhs):
     assert lhs.state == rhs.state
     assert lhs.collaborators == rhs.collaborators
     assert lhs.priority == rhs.priority
-    assert lhs.status_summary == rhs.status_summary
     assert set(lhs.tags) == set(rhs.tags)
     assert lhs.work_span == rhs.work_span
     assert lhs.assignee == rhs.assignee
-    assert lhs.status_summary_time == rhs.status_summary_time
     assert lhs.tier == rhs.tier
     assert lhs.loading_plugin == rhs.loading_plugin
     assert lhs.uri == rhs.uri
 
 
-def test_target_load_and_save_values(target_io):
-    one = tm.BaseTarget("one")
-    fill_target_instance_with_stuff(one)
+def base_target_load_save(target_io, cls, filler, tester):
+    one = cls("one")
+    filler(one)
     one.save_metadata(target_io)
 
-    all_targets_by_id = target_io.get_loaded_targets_by_id()
+    all_targets_by_id = target_io.get_loaded_targets_by_id(cls)
     loaded_one = all_targets_by_id["one"]
-    loaded_one = loaded_one.load_metadata(loaded_one.name, target_io)
-    assert_targets_are_equal(one, loaded_one)
+    tester(one, loaded_one)
+
+    loaded_one = cls.load_metadata("one", target_io)
+    tester(one, loaded_one)
+
+
+def test_target_load_and_save_values(target_io):
+    base_target_load_save(target_io, tm.BaseTarget, fill_target_instance_with_stuff, assert_targets_are_equal)
 
 
 def test_target_load_and_bulk_save(target_io):

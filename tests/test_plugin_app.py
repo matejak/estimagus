@@ -13,7 +13,8 @@ class Printer:
 
 @to.class_is_extendable("Ext")
 class Extendable:
-    pass
+    def return_hello(self):
+        return "hello"
 
 
 class MockPluginWithoutDecl:
@@ -34,10 +35,15 @@ def test_load_plugins():
     assert plugin.NAME == "Print"
 
 
-def test_class_resolution():
-    resolver = to()
-    resolver.add_overridable_class("Formatter", Printer)
-    resolver.add_known_overridable_classes()
+@pytest.fixture
+def resolver():
+    ret = to()
+    ret.add_overridable_class("Formatter", Printer)
+    ret.add_known_overridable_classes()
+    return ret
+
+
+def test_class_resolution_sanity(resolver):
     assert "Ext" in resolver.class_dict
 
     cls = resolver.get_class("Formatter")
@@ -46,6 +52,8 @@ def test_class_resolution():
     with pytest.raises(KeyError, match="Primer"):
         resolver.get_class("Primer")
 
+
+def test_class_resolution_plugin_load(resolver):
     first_plugin = plugins.get_plugin("print_plugin", "tests")
     resolver.resolve_overrides(first_plugin)
 
@@ -59,8 +67,26 @@ def test_class_resolution():
     instance = cls()
     assert instance.format("x") == "-x"
 
+
+def test_class_resolution_mock_plugin_load(resolver):
     resolver.resolve_overrides(MockPluginWithDecl)
     cls = resolver.get_class("Formatter")
     assert cls.OVERRIDEN == "maybe"
 
-    resolver.resolve_overrides(MockPluginIncomplete)
+    instance = cls()
+    assert instance.format("x") == "x"
+
+    with pytest.raises(ValueError):
+        resolver.resolve_overrides(MockPluginIncomplete)
+
+
+def test_class_extension_plugin_load(resolver):
+    first_plugin = plugins.get_plugin("print_plugin", "tests")
+
+    greeter = resolver.class_dict["Ext"]()
+    assert greeter.return_hello() == "hello"
+
+    resolver.resolve_overrides(first_plugin)
+
+    greeter = resolver.class_dict["Ext"]()
+    assert greeter.return_hello() == "hello!"

@@ -1,13 +1,10 @@
 import typing
 import datetime
 
-from ... import data, inidata, PluginResolver
+from ... import data, inidata, PluginResolver, persistence
 
 
 class IniTargetSaverBase(inidata.IniSaverBase):
-    def __init__(self, * args, ** kwargs):
-        super().__init__(* args, ** kwargs)
-
     def _store_our(self, t, attribute, value=None):
         if value is None and hasattr(t, attribute):
             value = getattr(t, attribute)
@@ -15,9 +12,6 @@ class IniTargetSaverBase(inidata.IniSaverBase):
 
 
 class IniTargetLoaderBase(inidata.IniLoaderBase):
-    def __init__(self, * args, ** kwargs):
-        super().__init__(* args, ** kwargs)
-
     def _get_our(self, t, attribute, fallback=None):
         if fallback is None and hasattr(t, attribute):
             fallback = getattr(t, attribute)
@@ -25,9 +19,6 @@ class IniTargetLoaderBase(inidata.IniLoaderBase):
 
 
 class IniTargetStateIO(IniTargetSaverBase, IniTargetLoaderBase):
-    def __init__(self, * args, ** kwargs):
-        super().__init__(* args, ** kwargs)
-
     def load_status_update(self, t):
         t.status_summary = self._get_our(t, "status_summary")
         time_str = self._get_our(t, "status_summary_time")
@@ -40,10 +31,8 @@ class IniTargetStateIO(IniTargetSaverBase, IniTargetLoaderBase):
             self._store_our(t, "status_summary_time", t.status_summary_time.isoformat())
 
 
+@persistence.saver_of(data.BaseTarget, "ini")
 class IniTargetSaver(IniTargetSaverBase):
-    def __init__(self, * args, ** kwargs):
-        super().__init__(* args, ** kwargs)
-
     def save_title_and_desc(self, t):
         self._store_our(t, "title")
         self._store_our(t, "description")
@@ -81,11 +70,15 @@ class IniTargetSaver(IniTargetSaverBase):
         self._store_our(t, "loading_plugin")
         self._store_our(t, "uri")
 
+    @classmethod
+    def bulk_save_metadata(cls, targets: typing.Iterable[data.BaseTarget]):
+        with cls.get_saver() as saver:
+            for t in targets:
+                t.pass_data_to_saver(saver)
 
+
+@persistence.loader_of(data.BaseTarget, "ini")
 class IniTargetLoader(IniTargetLoaderBase):
-    def __init__(self, * args, ** kwargs):
-        super().__init__(* args, ** kwargs)
-
     def load_title_and_desc(self, t):
         t.title = self._get_our(t, "title")
         t.description = self._get_our(t, "description")
@@ -131,22 +124,17 @@ class IniTargetLoader(IniTargetLoaderBase):
         t.loading_plugin = self._get_our(t, "loading_plugin")
         t.uri = self._get_our(t, "uri")
 
-
-class IniTargetIO(IniTargetStateIO, IniTargetSaver, IniTargetLoader):
-    def __init__(self, * args, ** kwargs):
-        super().__init__(* args, ** kwargs)
-
     @classmethod
     def get_all_target_names(cls):
         config = cls._load_existing_config(cls.CONFIG_FILENAME)
         return set(config.sections())
 
     @classmethod
-    def get_loaded_targets_by_id(cls):
+    def get_loaded_targets_by_id(cls, target_class=data.BaseTarget):
         ret = dict()
         with cls.get_loader() as loader:
             for name in cls.get_all_target_names():
-                target = data.BaseTarget(name)
+                target = target_class(name)
                 target.load_data_by_loader(loader)
                 ret[name] = target
         return ret
@@ -162,8 +150,6 @@ class IniTargetIO(IniTargetStateIO, IniTargetSaver, IniTargetLoader):
                 ret.append(target)
         return ret
 
-    @classmethod
-    def bulk_save_metadata(cls, targets: typing.Iterable[data.BaseTarget]):
-        with cls.get_saver() as saver:
-            for t in targets:
-                t.pass_data_to_saver(saver)
+
+class IniTargetIO(IniTargetStateIO, IniTargetSaver, IniTargetLoader):
+    pass

@@ -1,6 +1,9 @@
 
 NAME = "Print"
-EXPORTS = dict(Formatter="Printer")
+EXPORTS = dict(
+    Formatter="Printer",
+    Ext="Greeter",
+)
 
 
 class Printer:
@@ -9,3 +12,8 @@ class Printer:
     def format(self, what):
         ret = "-" + super().format(what)
         return ret
+
+
+class Greeter:
+    def return_hello(self):
+        return super().return_hello() + "!"

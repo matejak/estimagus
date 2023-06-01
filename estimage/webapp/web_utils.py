@@ -3,7 +3,19 @@ import flask_login
 import werkzeug
 
 from .. import simpledata as webdata
-from .. import utilities
+from .. import utilities, persistence
+
+
+def get_retro_loader():
+    target_class = flask.current_app.config["classes"]["BaseTarget"]
+    loader = type("loader", (webdata.RetroTargetIO, persistence.LOADERS[target_class]["ini"]), dict())
+    return target_class, loader
+
+
+def get_proj_loader():
+    target_class = flask.current_app.config["classes"]["BaseTarget"]
+    loader = type("loader", (webdata.ProjTargetIO, persistence.LOADERS[target_class]["ini"]))
+    return target_class, loader
 
 
 def get_target_tree_with_no_double_occurence(cls):
