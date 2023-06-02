@@ -232,7 +232,9 @@ class Importer:
     def find_targets(self, target_names: typing.Iterable[str]):
         target_ids_sequence = ", ".join(target_names)
         query = f"id in ({target_ids_sequence})"
-        return self.jira.search_issues(query)
+        targets = self.jira.search_issues(query)
+        targets_by_id = {t.key: t for t in targets}
+        return [targets_by_id[name] for name in target_names]
 
     def refresh_targets(self, real_targets: typing.Iterable[target.BaseTarget], io_cls):
         if not real_targets:
