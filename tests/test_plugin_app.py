@@ -38,8 +38,8 @@ def test_load_plugins():
 @pytest.fixture
 def resolver():
     ret = to()
-    ret.add_overridable_class("Formatter", Printer)
-    ret.add_known_overridable_classes()
+    ret.add_extendable_class("Formatter", Printer)
+    ret.add_known_extendable_classes()
     return ret
 
 
@@ -55,12 +55,12 @@ def test_class_resolution_sanity(resolver):
 
 def test_class_resolution_plugin_load(resolver):
     first_plugin = plugins.get_plugin("print_plugin", "tests")
-    resolver.resolve_overrides(first_plugin)
+    resolver.resolve_extension(first_plugin)
 
     cls = resolver.get_class("Formatter")
     assert cls.OVERRIDEN == "yes"
 
-    resolver.resolve_overrides(MockPluginWithoutDecl)
+    resolver.resolve_extension(MockPluginWithoutDecl)
     cls = resolver.get_class("Formatter")
     assert cls.OVERRIDEN == "yes"
 
@@ -69,7 +69,7 @@ def test_class_resolution_plugin_load(resolver):
 
 
 def test_class_resolution_mock_plugin_load(resolver):
-    resolver.resolve_overrides(MockPluginWithDecl)
+    resolver.resolve_extension(MockPluginWithDecl)
     cls = resolver.get_class("Formatter")
     assert cls.OVERRIDEN == "maybe"
 
@@ -77,7 +77,7 @@ def test_class_resolution_mock_plugin_load(resolver):
     assert instance.format("x") == "x"
 
     with pytest.raises(ValueError):
-        resolver.resolve_overrides(MockPluginIncomplete)
+        resolver.resolve_extension(MockPluginIncomplete)
 
 
 def test_class_extension_plugin_load(resolver):
@@ -86,7 +86,7 @@ def test_class_extension_plugin_load(resolver):
     greeter = resolver.class_dict["Ext"]()
     assert greeter.return_hello() == "hello"
 
-    resolver.resolve_overrides(first_plugin)
+    resolver.resolve_extension(first_plugin)
 
     greeter = resolver.class_dict["Ext"]()
     assert greeter.return_hello() == "hello!"

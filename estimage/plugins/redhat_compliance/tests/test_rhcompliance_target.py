@@ -37,8 +37,8 @@ def plugin_test(lhs, rhs):
 
 def test_target_load_and_save_values(target_io):
     resolver = PluginResolver()
-    resolver.add_known_overridable_classes()
+    resolver.add_known_extendable_classes()
     assert "BaseTarget" in resolver.class_dict
-    resolver.resolve_overrides(tm)
+    resolver.resolve_extension(tm)
     cls = resolver.class_dict["BaseTarget"]
     base_target_load_save(target_io, cls, plugin_fill, plugin_test)

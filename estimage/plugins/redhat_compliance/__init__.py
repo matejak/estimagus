@@ -18,7 +18,7 @@ EXPORTS = dict(
     PertPlotter="PertPlotter",
     BaseTarget="BaseTarget",
 )
-TEMPLATE_EXPORTS = dict(base="rhc-base.html")
+# TEMPLATE_EXPORTS = dict(base="rhc-base.html")
 
 
 QUARTER_TO_MONTH_NUMBER = None

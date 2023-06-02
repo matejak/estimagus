@@ -30,11 +30,11 @@ class PluginFriendlyFlask(Flask):
 
         self.template_overrides_map = dict()
         self.plugin_resolver = PluginResolver()
-        self.plugin_resolver.add_known_overridable_classes()
+        self.plugin_resolver.add_known_extendable_classes()
 
     def set_plugins_dict(self, plugins_dict):
         for plugin in plugins_dict.values():
-            self.plugin_resolver.resolve_overrides(plugin)
+            self.plugin_resolver.resolve_extension(plugin)
         self._populate_template_overrides_map(plugins_dict)
 
         self.config["plugins_templates_overrides"] = self.translate_path

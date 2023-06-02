@@ -14,7 +14,7 @@ def get_retro_loader():
 
 def get_proj_loader():
     target_class = flask.current_app.config["classes"]["BaseTarget"]
-    loader = type("loader", (webdata.ProjTargetIO, persistence.LOADERS[target_class]["ini"]))
+    loader = type("loader", (webdata.ProjTargetIO, persistence.LOADERS[target_class]["ini"]), dict())
     return target_class, loader
 
 
@@ -46,8 +46,6 @@ def get_user_model(user_id, cls, targets_tree_without_duplicates=None):
 def render_template(path, title, **kwargs):
     loaded_templates = dict()
     loaded_templates["base"] = flask.current_app.jinja_env.get_template("base.html")
-    new_base = flask.current_app.jinja_env.get_template("rhc-base.html", loaded_templates["base"])
-    loaded_templates["base"].blocks.update(new_base.blocks)
     kwargs.update(loaded_templates)
     authenticated_user = ""
     if flask_login.current_user.is_authenticated:
