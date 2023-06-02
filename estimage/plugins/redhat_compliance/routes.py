@@ -3,7 +3,9 @@ import flask_login
 
 from ...webapp import web_utils
 from ...plugins import redhat_compliance
-from . import forms, bp
+from . import forms
+
+bp = flask.Blueprint("rhcompliance", __name__, template_folder="templates")
 
 
 @bp.route('/rhcompliance', methods=("GET", "POST"))

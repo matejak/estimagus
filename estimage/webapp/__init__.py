@@ -5,15 +5,13 @@ from flask_login import LoginManager
 from flask_bootstrap import Bootstrap5
 from jinja2 import loaders
 
-from .. import data, simpledata, PluginResolver
+from .. import data, simpledata, plugins, PluginResolver
 from . import users, config
 
 from .main import bp as main_bp
 from .vis import bp as vis_bp
 from .login import bp as login_bp
 from .persons import bp as persons_bp
-
-from ..plugins import redhat_compliance
 
 login = LoginManager()
 
@@ -66,7 +64,10 @@ def create_app(config_class=config.Config):
     app.config.from_object(config.read_or_create_config(simpledata.AppData))
     app.config["classes"] = app.plugin_resolver.class_dict
 
-    plugins_dict = dict(redhat_compliance=redhat_compliance)
+    plugins_dict = dict(
+        jira=plugins.get_plugin("jira"),
+        redhat_compliance=plugins.get_plugin("redhat_compliance"),
+    )
     app.set_plugins_dict(plugins_dict)
 
     app.register_blueprint(main_bp)
@@ -74,7 +75,9 @@ def create_app(config_class=config.Config):
     app.register_blueprint(login_bp)
     app.register_blueprint(persons_bp)
     for plugin in plugins_dict.values():
-        plugin.register_own_blueprint(app)
+        bp = plugins.get_plugin_blueprint(plugin)
+        if bp:
+            app.register_blueprint(bp, url_prefix="/plugins")
     Bootstrap5(app)
 
     login.init_app(app)

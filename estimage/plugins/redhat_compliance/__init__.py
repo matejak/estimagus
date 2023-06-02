@@ -9,10 +9,6 @@ import flask
 from ... import simpledata, data, persistence
 from .. import jira
 
-bp = flask.Blueprint("rhcompliance", __name__, template_folder="templates")
-
-from . import routes
-
 
 EXPORTS = dict(
     PertPlotter="PertPlotter",
@@ -28,10 +24,6 @@ PROJECT_NAME = "OPENSCAP"
 TEMPLATE_OVERRIDES = {
     "tree_view_retrospective.html": "rhcompliance-retrotree.html",
 }
-
-
-def register_own_blueprint(app):
-    app.register_blueprint(bp, url_prefix="/plugins")
 
 
 class PertPlotter:

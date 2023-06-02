@@ -5,9 +5,9 @@ import typing
 
 from jira import JIRA
 
-from estimage.entities import target, event
-from estimage import simpledata
-import estimage.entities.event as evts
+from ...entities import target
+from ... import simpledata
+from ...entities import event as evts
 
 
 JIRA_STATUS_TO_STATE = {
