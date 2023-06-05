@@ -11,7 +11,6 @@ from .. import jira
 
 
 EXPORTS = dict(
-    PertPlotter="PertPlotter",
     BaseTarget="BaseTarget",
 )
 # TEMPLATE_EXPORTS = dict(base="rhc-base.html")
@@ -24,11 +23,6 @@ PROJECT_NAME = "OPENSCAP"
 TEMPLATE_OVERRIDES = {
     "tree_view_retrospective.html": "rhcompliance-retrotree.html",
 }
-
-
-class PertPlotter:
-    PERT_COLOR = "red"
-    EXPECTED_COLOR = "grey"
 
 
 class InputSpec(jira.InputSpec):
