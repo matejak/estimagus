@@ -7,7 +7,7 @@ import datetime
 from .estimate import Estimate
 from .task import TaskModel
 from .composition import Composition
-from .. import utilities
+from .. import utilities, PluginResolver
 
 
 class State(enum.IntEnum):
@@ -20,8 +20,9 @@ class State(enum.IntEnum):
     abandoned = enum.auto()
 
 
+@PluginResolver.class_is_extendable("BaseTarget")
 @dataclasses.dataclass(init=False)
-class xBaseTarget:
+class BaseTarget:
     point_cost: float
     name: str
     title: str
@@ -139,23 +140,3 @@ class xBaseTarget:
 
     def get_tree(self):
         return self.to_tree([self])
-
-
-@dataclasses.dataclass(init=False)
-class BaseTarget(xBaseTarget):
-    status_summary: str
-    status_summary_time: datetime.datetime
-
-    def __init__(self, * args, **kwargs):
-        super().__init__(* args, ** kwargs)
-
-        self.status_summary = ""
-        self.status_summary_time = None
-
-    def pass_data_to_saver(self, saver):
-        super().pass_data_to_saver(saver)
-        saver.save_status_update(self)
-
-    def load_data_by_loader(self, loader):
-        super().load_data_by_loader(loader)
-        loader.load_status_update(self)

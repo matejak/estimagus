@@ -5,15 +5,13 @@ from flask_login import LoginManager
 from flask_bootstrap import Bootstrap5
 from jinja2 import loaders
 
-from .. import data, simpledata
+from .. import data, simpledata, plugins, PluginResolver
 from . import users, config
 
 from .main import bp as main_bp
 from .vis import bp as vis_bp
 from .login import bp as login_bp
 from .persons import bp as persons_bp
-
-from ..plugins import redhat_compliance
 
 login = LoginManager()
 
@@ -29,9 +27,12 @@ class PluginFriendlyFlask(Flask):
             (templates_folder, plugins_folder))
 
         self.template_overrides_map = dict()
+        self.plugin_resolver = PluginResolver()
+        self.plugin_resolver.add_known_extendable_classes()
 
     def set_plugins_dict(self, plugins_dict):
-        plugins_dict = dict(redhat_compliance=redhat_compliance)
+        for plugin in plugins_dict.values():
+            self.plugin_resolver.resolve_extension(plugin)
         self._populate_template_overrides_map(plugins_dict)
 
         self.config["plugins_templates_overrides"] = self.translate_path
@@ -61,14 +62,22 @@ def create_app(config_class=config.Config):
     config_class = simpledata.AppData
     config_class.DATADIR = pathlib.Path(app.config["DATA_DIR"])
     app.config.from_object(config.read_or_create_config(simpledata.AppData))
+    app.config["classes"] = app.plugin_resolver.class_dict
 
-    plugins_dict = dict(redhat_compliance=redhat_compliance)
+    plugins_dict = dict(
+        jira=plugins.get_plugin("jira"),
+        redhat_compliance=plugins.get_plugin("redhat_compliance"),
+    )
     app.set_plugins_dict(plugins_dict)
 
     app.register_blueprint(main_bp)
     app.register_blueprint(vis_bp, url_prefix="/vis")
     app.register_blueprint(login_bp)
     app.register_blueprint(persons_bp)
+    for plugin in plugins_dict.values():
+        bp = plugins.get_plugin_blueprint(plugin)
+        if bp:
+            app.register_blueprint(bp, url_prefix="/plugins")
     Bootstrap5(app)
 
     login.init_app(app)

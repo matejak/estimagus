@@ -45,7 +45,8 @@ def send_figure_as_svg(figure, basename):
 
 
 def get_pert_in_figure(estimation, task_name):
-    fig = pert.get_pert_in_figure(estimation, task_name)
+    pert_class = flask.current_app.config["classes"]["PertPlotter"]
+    fig = pert.get_pert_in_figure(estimation, task_name, pert_class)
     fig.set_size_inches(* NORMAL_FIGURE_SIZE)
 
     return fig
@@ -54,7 +55,8 @@ def get_pert_in_figure(estimation, task_name):
 @bp.route('/<epic_name>-velocity.svg')
 @flask_login.login_required
 def visualize_velocity(epic_name):
-    all_targets = webdata.RetroTargetIO.get_loaded_targets_by_id()
+    cls, loader = web_utils.get_retro_loader()
+    all_targets = loader.get_loaded_targets_by_id(cls)
 
     user = flask_login.current_user
     user_id = user.get_id()
@@ -65,13 +67,13 @@ def visualize_velocity(epic_name):
 
     if epic_name == ".":
         target_tree = utilities.reduce_subsets_from_sets(list(all_targets.values()))
-        model = web_utils.get_user_model(user_id, webdata.RetroTargetIO, target_tree)
+        model = web_utils.get_user_model(user_id, target_tree)
         model.update_targets_with_values(target_tree)
 
         aggregation = history.Aggregation.from_targets(target_tree, start, end)
     else:
         epic = all_targets[epic_name]
-        model = web_utils.get_user_model(user_id, webdata.RetroTargetIO, [epic])
+        model = web_utils.get_user_model(user_id, [epic])
         model.update_targets_with_values([epic])
 
         aggregation = history.Aggregation.from_target(epic, start, end)
@@ -97,10 +99,12 @@ def visualize_task(task_name, nominal_or_remaining):
         )
         flask.flash(msg)
         raise ValueError(msg)
-    user = flask_login.current_user
 
+    user = flask_login.current_user
     user_id = user.get_id()
-    model = web_utils.get_user_model(user_id, webdata.ProjTargetIO)
+
+    _, model = web_utils.get_all_tasks_by_id_and_user_model("proj", user_id)
+
     if task_name == ".":
         if nominal_or_remaining == "nominal":
             estimation = model.nominal_point_estimate
@@ -126,12 +130,13 @@ def visualize_epic_burndown(epic_name, size):
         msg = "Figure size must be one of {allowed_sizes}, got '{size}' instead."
         raise ValueError(msg)
 
-    all_targets = webdata.RetroTargetIO.get_loaded_targets_by_id()
+    cls, loader = web_utils.get_retro_loader()
+    all_targets = loader.get_loaded_targets_by_id(cls)
     epic = all_targets[epic_name]
 
     user = flask_login.current_user
     user_id = user.get_id()
-    model = web_utils.get_user_model(user_id, webdata.RetroTargetIO, [epic])
+    model = web_utils.get_user_model(user_id, [epic])
     model.update_targets_with_values([epic])
 
     return output_burndown([epic], size)
@@ -148,13 +153,14 @@ def visualize_overall_burndown(tier, size):
         msg = "Tier must be a non-negative number, got {tier}"
         raise ValueError(msg)
 
-    all_targets = webdata.RetroTargetIO.get_loaded_targets_by_id()
-    all_targets = {name: target for name, target in all_targets.items() if target.tier <= tier}
-    target_tree = utilities.reduce_subsets_from_sets(list(all_targets.values()))
+    cls, loader = web_utils.get_retro_loader()
+    all_targets = loader.get_loaded_targets_by_id(cls)
+    all_targets = [target for name, target in all_targets.items() if target.tier <= tier]
+    target_tree = utilities.reduce_subsets_from_sets(all_targets)
 
     user = flask_login.current_user
     user_id = user.get_id()
-    model = web_utils.get_user_model(user_id, webdata.RetroTargetIO, target_tree)
+    model = web_utils.get_user_model(user_id, target_tree)
     model.update_targets_with_values(target_tree)
 
     return output_burndown(target_tree, size)

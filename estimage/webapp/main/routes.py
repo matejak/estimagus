@@ -41,12 +41,14 @@ def feed_estimation_to_form(estimation, form_data):
 
 
 def projective_retrieve_task(task_id):
-    ret = data.BaseTarget.load_metadata(task_id, webdata.ProjTargetIO)
+    cls, loader = web_utils.get_proj_loader()
+    ret = cls.load_metadata(task_id, loader)
     return ret
 
 
 def retro_retrieve_task(task_id):
-    ret = data.BaseTarget.load_metadata(task_id, webdata.RetroTargetIO)
+    cls, loader = web_utils.get_retro_loader()
+    ret = cls.load_metadata(task_id, loader)
     return ret
 
 
@@ -152,11 +154,13 @@ def give_data_to_context(context, user_pollster, global_pollster):
 
 
 def get_similar_targets_with_estimations(user_id, task_name):
-    similar_targets = []
-    similar_tasks = get_similar_tasks(user_id, task_name)
+    cls, loader = web_utils.get_proj_loader()
+    all_targets = loader.get_loaded_targets_by_id(cls)
+    cls, loader = web_utils.get_retro_loader()
+    all_targets.update(loader.get_loaded_targets_by_id(cls))
 
-    all_targets = webdata.ProjTargetIO.get_loaded_targets_by_id()
-    all_targets.update(webdata.RetroTargetIO.get_loaded_targets_by_id())
+    similar_targets = []
+    similar_tasks = get_similar_tasks(user_id, task_name, all_targets)
     for task in similar_tasks:
         target = all_targets[task.name]
         target.point_estimate = task.nominal_point_estimate
@@ -210,7 +214,10 @@ def view_epic(epic_name):
     user = flask_login.current_user
 
     user_id = user.get_id()
-    model = web_utils.get_user_model(user_id, webdata.ProjTargetIO)
+    cls, loader = web_utils.get_proj_loader()
+    all_targets = loader.load_all_targets(cls)
+    targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(all_targets)
+    model = web_utils.get_user_model(user_id, targets_tree_without_duplicates)
 
     estimate = model.nominal_point_estimate_of(epic_name)
 
@@ -226,11 +233,12 @@ def view_epic(epic_name):
         refresh_form=refresh_form)
 
 
-def get_similar_tasks(user_id, task_name):
+def get_similar_tasks(user_id, task_name, all_targets_by_id):
     all_tasks = []
-    for cls in (webdata.RetroTargetIO, webdata.ProjTargetIO):
-        model = web_utils.get_user_model(user_id, cls)
-        all_tasks.extend(model.get_all_task_models())
+    all_targets = list(all_targets_by_id.values())
+    targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(all_targets)
+    model = web_utils.get_user_model(user_id, targets_tree_without_duplicates)
+    all_tasks.extend(model.get_all_task_models())
     return webdata.order_nearby_tasks(model.get_element(task_name), all_tasks, 0.5, 2)
 
 
@@ -264,9 +272,9 @@ def tree_view():
     user = flask_login.current_user
     user_id = user.get_id()
 
-    all_targets = webdata.ProjTargetIO.load_all_targets()
+    all_targets_by_id, model = web_utils.get_all_tasks_by_id_and_user_model("proj", user_id)
+    all_targets = list(all_targets_by_id.values())
     targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(all_targets)
-    model = web_utils.get_user_model(user_id, webdata.ProjTargetIO, targets_tree_without_duplicates)
     return web_utils.render_template(
         "tree_view.html", title="Tasks tree view",
         targets=targets_tree_without_duplicates, model=model)
@@ -318,16 +326,16 @@ def executive_summary_of_points_and_velocity(targets):
 @bp.route('/retrospective')
 @flask_login.login_required
 def tree_view_retro():
-    all_targets = webdata.RetroTargetIO.load_all_targets()
-    tier0_targets = [t for t in all_targets if t.tier == 0]
-    tier0_targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(tier0_targets)
-    targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(all_targets)
-
     user = flask_login.current_user
     user_id = user.get_id()
-    model = web_utils.get_user_model(user_id, webdata.RetroTargetIO, targets_tree_without_duplicates)
-    model.update_targets_with_values(tier0_targets_tree_without_duplicates)
-    model.update_targets_with_values(targets_tree_without_duplicates)
+
+    all_targets_by_id, model = web_utils.get_all_tasks_by_id_and_user_model("retro", user_id)
+    all_targets = list(all_targets_by_id.values())
+    targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(all_targets)
+
+    tier0_targets = [t for t in all_targets_by_id.values() if t.tier == 0]
+    tier0_targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(tier0_targets)
+    targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(all_targets)
 
     summary = executive_summary_of_points_and_velocity(tier0_targets_tree_without_duplicates)
     priority_sorted_targets = sorted(targets_tree_without_duplicates, key=lambda x: - x.priority)
@@ -347,47 +355,14 @@ def tree_view_retro():
 @bp.route('/retrospective/epic/<epic_name>')
 @flask_login.login_required
 def view_epic_retro(epic_name):
-    t = retro_retrieve_task(epic_name)
-    executive_summary = executive_summary_of_points_and_velocity(t.dependents)
-
     user = flask_login.current_user
     user_id = user.get_id()
-    model = web_utils.get_user_model(user_id, webdata.RetroTargetIO, [t])
+
+    all_targets_by_id, model = web_utils.get_all_tasks_by_id_and_user_model("retro", user_id)
+    t = all_targets_by_id[epic_name]
+
+    executive_summary = executive_summary_of_points_and_velocity(t.dependents)
 
     return web_utils.render_template(
         'epic_view_retrospective.html', title='View epic',
         today=datetime.datetime.today(), epic=t, model=model, ** executive_summary)
-
-
-@bp.route('/plugins/jira', methods=("GET", "POST"))
-@flask_login.login_required
-def jira_plugin():
-    from estimage import plugins
-    import estimage.plugins.jira
-    import estimage.plugins.jira.forms
-
-    form = estimage.plugins.jira.forms.JiraForm()
-    if form.validate_on_submit():
-
-        task_spec = plugins.jira.InputSpec.from_dict(form)
-        plugins.jira.do_stuff(task_spec)
-
-    return web_utils.render_template(
-        'jira.html', title='Jira Plugin', plugin_form=form, )
-
-
-@bp.route('/plugins/rhcompliance', methods=("GET", "POST"))
-@flask_login.login_required
-def rhcompliance_plugin():
-    from estimage import plugins
-    import estimage.plugins.redhat_compliance
-    import estimage.plugins.redhat_compliance.forms
-
-    form = estimage.plugins.redhat_compliance.forms.RedhatComplianceForm()
-    if form.validate_on_submit():
-
-        task_spec = plugins.redhat_compliance.InputSpec.from_dict(form)
-        plugins.redhat_compliance.do_stuff(task_spec)
-
-    return web_utils.render_template(
-        'rhcompliance.html', title='Red Hat Compliacne Plugin', plugin_form=form, )

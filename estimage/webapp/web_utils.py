@@ -3,18 +3,42 @@ import flask_login
 import werkzeug
 
 from .. import simpledata as webdata
-from .. import utilities
+from .. import utilities, persistence
 
 
-def get_target_tree_with_no_double_occurence(cls):
-    all_targets = cls.load_all_targets()
-    targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(all_targets)
-    return targets_tree_without_duplicates
+def _get_entrydef_loader(flavor, backend):
+    target_class = flask.current_app.config["classes"]["BaseTarget"]
+    # in the special case of the ini backend, the registered loader doesn't call super()
+    # when looking up CONFIG_FILENAME
+    loader = type("loader", (flavor, persistence.LOADERS[target_class][backend]), dict())
+    return target_class, loader
 
 
-def get_user_model(user_id, cls, targets_tree_without_duplicates=None):
-    if targets_tree_without_duplicates is None:
-        targets_tree_without_duplicates = get_target_tree_with_no_double_occurence(cls)
+def get_retro_loader():
+    return _get_entrydef_loader(webdata.RetroTargetIO, "ini")
+
+
+def get_proj_loader():
+    return _get_entrydef_loader(webdata.ProjTargetIO, "ini")
+
+
+def get_all_tasks_by_id_and_user_model(spec, user_id):
+    if spec == "retro":
+        cls, loader = get_retro_loader()
+    elif spec == "proj":
+        cls, loader = get_proj_loader()
+    else:
+        msg = "Unknown specification of source: {spec}"
+        raise KeyError(msg)
+    all_targets_by_id = loader.get_loaded_targets_by_id(cls)
+    targets_list = list(all_targets_by_id.values())
+    targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(targets_list)
+    model = get_user_model(user_id, targets_tree_without_duplicates)
+    model.update_targets_with_values(targets_tree_without_duplicates)
+    return all_targets_by_id, model
+
+
+def get_user_model(user_id, targets_tree_without_duplicates):
     authoritative_pollster = webdata.AuthoritativePollster()
     user_pollster = webdata.UserPollster(user_id)
     model = webdata.get_model(targets_tree_without_duplicates)
@@ -32,6 +56,9 @@ def get_user_model(user_id, cls, targets_tree_without_duplicates=None):
 
 
 def render_template(path, title, **kwargs):
+    loaded_templates = dict()
+    loaded_templates["base"] = flask.current_app.jinja_env.get_template("base.html")
+    kwargs.update(loaded_templates)
     authenticated_user = ""
     if flask_login.current_user.is_authenticated:
         authenticated_user = flask_login.current_user

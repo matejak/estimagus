@@ -1,11 +1,19 @@
 import re
 import datetime
-import dateutil.relativedelta
+import dataclasses
 import collections
+import dateutil.relativedelta
 
-from ... import simpledata, utilities, data
+import flask
+
+from ... import simpledata, data, persistence
 from .. import jira
-from . import forms
+
+
+EXPORTS = dict(
+    BaseTarget="BaseTarget",
+)
+# TEMPLATE_EXPORTS = dict(base="rhc-base.html")
 
 
 QUARTER_TO_MONTH_NUMBER = None
@@ -19,7 +27,7 @@ TEMPLATE_OVERRIDES = {
 
 class InputSpec(jira.InputSpec):
     @classmethod
-    def from_dict(cls, input_form) -> "InputSpec":
+    def from_form_and_app(cls, input_form, app) -> "InputSpec":
         ret = cls()
         ret.server_url = "https://issues.redhat.com"
         ret.token = input_form.token.data
@@ -30,6 +38,7 @@ class InputSpec(jira.InputSpec):
         proj_narrowing = f"(sprint = {epoch} OR fixVersion = {epoch})"
         ret.retrospective_query = " ".join((query_lead, retro_narrowing))
         ret.projective_query = " ".join((query_lead, proj_narrowing))
+        ret.item_class = app.config["classes"]["BaseTarget"]
         return ret
 
 
@@ -152,3 +161,39 @@ def do_stuff(spec):
     importer = Importer(spec)
     importer.import_data(spec)
     importer.save(simpledata.RetroTargetIO, simpledata.ProjTargetIO, simpledata.EventManager)
+
+
+class BaseTarget:
+    status_summary: str
+    status_summary_time: datetime.datetime
+
+    def __init__(self, * args, **kwargs):
+        super().__init__(* args, ** kwargs)
+
+        self.status_summary = ""
+        self.status_summary_time = None
+
+    def pass_data_to_saver(self, saver):
+        super().pass_data_to_saver(saver)
+        saver.save_status_update(self)
+
+    def load_data_by_loader(self, loader):
+        super().load_data_by_loader(loader)
+        loader.load_status_update(self)
+
+
+@persistence.loader_of(BaseTarget, "ini")
+class IniTargetStateLoader:
+    def load_status_update(self, t):
+        t.status_summary = self._get_our(t, "status_summary")
+        time_str = self._get_our(t, "status_summary_time")
+        if time_str:
+            t.status_summary_time = datetime.datetime.fromisoformat(time_str)
+
+
+@persistence.saver_of(BaseTarget, "ini")
+class IniTargetStateSaver:
+    def save_status_update(self, t):
+        self._store_our(t, "status_summary")
+        if t.status_summary_time:
+            self._store_our(t, "status_summary_time", t.status_summary_time.isoformat())

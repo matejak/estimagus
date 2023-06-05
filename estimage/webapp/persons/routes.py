@@ -14,11 +14,11 @@ from ... import simpledata as webdata
 @flask_login.login_required
 def projective_workload():
     user = flask_login.current_user
-
     user_id = user.get_id()
-    all_targets = webdata.ProjTargetIO.get_loaded_targets_by_id()
-    targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(list(all_targets.values()))
-    model = web_utils.get_user_model(user_id, webdata.ProjTargetIO)
+
+    all_targets_by_id, model = web_utils.get_all_tasks_by_id_and_user_model("retro", user_id)
+    all_targets = list(all_targets_by_id.values())
+    targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(all_targets)
 
     simple_workloads = persons.SimpleWorkloads(targets_tree_without_duplicates, model)
     simple_workloads.solve_problem()

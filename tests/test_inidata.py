@@ -7,7 +7,7 @@ import pytest
 import estimage.inidata as tm
 from estimage.persistence import entrydef, event
 import estimage.data as data
-from test_events import early_event, less_early_event
+from tests.test_events import early_event, less_early_event
 
 
 @pytest.fixture

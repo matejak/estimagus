@@ -5,9 +5,9 @@ import typing
 
 from jira import JIRA
 
-from estimage.entities import target, event
-from estimage import simpledata
-import estimage.entities.event as evts
+from ...entities import target
+from ... import simpledata
+from ...entities import event as evts
 
 
 JIRA_STATUS_TO_STATE = {
@@ -46,15 +46,17 @@ class InputSpec:
     retrospective_query: str
     projective_query: str
     cutoff_date: datetime.date
+    item_class: typing.Type
 
     @classmethod
-    def from_dict(cls, input_form) -> "InputSpec":
+    def from_form_and_app(cls, input_form, app) -> "InputSpec":
         ret = cls()
         ret.token = input_form.token.data
         ret.server_url = input_form.server.data
         ret.retrospective_query = input_form.retroQuery.data
         ret.projective_query = input_form.projQuery.data
         ret.cutoff_date = input_form.cutoffDate.data
+        ret.item_class = app.config["classes"]["BaseTarget"]
         return ret
 
 
@@ -196,6 +198,7 @@ class Importer:
         self._projective_targets = set()
         self._all_events = []
         self.jira = JIRA(spec.server_url, token_auth=spec.token)
+        self.item_class = spec.item_class
 
     def import_data(self, spec):
         issue_names_requiring_events = set()
@@ -229,7 +232,9 @@ class Importer:
     def find_targets(self, target_names: typing.Iterable[str]):
         target_ids_sequence = ", ".join(target_names)
         query = f"id in ({target_ids_sequence})"
-        return self.jira.search_issues(query)
+        targets = self.jira.search_issues(query)
+        targets_by_id = {t.key: t for t in targets}
+        return [targets_by_id[name] for name in target_names]
 
     def refresh_targets(self, real_targets: typing.Iterable[target.BaseTarget], io_cls):
         if not real_targets:
@@ -266,7 +271,7 @@ class Importer:
         return ret
 
     def merge_jira_item_without_children(self, item):
-        result = target.BaseTarget(item.key)
+        result = self.item_class(item.key)
         result.uri = item.permalink()
         result.loading_plugin = "jira"
         result.title = item.get_field("summary") or ""
