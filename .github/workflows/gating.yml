@@ -31,7 +31,7 @@ jobs:
         run: coverage run --source estimage -m pytest
 
       - name: Produce coverage report of relevant files
-        run: coverage xml --omit '*/webapp/*'
+        run: coverage xml --omit '*/webapp/*,*/routes.py,*/forms.py'
 
       - name: Upload coverage to Code Climate  # Requires: git package
         if: ${{ github.repository == 'matejak/estimage' }}
