@@ -192,7 +192,7 @@ def view_task(task_name):
         request_forms["consensus"].enable_submit_button()
     if context.global_estimation_exists:
         request_forms["consensus"].enable_delete_button()
-        request_forms["authoritative"].enable_submit_button()
+        request_forms["authoritative"].clear_to_go()
 
     similar_targets = []
     if context.estimation_source == "none":

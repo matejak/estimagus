@@ -54,12 +54,12 @@
         <p>The estimate is based on the consensus estimate.</p>
 	{%- endif %}
 	{%- if context.estimation_source == "none" %}
-        <p>The estimate is based on the data from the issue's tracker.</p>
+        <p>The estimate is based on the data from the issue tracker.</p>
 	{%- endif %}
 	{%- if context.estimate_status == "duplicate" %}
         <p>Your personal estimate and consensus are the same. Remove the redundant personal estimate.</p>
 	{%- elif context.estimate_status == "contradictory" %}
-        <p>Your personal estimate is different than the global consensus, and overrides it.</p>
+        <p>Your personal estimate is different than the global consensus, and overrides it for you.</p>
 	{%- endif %}
         </div>
         <div class="col">

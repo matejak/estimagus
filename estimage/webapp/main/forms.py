@@ -2,6 +2,8 @@ from flask_wtf import FlaskForm
 import wtforms
 from wtforms import StringField, BooleanField, SubmitField, PasswordField, ValidationError
 
+from ... import plugins
+
 
 class SubmitMixin:
     def enable_submit_button(self):
@@ -45,10 +47,14 @@ class ConsensusForm(PromotionMixin, SubmitMixin, DeleteMixin):
         self.disable_delete_button()
 
 
+@plugins.PluginResolver.class_is_extendable("AuthoritativeForm")
 class AuthoritativeForm(PromotionMixin, SubmitMixin):
     def __init__(self, * args, ** kwargs):
         id_prefix = "authoritative_"
         super().__init__(* args, id_prefix=id_prefix, ** kwargs)
+
+    def clear_to_go(self):
+        pass
 
     i_kid_you_not = BooleanField("Consensus should be authoritative")
     submit = SubmitField("Promote Consensus Estimate")
