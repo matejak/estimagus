@@ -33,3 +33,16 @@ class AuthoritativeForm:
     def clear_to_go(self):
         self.enable_submit_button()
         super().clear_to_go()
+
+    def __iter__(self):
+        attributes = (
+            self.csrf_token,
+            self.task_name,
+            self.point_cost,
+            self.token,
+            self.i_kid_you_not,
+            self.submit,
+        )
+        ret = (a for a in attributes)
+        return ret
+

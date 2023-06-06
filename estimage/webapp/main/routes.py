@@ -85,14 +85,14 @@ def move_issue_estimate_to_consensus(task_name):
 @bp.route('/authoritative/<task_name>', methods=['POST'])
 @flask_login.login_required
 def move_consensus_estimate_to_authoritative(task_name):
-    form = forms.AuthoritativeForm()
-    if form.validate_on_submit() and form.i_kid_you_not.data:
-        pollster_cons = webdata.AuthoritativePollster()
+    form = flask.current_app.config["classes"]["AuthoritativeForm"]()
+    if form.validate_on_submit():
+        if form.i_kid_you_not.data:
+            pollster_cons = webdata.AuthoritativePollster()
 
-        est_input = pollster_cons.ask_points(task_name)
-        propagate_estimate_to_task(task_name, est_input)
-    else:
-        flask.flash("Authoritative estimate not updated, request was not serious")
+            redhat_compliance.write_some_points(form)
+        else:
+            flask.flash("Authoritative estimate not updated, request was not serious")
 
     return flask.redirect(
         flask.url_for("main.view_task", task_name=task_name))
@@ -178,7 +178,7 @@ def view_task(task_name):
     request_forms = dict(
         estimation=forms.NumberEstimationForm(),
         consensus=forms.ConsensusForm(),
-        authoritative=forms.AuthoritativeForm(),
+        authoritative=flask.current_app.config["classes"]["AuthoritativeForm"](),
     )
 
     t = projective_retrieve_task(task_name)
@@ -193,6 +193,8 @@ def view_task(task_name):
     if context.global_estimation_exists:
         request_forms["consensus"].enable_delete_button()
         request_forms["authoritative"].clear_to_go()
+        request_forms["authoritative"].task_name.data = task_name
+        request_forms["authoritative"].point_cost.data = str(context.global_estimation.expected)
 
     similar_targets = []
     if context.estimation_source == "none":

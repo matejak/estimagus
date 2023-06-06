@@ -3,7 +3,7 @@ import datetime
 import collections
 import typing
 
-from jira import JIRA
+from jira import JIRA, exceptions
 
 from ...entities import target
 from ... import simpledata
@@ -197,7 +197,11 @@ class Importer:
         self._retro_targets = set()
         self._projective_targets = set()
         self._all_events = []
-        self.jira = JIRA(spec.server_url, token_auth=spec.token)
+        try:
+            self.jira = JIRA(spec.server_url, token_auth=spec.token, validate=True)
+        except exceptions.JIRAError as exc:
+            msg = f"Error establishing a Jira session: {exc.text}"
+            raise RuntimeError(msg) from exc
         self.item_class = spec.item_class
 
     def import_data(self, spec):
@@ -235,6 +239,16 @@ class Importer:
         targets = self.jira.search_issues(query)
         targets_by_id = {t.key: t for t in targets}
         return [targets_by_id[name] for name in target_names]
+
+    def find_target(self, name: str):
+        query = f"id = {name}"
+        target = self.jira.search_issues(query)
+        if not target:
+            msg = (
+                f"{target} not found"
+            )
+            raise ValueError(msg)
+        return target[0]
 
     def refresh_targets(self, real_targets: typing.Iterable[target.BaseTarget], io_cls):
         if not real_targets:

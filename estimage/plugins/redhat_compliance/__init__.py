@@ -101,11 +101,17 @@ class Importer(jira.Importer):
     WORK_START = "customfield_12313941"
     WORK_END = "customfield_12313942"
 
+    def _get_points_of(self, item):
+        return float(item.get_field(self.STORY_POINTS) or 0)
+
+    def _set_points_of(self, item, points):
+        item.update({self.STORY_POINTS: round(points, 2)})
+
     def merge_jira_item_without_children(self, item):
 
         result = super().merge_jira_item_without_children(item)
 
-        result.point_cost = float(item.get_field(self.STORY_POINTS) or 0)
+        result.point_cost = self._get_points_of(item)
         result.status_summary = self._get_contents_of_rendered_field(item, self.STATUS_SUMMARY)
         result.loading_plugin = "jira-rhcompliance"
         self._record_collaborators(result, item)
@@ -143,13 +149,29 @@ class Importer(jira.Importer):
         if work_span[0] or work_span[-1]:
             result.work_span = tuple(work_span)
 
+    def update_points_of(self, our_task, points):
+        jira_task = self.find_target(our_task.name)
+        remote_points = self._get_points_of(jira_task)
+        if remote_points == points:
+            return jira_task
+        if remote_points != our_task.point_cost:
+            msg = (
+                f"Trying to update issue {our_task.name} "
+                f"with cached value {our_task.point_cost}, "
+                f"while it has {remote_points}."
+            )
+            raise ValueError(msg)
+        self._set_points_of(jira_task, points)
+        jira_task.find(jira_task.key)
+        return self.merge_jira_item_without_children(jira_task)
+
     def save(self, retro_target_io_class, proj_target_io_class, event_manager_class):
         apply_some_events_into_issues(self._targets_by_id, self._all_events)
         return super().save(retro_target_io_class, proj_target_io_class, event_manager_class)
 
 
 def refresh_targets(names, mode, token):
-    Spec = collections.namedtuple("Spec", ["server_url", "token"])
+    Spec = collections.namedtuple("Spec", ["server_url", "token", "item_class"])
     spec = Spec(server_url="https://issues.redhat.com", token=token)
     if mode == "projective":
         io_cls = web_utils.get_proj_loader()[1]
@@ -158,6 +180,20 @@ def refresh_targets(names, mode, token):
     real_targets = [data.BaseTarget.load_metadata(name, io_cls) for name in names]
     importer = Importer(spec)
     importer.refresh_targets(real_targets, io_cls)
+
+
+def write_some_points(form):
+    return write_points_to_task(form.task_name.data, form.token.data, float(form.point_cost.data))
+
+
+def write_points_to_task(name, token, points):
+    Spec = collections.namedtuple("Spec", ["server_url", "token", "item_class"])
+    spec = Spec(server_url="https://issues.redhat.com", token=token, item_class=flask.current_app.config["classes"]["BaseTarget"])
+    io_cls = web_utils.get_proj_loader()[1]
+    importer = Importer(spec)
+    our_target = data.BaseTarget.load_metadata(name, io_cls)
+    updated_target = importer.update_points_of(our_target, points)
+    updated_target.save_metadata(io_cls)
 
 
 def do_stuff(spec):

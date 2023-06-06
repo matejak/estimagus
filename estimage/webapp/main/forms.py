@@ -56,6 +56,8 @@ class AuthoritativeForm(PromotionMixin, SubmitMixin):
     def clear_to_go(self):
         pass
 
+    task_name = wtforms.HiddenField('task_name')
+    point_cost = wtforms.HiddenField('point_cost')
     i_kid_you_not = BooleanField("Consensus should be authoritative")
     submit = SubmitField("Promote Consensus Estimate")
 
