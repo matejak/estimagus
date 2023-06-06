@@ -25,3 +25,11 @@ class RedhatComplianceRefreshForm(FlaskForm):
     targets = wtforms.HiddenField('csv')
     next = wtforms.HiddenField('url')
     submit = wtforms.SubmitField("Refresh")
+
+
+class AuthoritativeForm:
+    token = wtforms.PasswordField('Jira Token')
+
+    def clear_to_go(self):
+        self.enable_submit_button()
+        super().clear_to_go()

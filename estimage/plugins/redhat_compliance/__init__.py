@@ -8,10 +8,13 @@ import flask
 
 from ... import simpledata, data, persistence
 from .. import jira
+from ...webapp import web_utils
+from .forms import AuthoritativeForm
 
 
 EXPORTS = dict(
     BaseTarget="BaseTarget",
+    AuthoritativeForm="AuthoritativeForm",
 )
 # TEMPLATE_EXPORTS = dict(base="rhc-base.html")
 
@@ -149,18 +152,20 @@ def refresh_targets(names, mode, token):
     Spec = collections.namedtuple("Spec", ["server_url", "token"])
     spec = Spec(server_url="https://issues.redhat.com", token=token)
     if mode == "projective":
-        io_cls = simpledata.ProjTargetIO
+        io_cls = web_utils.get_proj_loader()[1]
     else:
-        io_cls = simpledata.RetroTargetIO
+        io_cls = web_utils.get_retro_loader()[1]
     real_targets = [data.BaseTarget.load_metadata(name, io_cls) for name in names]
     importer = Importer(spec)
     importer.refresh_targets(real_targets, io_cls)
 
 
 def do_stuff(spec):
+    retro_loader = web_utils.get_retro_loader()[1]
+    proj_loader = web_utils.get_proj_loader()[1]
     importer = Importer(spec)
     importer.import_data(spec)
-    importer.save(simpledata.RetroTargetIO, simpledata.ProjTargetIO, simpledata.EventManager)
+    importer.save(retro_loader, proj_loader, simpledata.EventManager)
 
 
 class BaseTarget:

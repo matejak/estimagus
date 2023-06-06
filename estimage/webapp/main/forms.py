@@ -1,8 +1,8 @@
 from flask_wtf import FlaskForm
 import wtforms
-from wtforms import StringField, BooleanField, SubmitField, PasswordField, ValidationError
+from wtforms import StringField, BooleanField, SubmitField, ValidationError
 
-from ... import plugins
+from ... import PluginResolver
 
 
 class SubmitMixin:
@@ -47,7 +47,7 @@ class ConsensusForm(PromotionMixin, SubmitMixin, DeleteMixin):
         self.disable_delete_button()
 
 
-@plugins.PluginResolver.class_is_extendable("AuthoritativeForm")
+@PluginResolver.class_is_extendable("AuthoritativeForm")
 class AuthoritativeForm(PromotionMixin, SubmitMixin):
     def __init__(self, * args, ** kwargs):
         id_prefix = "authoritative_"

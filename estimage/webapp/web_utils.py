@@ -10,7 +10,7 @@ def _get_entrydef_loader(flavor, backend):
     target_class = flask.current_app.config["classes"]["BaseTarget"]
     # in the special case of the ini backend, the registered loader doesn't call super()
     # when looking up CONFIG_FILENAME
-    loader = type("loader", (flavor, persistence.LOADERS[target_class][backend]), dict())
+    loader = type("loader", (flavor, persistence.SAVERS[target_class][backend], persistence.LOADERS[target_class][backend]), dict())
     return target_class, loader
 
 

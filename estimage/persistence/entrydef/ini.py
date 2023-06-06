@@ -18,19 +18,6 @@ class IniTargetLoaderBase(inidata.IniLoaderBase):
         return self._read_items_attribute(t.name, attribute, fallback)
 
 
-class IniTargetStateIO(IniTargetSaverBase, IniTargetLoaderBase):
-    def load_status_update(self, t):
-        t.status_summary = self._get_our(t, "status_summary")
-        time_str = self._get_our(t, "status_summary_time")
-        if time_str:
-            t.status_summary_time = datetime.datetime.fromisoformat(time_str)
-
-    def save_status_update(self, t):
-        self._store_our(t, "status_summary")
-        if t.status_summary_time:
-            self._store_our(t, "status_summary_time", t.status_summary_time.isoformat())
-
-
 @persistence.saver_of(data.BaseTarget, "ini")
 class IniTargetSaver(IniTargetSaverBase):
     def save_title_and_desc(self, t):
@@ -151,5 +138,5 @@ class IniTargetLoader(IniTargetLoaderBase):
         return ret
 
 
-class IniTargetIO(IniTargetStateIO, IniTargetSaver, IniTargetLoader):
+class IniTargetIO(IniTargetSaver, IniTargetLoader):
     pass
