@@ -61,6 +61,15 @@
 	{%- elif context.estimate_status == "contradictory" %}
         <p>Your personal estimate is different than the global consensus, and overrides it for you.</p>
 	{%- endif %}
+	{%- if not context.authoritative_record_exists %}
+        <p>The issue doesn't seem to be estimated in the issue tracker.</p>
+	{%- elif context.estimation_source == "global"  %}
+	{%- if context.authoritative_record_consistent %}
+        <p>The estimation and its record in the issue tracker are consistent.</p>
+	{%- else %}
+        <p>The estimation and its record in the issue tracker aren't consistent, consider updating whatever is invalid.</p>
+	{%- endif %}
+	{%- endif %}
         </div>
         <div class="col">
         <img src="{{ url_for('vis.visualize_task', task_name=task.name, nominal_or_remaining='nominal') }}" alt="PERT prob density function for {{ task.name }}"/>

@@ -1,8 +1,8 @@
 import typing
 import pathlib
 import datetime
-import dateutil.relativedelta
 import dataclasses
+import dateutil.relativedelta
 
 import flask
 
@@ -69,10 +69,11 @@ class Context:
     own_estimation_exists: bool = False
     global_estimation_exists: bool = False
 
-    def __init__(self, of_task):
-        self.task_name = of_task
+    def __init__(self, of_task: data.BaseTarget):
+        self.task_name = of_task.name
         self._own_estimate = None
         self._global_estimate = None
+        self._authoritative_estimate = of_task.point_cost
 
     def process_own_pollster(self, pollster: data.Pollster):
         self.own_estimation_exists = False
@@ -130,6 +131,14 @@ class Context:
         else:
             ret = "contradictory"
         return ret
+
+    @property
+    def authoritative_record_exists(self) -> bool:
+        return self._authoritative_estimate > 0
+
+    @property
+    def authoritative_record_consistent(self) -> bool:
+        return abs(self._authoritative_estimate - self.estimation.expected) < 0.5
 
     @property
     def estimation_source(self) -> str:

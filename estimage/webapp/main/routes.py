@@ -184,7 +184,7 @@ def view_task(task_name):
     t = projective_retrieve_task(task_name)
 
     c_pollster = webdata.AuthoritativePollster()
-    context = webdata.Context(t.name)
+    context = webdata.Context(t)
     give_data_to_context(context, pollster, c_pollster)
 
     if context.own_estimation_exists:
