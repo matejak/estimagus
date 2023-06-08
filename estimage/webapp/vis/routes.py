@@ -4,13 +4,14 @@ import collections
 
 import flask
 import flask_login
+import numpy as np
 
 from . import bp
 from .. import web_utils
 from ... import utilities
 from ... import simpledata as webdata
 from ... import history
-from ...visualize import utils, velocity, burndown, pert
+from ...visualize import utils, velocity, burndown, pert, completion
 
 import matplotlib
 
@@ -50,6 +51,38 @@ def get_pert_in_figure(estimation, task_name):
     fig.set_size_inches(* NORMAL_FIGURE_SIZE)
 
     return fig
+
+
+@bp.route('/completion.svg')
+@flask_login.login_required
+def visualize_completion():
+    user = flask_login.current_user
+    user_id = user.get_id()
+    all_events = webdata.EventManager()
+    all_events.load()
+
+    all_targets_by_id, model = web_utils.get_all_tasks_by_id_and_user_model("retro", user_id)
+    all_targets = list(all_targets_by_id.values())
+    targets_tree_without_duplicates = utilities.reduce_subsets_from_sets([t for t in all_targets if t.tier == 0])
+    model = web_utils.get_user_model(user_id, targets_tree_without_duplicates)
+    todo = model.remaining_point_estimate
+
+    start, end = flask.current_app.config["RETROSPECTIVE_PERIOD"]
+    aggregation = history.Aggregation.from_targets(targets_tree_without_duplicates, start, end)
+    aggregation.process_event_manager(all_events)
+
+    velocity_array = aggregation.get_velocity_array()
+    velocity_array = velocity_array[velocity_array > 0] * 7
+    velocity_mean = velocity_array.mean()
+    velocity_array = np.convolve(velocity_array, np.ones(7) / 7, "same")
+    velocity_stdev = velocity_array.var()**0.5
+
+    matplotlib.use("svg")
+    print(f"{velocity_mean=}, {velocity_stdev=}")
+    print(f"{velocity_array=}")
+    fig = completion.MPLCompletionPlot(todo, (velocity_mean, velocity_stdev)).get_figure()
+    fig.set_size_inches(* NORMAL_FIGURE_SIZE)
+    return send_figure_as_svg(fig, "completion.svg")
 
 
 @bp.route('/<epic_name>-velocity.svg')
