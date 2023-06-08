@@ -7,6 +7,7 @@ import scipy.stats
 
 import estimage.data as tm
 from estimage.entities import estimate
+from estimage import utilities
 
 
 @pytest.fixture
@@ -433,18 +434,21 @@ def assert_sampling_corresponds_to_pdf(domain, generated, predicted, relative_di
     predicted /= np.max(predicted)
 
     high_diff = np.quantile(np.abs(predicted - histogram), 0.95)
-    # plot_diffs(domain, histogram, predicted)
+    if high_diff > relative_diff:
+        plot_diffs(domain, histogram, predicted)
     assert high_diff < relative_diff
 
 
 def plot_diffs(dom, histogram, predicted):
+    import matplotlib
     import matplotlib.pyplot as plt
+    matplotlib.use("Agg")
     fig, ax = plt.subplots()
     ax.plot(dom, histogram, label="simulation")
     ax.plot(dom, predicted, label="prediction")
     ax.legend()
     ax.grid()
-    plt.show()
+    fig.savefig("testfail.png")
 
 
 def test_rv_algebra_addition():
@@ -484,7 +488,7 @@ def test_rv_algebra_gauss_division():
 
 def test_rv_algebra_division():
     num_trials = 100000
-    num_samples = 100
+    num_samples = 150
 
     gauss_mean = 1.5
     gauss_std = 0.4
@@ -508,6 +512,20 @@ def test_rv_algebra_division():
     generated_pert = e1.pert_rvs(num_trials)
     generated_normal = sp.stats.norm.rvs(loc=gauss_mean, scale=gauss_std, size=num_trials)
     assert_sampling_corresponds_to_pdf(dom, generated_pert / generated_normal, pdf)
+    random_variable = utilities.get_random_variable(dom, pdf)
+    # TODO: The following test is somewhat fragile. Perhaps there is a sampling difficulty of the PDF?
+    assert_sampling_corresponds_to_pdf(dom, random_variable.rvs(num_trials * 5), pdf)
+
+    old_dom, old_pdf = e1.get_pert(num_samples)
+    dom, pdf = e1.divide_by_gauss_pdf(num_samples, gauss_mean, 0)
+    assert (old_dom / dom).mean() == pytest.approx(gauss_mean)
+    assert (old_pdf - pdf).mean() == pytest.approx(0)
+
+    dom, pdf = e1.divide_by_gauss_pdf(num_samples, gauss_mean, 0.0001)
+    assert (old_dom / dom).mean() == pytest.approx(gauss_mean, rel=1e-2)
+    assert (old_pdf - pdf).mean() == pytest.approx(0)
+    generated_pert = e1.pert_rvs(num_trials)
+    assert_sampling_corresponds_to_pdf(dom, generated_pert / gauss_mean, pdf)
 
     gauss_mean = 2
     gauss_std = 0.4
