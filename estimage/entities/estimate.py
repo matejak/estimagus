@@ -310,6 +310,15 @@ class Estimate:
         return ret
 
     def _divide_by_gauss_general_estimate(self, dom, mean, stdev):
+        if stdev == 0:
+            return self._divide_by_point_gauss_general_estimate(dom, mean)
+        return self._divide_by_general_gauss_general_estimate(dom, mean, stdev)
+
+    def _divide_by_point_gauss_general_estimate(self, dom, mean):
+        _, pert = self.get_pert(len(dom))
+        return pert
+
+    def _divide_by_general_gauss_general_estimate(self, dom, mean, stdev):
         values = np.zeros_like(dom)
         inner_resolution = len(dom) * 2
         inner_domain, pert = self.get_pert(inner_resolution)
