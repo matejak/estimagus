@@ -7,7 +7,6 @@ import flask_login
 from . import bp
 from .. import web_utils
 from ... import persons, utilities
-from ... import simpledata as webdata
 
 
 @bp.route('/projective_workload')
@@ -20,7 +19,8 @@ def projective_workload():
     all_targets = list(all_targets_by_id.values())
     targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(all_targets)
 
-    simple_workloads = persons.SimpleWorkloads(targets_tree_without_duplicates, model)
+    simple_workloads_type = web_utils.get_workloads(persons.SimpleWorkloads)
+    simple_workloads = simple_workloads_type(targets_tree_without_duplicates, model)
     simple_workloads.solve_problem()
     simple_summary = simple_workloads.summary()
     all_persons = sorted(simple_workloads.persons_potential.keys())
@@ -28,7 +28,8 @@ def projective_workload():
     summaries_and_workloads = dict(
         simple_summary=simple_summary, simple=simple_workloads,
         )
-    optimized_workloads = persons.OptimizedWorkloads(targets_tree_without_duplicates, model)
+    optimized_workloads_type = web_utils.get_workloads(persons.OptimizedWorkloads)
+    optimized_workloads = optimized_workloads_type(targets_tree_without_duplicates, model)
     try:
         optimized_workloads.solve_problem()
         optimized_summary = optimized_workloads.summary()

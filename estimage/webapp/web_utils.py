@@ -22,6 +22,12 @@ def get_proj_loader():
     return _get_entrydef_loader(webdata.ProjTargetIO, "ini")
 
 
+def get_workloads(workload_type):
+    if workloads := flask.current_app.config["classes"].get("Workloads"):
+        workload_type = type(f"ext_{workload_type.__name__}", (workloads, workload_type), dict())
+    return workload_type
+
+
 def get_all_tasks_by_id_and_user_model(spec, user_id):
     if spec == "retro":
         cls, loader = get_retro_loader()
