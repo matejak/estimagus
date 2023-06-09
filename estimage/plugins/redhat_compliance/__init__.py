@@ -15,6 +15,7 @@ from .forms import AuthoritativeForm
 EXPORTS = dict(
     BaseTarget="BaseTarget",
     AuthoritativeForm="AuthoritativeForm",
+    Workloads="Workloads",
 )
 # TEMPLATE_EXPORTS = dict(base="rhc-base.html")
 
@@ -238,3 +239,12 @@ class IniTargetStateSaver:
         self._store_our(t, "status_summary")
         if t.status_summary_time:
             self._store_our(t, "status_summary_time", t.status_summary_time.isoformat())
+
+
+class Workloads:
+    def __init__(self,
+                 targets: typing.Iterable[data.BaseTarget],
+                 model: data.EstiModel,
+                 * args, ** kwargs):
+        targets = [t for t in targets if t.tier == 0]
+        super().__init__(* args, model=model, targets=targets, ** kwargs)
