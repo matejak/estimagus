@@ -1,0 +1,46 @@
+{% extends "general_retro.html" %}
+
+{% block content %}
+<div class="container-md">
+{% block retrospective_content %}
+    <div class="row">
+    <h1>Overview</h1>
+    <div class="col">
+{% block burndown %}
+    <h2>Burndown</h2>
+    <p>
+        Total SP waiting to be completed at start of the sprint: {{ initial_todo | round | int }}
+    </p>
+    <p>
+        Last recorded data:
+        <ul>
+            <li>TODO: {{ last_record.todo | round | int }}</li>
+            <li>In Progress / needs review: {{ last_record.underway | round | int }}</li>
+            <li>Done: {{ last_record.done | round | int }}</li>
+        </ul>
+    </p>
+    <p>
+    <img src="{{ url_for('vis.visualize_overall_burndown', tier=0, size="normal") }}" alt="Overall Burndown"/>
+    </p>
+{% endblock %}
+    </div>
+    <div class="col">
+{% block velocity %}
+    <h2>Velocity</h2>
+    <p>
+        <ul>
+	    {% if total_days_while_working %}
+	    <li>Average weekly when there was work: {{ "%.02g" % (total_points_done / total_days_while_working * 7) }}, 𝜎 = {{ "%.03g" % velocity_stdev_while_working }}</li>
+	    {% endif -%}
+            <li>Average weekly across the whole period: {{ "%.02g" % (total_points_done / total_days_in_period * 7) }}, 𝜎 = {{ "%.03g" % velocity_stdev }}</li>
+        </ul>
+    </p>
+    <p>
+    <img src="{{ url_for('vis.visualize_velocity', epic_name='.') }}" alt="Overall velocity"/>
+    </p>
+{% endblock %}
+    </div>
+    </div>
+{% endblock retrospective_content %}
+</div>
+{% endblock content %}

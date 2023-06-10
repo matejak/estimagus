@@ -1,10 +1,14 @@
-{% extends "base.html" %}
-
 {% import "utils.j2" as utils %}
+
+{% if mode == "retro" %}
+{% extends "general_retro.html" %}
+{% else %}
+{% extends "general_plan.html" %}
+{% endif %}
 
 {% macro render_epic_workload(epic, points, percentage) -%}
 <div>
-	{{ "%.2g" % points }} &nbsp; pts., {{ "%i" % percentage }} &nbsp; % &mdash; 
+	{{ "%.2g" % points }} &nbsp; pts., {{ "%i" % percentage }} &nbsp; % &mdash;
 	{{ utils.truncate_text_to(epic.title, "350pt") }}
         {{ utils.epic_external_link(epic) }}
 </div>
