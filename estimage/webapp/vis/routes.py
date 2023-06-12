@@ -97,6 +97,7 @@ def visualize_velocity(epic_name):
     all_events.load()
 
     start, end = flask.current_app.config["RETROSPECTIVE_PERIOD"]
+    velocity_class = flask.current_app.config["classes"]["MPLVelocityPlot"]
 
     if epic_name == ".":
         target_tree = utilities.reduce_subsets_from_sets(list(all_targets.values()))
@@ -115,7 +116,7 @@ def visualize_velocity(epic_name):
     cutoff_date = min(datetime.datetime.today(), end)
 
     matplotlib.use("svg")
-    fig = velocity.MPLVelocityPlot(aggregation).get_figure(cutoff_date)
+    fig = velocity_class(aggregation).get_figure(cutoff_date)
     fig.set_size_inches(* NORMAL_FIGURE_SIZE)
     return send_figure_as_svg(fig, epic_name)
 
@@ -211,12 +212,14 @@ def output_burndown(target_tree, size):
     aggregation = history.Aggregation.from_targets(target_tree, start, end)
     aggregation.process_event_manager(all_events)
 
+    burndown_class = flask.current_app.config["classes"]["MPLPointPlot"]
+
     matplotlib.use("svg")
     if size == "small":
-        fig = burndown.MPLPointPlot(aggregation).get_small_figure()
+        fig = burndown_class(aggregation).get_small_figure()
         fig.set_size_inches(* SMALL_FIGURE_SIZE)
     else:
-        fig = burndown.MPLPointPlot(aggregation).get_figure()
+        fig = burndown_class(aggregation).get_figure()
         fig.set_size_inches(* NORMAL_FIGURE_SIZE)
 
     basename = flask.request.path.split("/")[-1]

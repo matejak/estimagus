@@ -117,6 +117,7 @@ class IniAppdata(IniStorage):
     RETROSPECTIVE_PERIOD: typing.Container[datetime.datetime] = (None, None)
     RETROSPECTIVE_QUARTER: str = ""
     PROJECTIVE_QUARTER: str = ""
+    DAY_INDEX: int = 0
     DATADIR: pathlib.Path = pathlib.Path(".")
 
     @classmethod
@@ -134,16 +135,22 @@ class IniAppdata(IniStorage):
     def _get_default_retrospective_quarter(self):
         raise NotImplementedError()
 
-    def save(self):
-        to_save = dict()
+    def _save_retrospective_period(self, to_save):
         to_save["RETROSPECTIVE_PERIOD"] = dict(
             start=self.RETROSPECTIVE_PERIOD[0],
             end=self.RETROSPECTIVE_PERIOD[1],
         )
+
+    def _save_quarters(self, to_save):
         to_save["QUARTERS"] = dict(
             projective=self.PROJECTIVE_QUARTER,
             retrospective=self.RETROSPECTIVE_QUARTER,
         )
+
+    def save(self):
+        to_save = dict()
+        self._save_retrospective_period(to_save)
+        self._save_quarters(to_save)
 
         with self._manipulate_existing_config(self.CONFIG_FILENAME) as config:
             config.update(to_save)

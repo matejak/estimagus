@@ -4,7 +4,7 @@ import datetime
 import numpy as np
 
 from . import utils
-from .. import history
+from .. import history, PluginResolver
 
 
 class TierStyle(typing.NamedTuple):
@@ -12,10 +12,12 @@ class TierStyle(typing.NamedTuple):
     color: tuple
 
 
+@PluginResolver.class_is_extendable("MPLVelocityPlot")
 class MPLVelocityPlot:
     TIER_STYLES = (
         TierStyle(label="", color=(0.1, 0.1, 0.6, 1)),
     )
+    DDAY_LABEL = "today"
 
     def __init__(self, a: typing.Iterable[history.Aggregation]):
         try:
@@ -58,6 +60,9 @@ class MPLVelocityPlot:
             self.days, data, color=tier_style.color,
             label=f"{tier_style.label} Velocity Fit")
 
+    def get_date_of_dday(self):
+        return datetime.datetime.today()
+
     def get_figure(self, cutoff_date):
         plt = utils.get_standard_pyplot()
 
@@ -77,9 +82,9 @@ class MPLVelocityPlot:
             self.days, all_tiers_rolling_velocity * days_in_real_week,
             color="orange", label="Rolling velocity estimate")
 
-        index_of_today = history.days_between(self.start, datetime.datetime.today())
-        if 0 <= index_of_today <= len(self.days):
-            ax.axvline(index_of_today, label="today", color="grey", linewidth=2)
+        index_of_dday = history.days_between(self.start, self.get_date_of_dday())
+        if 0 <= index_of_dday <= len(self.days):
+            ax.axvline(index_of_dday, label=self.DDAY_LABEL, color="grey", linewidth=2)
 
         ax.legend(loc="upper center")
         utils.x_axis_weeks_and_months(ax, self.start, self.end)
