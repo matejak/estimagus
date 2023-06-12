@@ -42,21 +42,6 @@ class MPLCompletionPlot:
 
         return fig
 
-    def get_small_figure(self):
-        plt = utils.get_standard_pyplot()
-
-        fig, ax = plt.subplots()
-
-        self._prepare_plots()
-        self._plot_prepared_arrays(ax)
-        self._show_plan(ax)
-        self._show_today(ax)
-
-        ax.set_axis_off()
-        fig.subplots_adjust(0, 0, 1, 1)
-
-        return fig
-
     def plot_stuff(self):
         plt = utils.get_standard_pyplot()
         self.get_figure()
