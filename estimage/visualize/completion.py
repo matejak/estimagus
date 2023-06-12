@@ -1,33 +1,49 @@
-import typing
 import datetime
 
 import numpy as np
 
 from . import utils
-from .. import utilities
+from .. import utilities, PluginResolver
 
 
+DAYS_IN_WEEK = 7
+
+
+@PluginResolver.class_is_extendable("MPLCompletionPlot")
 class MPLCompletionPlot:
+    DDAY_LABEL = "today"
     width = 2
 
-    def __init__(self, todo_estimation, perweek_velocity_mean_std):
-        dom, pdf = todo_estimation.divide_by_gauss_pdf(200, * perweek_velocity_mean_std)
+    def __init__(self, period_start, todo_estimation, perweek_velocity_mean_std):
+        self.period_start = period_start
+        dom, pdf = todo_estimation.divide_by_gauss_pdf(200, perweek_velocity_mean_std[0], perweek_velocity_mean_std[1])
         self.distribution = utilities.get_random_variable(dom, pdf)
-        DAYS_IN_WEEK = 7
-        lower_bound = self.distribution.ppf(0.02)
-        upper_bound = self.distribution.ppf(0.98)
+        upper_bound = self.distribution.ppf(1)
         self.dom = np.arange(
-                int(np.floor(lower_bound * DAYS_IN_WEEK)),
+                - (self.get_date_of_dday() - period_start).days,
                 int(np.ceil(upper_bound * DAYS_IN_WEEK)) + 1)
         self.probs = self.distribution.cdf(self.dom / DAYS_IN_WEEK)
-        self.probs -= self.probs[0]
-        self.probs /= self.probs[-1]
         self.probs *= 100
 
-    def _calculate_plan_wrt_day(self, ax, start):
-        ax.plot(self.dom, self.probs, color="green",
+    def _dom_to_days(self, dom_numbers):
+        return dom_numbers - self.dom[0]
+
+    def get_date_of_dday(self):
+        return datetime.datetime.today()
+
+    def _plot_plan_wrt_day(self, ax):
+        start = self.get_date_of_dday()
+        ax.plot(self._dom_to_days(self.dom), self.probs, color="green",
                 linewidth=self.width, label="prob of completion")
-        utils.x_axis_weeks_and_months(ax, start, start + utils.ONE_DAY * self.dom[-1])
+        utils.x_axis_weeks_and_months(ax, start + utils.ONE_DAY * self.dom[0], start + utils.ONE_DAY * self.dom[-1])
+
+    def _plot_percentile(self, ax, value_in_percents):
+        where = self.distribution.ppf(value_in_percents / 100.0) * DAYS_IN_WEEK
+        ax.axvline(self._dom_to_days(where), color="orange",
+                   linewidth=self.width, label=f"confidence {round(value_in_percents)} %")
+
+    def _plot_dday(self, ax):
+        ax.axvline(self._dom_to_days(0), label=self.DDAY_LABEL, color="grey", linewidth=2)
 
     def get_figure(self):
         plt = utils.get_standard_pyplot()
@@ -35,7 +51,10 @@ class MPLCompletionPlot:
         fig, ax = plt.subplots()
         ax.grid(True)
 
-        self._calculate_plan_wrt_day(ax, datetime.datetime.today())
+        self._plot_plan_wrt_day(ax)
+        self._plot_percentile(ax, 95.0)
+        self._plot_dday(ax)
+
         ax.legend(loc="upper left")
 
         ax.set_ylabel("percents")
