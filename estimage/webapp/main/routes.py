@@ -247,7 +247,7 @@ def get_similar_tasks(user_id, task_name, all_targets_by_id):
 
 @bp.route('/')
 def index():
-    return flask.redirect(flask.url_for("main.tree_view"))
+    return flask.redirect(flask.url_for("main.overview_retro"))
 
 
 @bp.route('/refresh', methods=["POST"])

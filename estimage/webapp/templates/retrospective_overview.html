@@ -29,9 +29,6 @@
     <h2>Velocity</h2>
     <p>
         <ul>
-	    {% if total_days_while_working %}
-	    <li>Average weekly when there was work: {{ "%.02g" % (total_points_done / total_days_while_working * 7) }}, 𝜎 = {{ "%.03g" % velocity_stdev_while_working }}</li>
-	    {% endif -%}
             <li>Average weekly across the whole period: {{ "%.02g" % (total_points_done / total_days_in_period * 7) }}, 𝜎 = {{ "%.03g" % velocity_stdev }}</li>
         </ul>
     </p>
