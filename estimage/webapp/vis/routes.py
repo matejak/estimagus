@@ -78,9 +78,10 @@ def visualize_completion():
     velocity_stdev = velocity_array.var()**0.5
 
     matplotlib.use("svg")
-    print(f"{velocity_mean=}, {velocity_stdev=}")
-    print(f"{velocity_array=}")
-    fig = completion.MPLCompletionPlot(todo, (velocity_mean, velocity_stdev)).get_figure()
+
+    completion_class = flask.current_app.config["classes"]["MPLCompletionPlot"]
+
+    fig = completion_class(start, todo, (velocity_mean, velocity_stdev)).get_figure()
     fig.set_size_inches(* NORMAL_FIGURE_SIZE)
     return send_figure_as_svg(fig, "completion.svg")
 

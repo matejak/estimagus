@@ -38,6 +38,17 @@
 {% endblock %}
     </div>
     </div>
+    <div class="row">
+{% block completion %}
+    <h2>Completion</h2>
+    <p>
+    	Projection of completion
+    </p>
+    <p>
+    <img src="{{ url_for('vis.visualize_completion') }}" alt="Completion projection"/>
+    </p>
+{% endblock %}
+    </div>
 {% endblock retrospective_content %}
 </div>
 {% endblock content %}
