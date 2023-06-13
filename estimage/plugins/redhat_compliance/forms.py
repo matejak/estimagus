@@ -5,6 +5,7 @@ import wtforms
 class RedhatComplianceForm(FlaskForm):
     token = wtforms.PasswordField('Token')
     quarter = wtforms.StringField('Quarter String')
+    project_next = wtforms.BooleanField('Plan for the Next Quarter')
     submit = wtforms.SubmitField("Import Data")
 
 

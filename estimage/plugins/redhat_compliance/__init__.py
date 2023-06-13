@@ -36,10 +36,13 @@ class InputSpec(jira.InputSpec):
         ret.server_url = "https://issues.redhat.com"
         ret.token = input_form.token.data
         epoch = input_form.quarter.data
+        planning_epoch = epoch
+        if input_form.project_next.data:
+            planning_epoch = next_epoch_of(planning_epoch)
         ret.cutoff_date = epoch_start_to_datetime(epoch)
         query_lead = f"project = {PROJECT_NAME} AND type = Epic AND"
         retro_narrowing = f"sprint = {epoch} AND Commitment in (Committed, Planned)"
-        proj_narrowing = f"(sprint = {epoch} OR fixVersion = {epoch})"
+        proj_narrowing = f"sprint = {planning_epoch}"
         ret.retrospective_query = " ".join((query_lead, retro_narrowing))
         ret.projective_query = " ".join((query_lead, proj_narrowing))
         ret.item_class = app.config["classes"]["BaseTarget"]
