@@ -168,7 +168,8 @@ def test_context_deal_with_defective_estimate():
     normal_pollster = data.Pollster(get_independent_memory_io())
     normal_pollster.tell_points("task", data.EstimInput(1))
 
-    context = tm.Context("task")
+    task = data.BaseTarget("task")
+    context = tm.Context(task)
     with pytest.raises(ValueError):
         context.process_own_pollster(poisoned_pollster)
     assert not context.own_estimation_exists
