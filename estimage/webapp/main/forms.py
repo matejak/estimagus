@@ -58,8 +58,8 @@ class AuthoritativeForm(PromotionMixin, SubmitMixin):
 
     task_name = wtforms.HiddenField('task_name')
     point_cost = wtforms.HiddenField('point_cost')
-    i_kid_you_not = BooleanField("Consensus should be authoritative")
-    submit = SubmitField("Promote Consensus Estimate")
+    i_kid_you_not = BooleanField("Consensus should be published to the tracker")
+    submit = SubmitField("Publish Consensus Estimate")
 
 
 FIB = [0, 1, 2, 3, 5, 8, 13, 21, 34]

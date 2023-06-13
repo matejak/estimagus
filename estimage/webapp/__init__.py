@@ -65,8 +65,6 @@ def create_app(config_class=config.Config):
     app.config["classes"] = app.plugin_resolver.class_dict
 
     plugins_dict = dict(
-        jira=plugins.get_plugin("jira"),
-        redhat_compliance=plugins.get_plugin("redhat_compliance"),
     )
     app.set_plugins_dict(plugins_dict)
 

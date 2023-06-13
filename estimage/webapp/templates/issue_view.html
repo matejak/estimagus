@@ -17,20 +17,12 @@
 
 
 {% macro estimation_form_in_accordion(estimate_exists) -%}
-<div class="accordion" id="accordionEstimation">
-<div class="accordion-item">
-	<h4 class="accordion-header" id="accordionHeading">
-		<button class="accordion-button {{- " collapsed" if estimate_exists }}" type="button" data-bs-toggle="collapse" data-bs-target="#collapseEstimation" aria-expanded="{{ "false" if estimate_exists else "true" }}" aria-controls="collapseEstimation">
-			{{ "Modify" if estimate_exists else "Create" }} the estimate
-		</button>
-	</h4>
-	<div id="collapseEstimation" class="accordion-collapse collapse {{- " show" if not estimate_exists }}" aria-labelledby="accordionHeading" data-bs-parent="#accordionEstimation">
-		<div class="accordion-body">
-			{{ render_form(forms["estimation"], button_map={"submit": "primary", "delete": "danger"}, action=url_for("main.estimate", task_name=task.name)) }}
-		</div>
-	</div>
-</div>
-</div>
+{{ utils.accordion_with_stuff(
+	"Estimation", estimate_exists,
+	("Modify" if estimate_exists else "Create") ~ " the estimate",
+	render_form(forms["estimation"], button_map={"submit": "primary", "delete": "danger"}, action=url_for("main.estimate", task_name=task.name))
+	)
+}}
 {%- endmacro %}
 
 
@@ -77,7 +69,7 @@
     </div>
     <div class="row">
     <div class="col">
-    <h3>Authoritative values</h3>
+    <h3>Tracker values</h3>
     <p>
         {{ task_authoritative() | indent(8) -}}
         {% if "authoritative" in forms -%}

@@ -138,14 +138,38 @@
 {%- endmacro %}
 
 
+{% macro accordion_with_stuff(stem, collapsed, header_text, body_text, heading_level=4) -%}
+<div class="accordion" id="accordion{{ stem }}">
+<div class="accordion-item">
+	<h{{ heading_level }} class="accordion-header" id="accordionHeading">
+		<button class="accordion-button {{- " collapsed" if collapsed }}" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ stem }}" aria-expanded="{{ "false" if collapsed else "true" }}" aria-controls="collapse{{ stem }}">
+			{{ header_text }}
+		</button>
+	</h{{ heading_level }}>
+	<div id="collapse{{ stem }}" class="accordion-collapse collapse {{- " show" if not collapsed }}" aria-labelledby="accordionHeading" data-bs-parent="#accordion{{ stem }}">
+		<div class="accordion-body">
+			{{ body_text }}
+		</div>
+	</div>
+</div>
+</div>
+{%- endmacro %}
+
+
 {% macro task_metadata(task) -%}
 <h2>{{ task.title }}</h2>
 {% if task.uri -%}
 <a href="{{ task.uri }}">{{ task.uri }}</a>
 {% endif -%}
 <div>State: {{ state_to_string(task.state)  }}</div>
+{% if (task.description | length) < 1200 %}
 <h3>Description</h3>
-<div>{{ (task.description | safe) or "No description" }}</div>
+<p>
+{{ (task.description | safe) or "No description" }}
+</p>
+{%- else %}
+{{ accordion_with_stuff("Description", true, "Description", (task.description | safe) or "No description", 3) }}
+{%- endif %}
 {%- endmacro %}
 
 
