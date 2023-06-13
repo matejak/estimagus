@@ -64,8 +64,8 @@ def create_app(config_class=config.Config):
     app.config.from_object(config.read_or_create_config(simpledata.AppData))
     app.config["classes"] = app.plugin_resolver.class_dict
 
-    plugins_dict = dict(
-    )
+    plugins_dict = {name: plugins.get_plugin(name) for name in app.config["PLUGINS"]}
+
     app.set_plugins_dict(plugins_dict)
 
     app.register_blueprint(main_bp)

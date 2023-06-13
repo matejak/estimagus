@@ -14,6 +14,7 @@ class Config:
     GOOGLE_DISCOVERY_URL = (
         "https://accounts.google.com/.well-known/openid-configuration"
     )
+    PLUGINS = os.environ.get("PLUGINS", "").split(",")
 
 
 def read_or_create_config(cls):
