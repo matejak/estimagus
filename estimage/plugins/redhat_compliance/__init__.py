@@ -1,17 +1,21 @@
 import re
 import datetime
-import dataclasses
 import collections
 import dateutil.relativedelta
+import typing
 
 import flask
 
 from ... import simpledata, data, persistence
 from .. import jira
+from ...webapp import web_utils
+from .forms import AuthoritativeForm
 
 
 EXPORTS = dict(
     BaseTarget="BaseTarget",
+    AuthoritativeForm="AuthoritativeForm",
+    Workloads="Workloads",
 )
 # TEMPLATE_EXPORTS = dict(base="rhc-base.html")
 
@@ -32,10 +36,13 @@ class InputSpec(jira.InputSpec):
         ret.server_url = "https://issues.redhat.com"
         ret.token = input_form.token.data
         epoch = input_form.quarter.data
+        planning_epoch = epoch
+        if input_form.project_next.data:
+            planning_epoch = next_epoch_of(planning_epoch)
         ret.cutoff_date = epoch_start_to_datetime(epoch)
         query_lead = f"project = {PROJECT_NAME} AND type = Epic AND"
         retro_narrowing = f"sprint = {epoch} AND Commitment in (Committed, Planned)"
-        proj_narrowing = f"(sprint = {epoch} OR fixVersion = {epoch})"
+        proj_narrowing = f"sprint = {planning_epoch}"
         ret.retrospective_query = " ".join((query_lead, retro_narrowing))
         ret.projective_query = " ".join((query_lead, proj_narrowing))
         ret.item_class = app.config["classes"]["BaseTarget"]
@@ -98,11 +105,17 @@ class Importer(jira.Importer):
     WORK_START = "customfield_12313941"
     WORK_END = "customfield_12313942"
 
+    def _get_points_of(self, item):
+        return float(item.get_field(self.STORY_POINTS) or 0)
+
+    def _set_points_of(self, item, points):
+        item.update({self.STORY_POINTS: round(points, 2)})
+
     def merge_jira_item_without_children(self, item):
 
         result = super().merge_jira_item_without_children(item)
 
-        result.point_cost = float(item.get_field(self.STORY_POINTS) or 0)
+        result.point_cost = self._get_points_of(item)
         result.status_summary = self._get_contents_of_rendered_field(item, self.STATUS_SUMMARY)
         result.loading_plugin = "jira-rhcompliance"
         self._record_collaborators(result, item)
@@ -140,27 +153,59 @@ class Importer(jira.Importer):
         if work_span[0] or work_span[-1]:
             result.work_span = tuple(work_span)
 
+    def update_points_of(self, our_task, points):
+        jira_task = self.find_target(our_task.name)
+        remote_points = self._get_points_of(jira_task)
+        if remote_points == points:
+            return jira_task
+        if remote_points != our_task.point_cost:
+            msg = (
+                f"Trying to update issue {our_task.name} "
+                f"with cached value {our_task.point_cost}, "
+                f"while it has {remote_points}."
+            )
+            raise ValueError(msg)
+        self._set_points_of(jira_task, points)
+        jira_task.find(jira_task.key)
+        return self.merge_jira_item_without_children(jira_task)
+
     def save(self, retro_target_io_class, proj_target_io_class, event_manager_class):
         apply_some_events_into_issues(self._targets_by_id, self._all_events)
         return super().save(retro_target_io_class, proj_target_io_class, event_manager_class)
 
 
 def refresh_targets(names, mode, token):
-    Spec = collections.namedtuple("Spec", ["server_url", "token"])
+    Spec = collections.namedtuple("Spec", ["server_url", "token", "item_class"])
     spec = Spec(server_url="https://issues.redhat.com", token=token)
     if mode == "projective":
-        io_cls = simpledata.ProjTargetIO
+        io_cls = web_utils.get_proj_loader()[1]
     else:
-        io_cls = simpledata.RetroTargetIO
+        io_cls = web_utils.get_retro_loader()[1]
     real_targets = [data.BaseTarget.load_metadata(name, io_cls) for name in names]
     importer = Importer(spec)
     importer.refresh_targets(real_targets, io_cls)
 
 
+def write_some_points(form):
+    return write_points_to_task(form.task_name.data, form.token.data, float(form.point_cost.data))
+
+
+def write_points_to_task(name, token, points):
+    Spec = collections.namedtuple("Spec", ["server_url", "token", "item_class"])
+    spec = Spec(server_url="https://issues.redhat.com", token=token, item_class=flask.current_app.config["classes"]["BaseTarget"])
+    io_cls = web_utils.get_proj_loader()[1]
+    importer = Importer(spec)
+    our_target = data.BaseTarget.load_metadata(name, io_cls)
+    updated_target = importer.update_points_of(our_target, points)
+    updated_target.save_metadata(io_cls)
+
+
 def do_stuff(spec):
+    retro_loader = web_utils.get_retro_loader()[1]
+    proj_loader = web_utils.get_proj_loader()[1]
     importer = Importer(spec)
     importer.import_data(spec)
-    importer.save(simpledata.RetroTargetIO, simpledata.ProjTargetIO, simpledata.EventManager)
+    importer.save(retro_loader, proj_loader, simpledata.EventManager)
 
 
 class BaseTarget:
@@ -197,3 +242,12 @@ class IniTargetStateSaver:
         self._store_our(t, "status_summary")
         if t.status_summary_time:
             self._store_our(t, "status_summary_time", t.status_summary_time.isoformat())
+
+
+class Workloads:
+    def __init__(self,
+                 targets: typing.Iterable[data.BaseTarget],
+                 model: data.EstiModel,
+                 * args, ** kwargs):
+        targets = [t for t in targets if t.tier == 0]
+        super().__init__(* args, model=model, targets=targets, ** kwargs)

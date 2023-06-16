@@ -1,6 +1,8 @@
 from flask_wtf import FlaskForm
 import wtforms
-from wtforms import StringField, BooleanField, SubmitField, PasswordField, ValidationError
+from wtforms import StringField, BooleanField, SubmitField, ValidationError
+
+from ... import PluginResolver
 
 
 class SubmitMixin:
@@ -45,13 +47,19 @@ class ConsensusForm(PromotionMixin, SubmitMixin, DeleteMixin):
         self.disable_delete_button()
 
 
+@PluginResolver.class_is_extendable("AuthoritativeForm")
 class AuthoritativeForm(PromotionMixin, SubmitMixin):
     def __init__(self, * args, ** kwargs):
         id_prefix = "authoritative_"
         super().__init__(* args, id_prefix=id_prefix, ** kwargs)
 
-    i_kid_you_not = BooleanField("Consensus should be authoritative")
-    submit = SubmitField("Promote Consensus Estimate")
+    def clear_to_go(self):
+        pass
+
+    task_name = wtforms.HiddenField('task_name')
+    point_cost = wtforms.HiddenField('point_cost')
+    i_kid_you_not = BooleanField("Consensus should be published to the tracker")
+    submit = SubmitField("Publish Consensus Estimate")
 
 
 FIB = [0, 1, 2, 3, 5, 8, 13, 21, 34]

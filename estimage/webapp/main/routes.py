@@ -85,14 +85,15 @@ def move_issue_estimate_to_consensus(task_name):
 @bp.route('/authoritative/<task_name>', methods=['POST'])
 @flask_login.login_required
 def move_consensus_estimate_to_authoritative(task_name):
-    form = forms.AuthoritativeForm()
-    if form.validate_on_submit() and form.i_kid_you_not.data:
-        pollster_cons = webdata.AuthoritativePollster()
-
-        est_input = pollster_cons.ask_points(task_name)
-        propagate_estimate_to_task(task_name, est_input)
-    else:
-        flask.flash("Authoritative estimate not updated, request was not serious")
+    form = flask.current_app.config["classes"]["AuthoritativeForm"]()
+    if form.validate_on_submit():
+        if form.i_kid_you_not.data:
+            pollster_cons = webdata.AuthoritativePollster()
+            estimate = pollster_cons.ask_points(form.task_name.data)
+            form.point_cost.data = str(estimate.expected)
+            redhat_compliance.write_some_points(form)
+        else:
+            flask.flash("Authoritative estimate not updated, request was not serious")
 
     return flask.redirect(
         flask.url_for("main.view_task", task_name=task_name))
@@ -178,13 +179,13 @@ def view_task(task_name):
     request_forms = dict(
         estimation=forms.NumberEstimationForm(),
         consensus=forms.ConsensusForm(),
-        authoritative=forms.AuthoritativeForm(),
+        authoritative=flask.current_app.config["classes"]["AuthoritativeForm"](),
     )
 
     t = projective_retrieve_task(task_name)
 
     c_pollster = webdata.AuthoritativePollster()
-    context = webdata.Context(t.name)
+    context = webdata.Context(t)
     give_data_to_context(context, pollster, c_pollster)
 
     if context.own_estimation_exists:
@@ -192,7 +193,9 @@ def view_task(task_name):
         request_forms["consensus"].enable_submit_button()
     if context.global_estimation_exists:
         request_forms["consensus"].enable_delete_button()
-        request_forms["authoritative"].enable_submit_button()
+        request_forms["authoritative"].clear_to_go()
+        request_forms["authoritative"].task_name.data = task_name
+        request_forms["authoritative"].point_cost.data = ""
 
     similar_targets = []
     if context.estimation_source == "none":
@@ -244,7 +247,7 @@ def get_similar_tasks(user_id, task_name, all_targets_by_id):
 
 @bp.route('/')
 def index():
-    return flask.redirect(flask.url_for("main.tree_view"))
+    return flask.redirect(flask.url_for("main.overview_retro"))
 
 
 @bp.route('/refresh', methods=["POST"])
@@ -324,6 +327,24 @@ def executive_summary_of_points_and_velocity(targets):
 
 
 @bp.route('/retrospective')
+@flask_login.login_required
+def overview_retro():
+    user = flask_login.current_user
+    user_id = user.get_id()
+
+    all_targets_by_id, model = web_utils.get_all_tasks_by_id_and_user_model("retro", user_id)
+    tier0_targets = [t for t in all_targets_by_id.values() if t.tier == 0]
+    tier0_targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(tier0_targets)
+
+    summary = executive_summary_of_points_and_velocity(tier0_targets_tree_without_duplicates)
+
+    return web_utils.render_template(
+        "retrospective_overview.html",
+        title="Retrospective view",
+        ** summary)
+
+
+@bp.route('/retrospective_tree')
 @flask_login.login_required
 def tree_view_retro():
     user = flask_login.current_user

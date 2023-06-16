@@ -5,7 +5,7 @@ import collections
 import numpy as np
 import scipy as sp
 
-import estimage.data as data
+from . import data, PluginResolver
 
 
 def get_all_collaborators(targets):
@@ -35,6 +35,7 @@ def get_people_associaged_with(target: data.BaseTarget) -> typing.Set[str]:
     return associated_people
 
 
+@PluginResolver.class_is_extendable("Workloads")
 @dataclasses.dataclass
 class Workloads:
     points: float = 0

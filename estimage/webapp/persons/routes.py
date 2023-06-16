@@ -7,20 +7,11 @@ import flask_login
 from . import bp
 from .. import web_utils
 from ... import persons, utilities
-from ... import simpledata as webdata
 
 
-@bp.route('/projective_workload')
-@flask_login.login_required
-def projective_workload():
-    user = flask_login.current_user
-    user_id = user.get_id()
-
-    all_targets_by_id, model = web_utils.get_all_tasks_by_id_and_user_model("retro", user_id)
-    all_targets = list(all_targets_by_id.values())
-    targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(all_targets)
-
-    simple_workloads = persons.SimpleWorkloads(targets_tree_without_duplicates, model)
+def render_workload(title, mode, targets_tree, model):
+    simple_workloads_type = web_utils.get_workloads(persons.SimpleWorkloads)
+    simple_workloads = simple_workloads_type(targets_tree, model)
     simple_workloads.solve_problem()
     simple_summary = simple_workloads.summary()
     all_persons = sorted(simple_workloads.persons_potential.keys())
@@ -28,7 +19,8 @@ def projective_workload():
     summaries_and_workloads = dict(
         simple_summary=simple_summary, simple=simple_workloads,
         )
-    optimized_workloads = persons.OptimizedWorkloads(targets_tree_without_duplicates, model)
+    optimized_workloads_type = web_utils.get_workloads(persons.OptimizedWorkloads)
+    optimized_workloads = optimized_workloads_type(targets_tree, model)
     try:
         optimized_workloads.solve_problem()
         optimized_summary = optimized_workloads.summary()
@@ -39,6 +31,30 @@ def projective_workload():
         flask.flash(f"Error optimizing workload: {exc}")
 
     return web_utils.render_template(
-        'workload.html', title='Projective Workloads', all_persons=all_persons,
+        'workload.html', title=title, all_persons=all_persons, mode=mode,
         ** summaries_and_workloads
     )
+
+
+@bp.route('/retrospective_workload')
+@flask_login.login_required
+def retrospective_workload():
+    user = flask_login.current_user
+    user_id = user.get_id()
+
+    all_targets_by_id, model = web_utils.get_all_tasks_by_id_and_user_model("retro", user_id)
+    all_targets = list(all_targets_by_id.values())
+    targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(all_targets)
+    return render_workload('Retrospective Workloads', "retro", targets_tree_without_duplicates, model)
+
+
+@bp.route('/planning_workload')
+@flask_login.login_required
+def planning_workload():
+    user = flask_login.current_user
+    user_id = user.get_id()
+
+    all_targets_by_id, model = web_utils.get_all_tasks_by_id_and_user_model("proj", user_id)
+    all_targets = list(all_targets_by_id.values())
+    targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(all_targets)
+    return render_workload('Planning Workloads', "plan", targets_tree_without_duplicates, model)

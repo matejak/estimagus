@@ -96,7 +96,8 @@ def test_context():
     competing_pollster.tell_points("task", data.EstimInput(1))
     competing_pollster.tell_points("t", data.EstimInput(2))
 
-    context = tm.Context("task")
+    task = data.BaseTarget("task")
+    context = tm.Context(task)
     assert context.estimate_status == "absent"
     with pytest.raises(ValueError):
         context.own_estimation
@@ -106,6 +107,8 @@ def test_context():
     context.process_own_pollster(own_pollster)
     assert context.estimate_status == "single"
     assert context.own_estimation_exists
+    assert not context.authoritative_record_exists
+    assert not context.authoritative_record_consistent
     assert context.estimation_source == "own"
     assert not context.global_estimation_exists
     assert context.own_estimation.expected == 1
@@ -124,9 +127,12 @@ def test_context():
     assert context.estimate_status == "absent"
     assert context.estimation_source == "none"
 
-    context = tm.Context("t")
+    task = data.BaseTarget("t")
+    task.point_cost = 1.2
+    context = tm.Context(task)
     context.process_own_pollster(own_pollster)
     assert not context.own_estimation_exists
+    assert context.authoritative_record_exists
     assert context.estimation_source == "none"
     assert context.estimate_status == "absent"
     with pytest.raises(ValueError):
@@ -136,6 +142,7 @@ def test_context():
     assert context.estimation_source == "global"
     assert context.estimate_status == "single"
     assert context.estimation.expected == 1
+    assert context.authoritative_record_consistent
 
     context.process_own_pollster(competing_pollster)
     assert context.estimation_source == "own"
@@ -145,6 +152,7 @@ def test_context():
     assert context.global_estimation.expected == 1
     assert context.own_estimation.expected == 2
     assert context.estimation.expected == 2
+    assert not context.authoritative_record_consistent
 
     context.process_own_pollster(own_pollster)
     assert context.estimation_source == "global"
@@ -160,7 +168,8 @@ def test_context_deal_with_defective_estimate():
     normal_pollster = data.Pollster(get_independent_memory_io())
     normal_pollster.tell_points("task", data.EstimInput(1))
 
-    context = tm.Context("task")
+    task = data.BaseTarget("task")
+    context = tm.Context(task)
     with pytest.raises(ValueError):
         context.process_own_pollster(poisoned_pollster)
     assert not context.own_estimation_exists

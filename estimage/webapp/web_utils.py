@@ -10,7 +10,7 @@ def _get_entrydef_loader(flavor, backend):
     target_class = flask.current_app.config["classes"]["BaseTarget"]
     # in the special case of the ini backend, the registered loader doesn't call super()
     # when looking up CONFIG_FILENAME
-    loader = type("loader", (flavor, persistence.LOADERS[target_class][backend]), dict())
+    loader = type("loader", (flavor, persistence.SAVERS[target_class][backend], persistence.LOADERS[target_class][backend]), dict())
     return target_class, loader
 
 
@@ -20,6 +20,12 @@ def get_retro_loader():
 
 def get_proj_loader():
     return _get_entrydef_loader(webdata.ProjTargetIO, "ini")
+
+
+def get_workloads(workload_type):
+    if workloads := flask.current_app.config["classes"].get("Workloads"):
+        workload_type = type(f"ext_{workload_type.__name__}", (workloads, workload_type), dict())
+    return workload_type
 
 
 def get_all_tasks_by_id_and_user_model(spec, user_id):

@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "general_retro.html" %}
 
 {% import "utils.j2" as utils %}
 
@@ -12,14 +12,14 @@
     <div class="col">
     <h2>Burndown</h2>
     <p>
-        Total epic SP waiting to be completed at start of the sprint: {{ initial_todo }}
+        Total epic SP waiting to be completed at start of the sprint: {{ initial_todo | round | int }}
     </p>
     <p>
         Last recorded data:
         <ul>
-            <li>TODO: {{ last_record.todo }}</li>
-            <li>In Progress / needs review: {{ last_record.underway }}</li>
-            <li>Done: {{ last_record.done }}</li>
+            <li>TODO: {{ last_record.todo | round | int }}</li>
+            <li>In Progress / needs review: {{ last_record.underway | round | int }}</li>
+            <li>Done: {{ last_record.done | round | int }}</li>
         </ul>
     </p>
     <p>
@@ -28,17 +28,20 @@
     </div>
     <div class="col">
     <h2>Velocity</h2>
+	    {% if total_days_while_working %}
     <p>
         <ul>
-	    {% if total_days_while_working %}
             <li>Average weekly when there was work: {{ "%.02g" % (total_points_done / total_days_while_working * 7) }}</li>
-	    {% endif -%}
-            <li>Average weekly across the whole period: {{ "%.02g" % (total_points_done / total_days_in_period * 7) }}</li>
         </ul>
     </p>
     <p>
     <img src="{{ url_for('vis.visualize_velocity', epic_name=epic.name) }}" alt="Epic velocity"/>
     </p>
+	    {% else -%}
+    <p>
+    There was no work on the issue recorded so far.
+    </p>
+	    {% endif -%}
     </div>
     </div>
     <div class="row">

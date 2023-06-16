@@ -5,6 +5,7 @@ import wtforms
 class RedhatComplianceForm(FlaskForm):
     token = wtforms.PasswordField('Token')
     quarter = wtforms.StringField('Quarter String')
+    project_next = wtforms.BooleanField('Plan for the Next Quarter')
     submit = wtforms.SubmitField("Import Data")
 
 
@@ -25,3 +26,24 @@ class RedhatComplianceRefreshForm(FlaskForm):
     targets = wtforms.HiddenField('csv')
     next = wtforms.HiddenField('url')
     submit = wtforms.SubmitField("Refresh")
+
+
+class AuthoritativeForm:
+    token = wtforms.PasswordField('Jira Token')
+
+    def clear_to_go(self):
+        self.enable_submit_button()
+        super().clear_to_go()
+
+    def __iter__(self):
+        attributes = (
+            self.csrf_token,
+            self.task_name,
+            self.point_cost,
+            self.token,
+            self.i_kid_you_not,
+            self.submit,
+        )
+        ret = (a for a in attributes)
+        return ret
+
