@@ -1,5 +1,6 @@
 [![Maintainability](https://api.codeclimate.com/v1/badges/b3ef0f1a152d3e197aa1/maintainability)](https://codeclimate.com/github/matejak/estimage/maintainability)
 [![Test Coverage](https://api.codeclimate.com/v1/badges/b3ef0f1a152d3e197aa1/test_coverage)](https://codeclimate.com/github/matejak/estimage/test_coverage)
+[![Gitter chat](https://badges.gitter.im/gitterHQ/gitter.png)](https://app.gitter.im/#/room/#estimagus:gitter.im)
 
 # estimage
 
