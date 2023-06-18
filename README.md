@@ -2,7 +2,7 @@
 [![Test Coverage](https://api.codeclimate.com/v1/badges/b3ef0f1a152d3e197aa1/test_coverage)](https://codeclimate.com/github/matejak/estimage/test_coverage)
 [![Gitter chat](https://badges.gitter.im/gitterHQ/gitter.png)](https://app.gitter.im/#/room/#estimagus:gitter.im)
 
-# estimage
+# Estimagus
 
 Decision support web application focused on estimation of tasks, on evaluation of progress and on identification of bottlenecks.
 
@@ -80,7 +80,7 @@ The tool visualizes progress and velocity of issues that are currently being wor
 
 ### Driving user stories
 
-- As a sysadmin, I want to be able to set up Estimage to connect to various task systems, so my customers will be able to estimate on the top of those systems using Estimage, while being backwards-compatible.
+- As a sysadmin, I want to be able to set up Estimagus to connect to various task systems, so my customers will be able to estimate on the top of those systems using Estimagus, while being backwards-compatible.
 - As a developer, I want to
   - estimate tasks using the 3-point method without interfering with others.
   - export results of my estimations to the main task database, so my estimations can be used by the whole team.
