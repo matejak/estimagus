@@ -1,5 +1,5 @@
-[![Maintainability](https://api.codeclimate.com/v1/badges/b3ef0f1a152d3e197aa1/maintainability)](https://codeclimate.com/github/matejak/estimagus/maintainability)
-[![Test Coverage](https://api.codeclimate.com/v1/badges/b3ef0f1a152d3e197aa1/test_coverage)](https://codeclimate.com/github/matejak/estimagus/test_coverage)
+[![Maintainability](https://api.codeclimate.com/v1/badges/dcb33e05b41d668a1b3e/maintainability)](https://codeclimate.com/github/matejak/estimagus/maintainability)
+[![Test Coverage](https://api.codeclimate.com/v1/badges/dcb33e05b41d668a1b3e/test_coverage)](https://codeclimate.com/github/matejak/estimagus/test_coverage)
 [![Gitter chat](https://badges.gitter.im/gitterHQ/gitter.png)](https://app.gitter.im/#/room/#estimagus:gitter.im)
 
 # Estimagus
