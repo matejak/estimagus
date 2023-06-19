@@ -29,7 +29,7 @@
     <h2>Velocity</h2>
     <p>
         <ul>
-            <li>Average weekly across the whole period: {{ "%.02g" % (total_points_done / total_days_in_period * 7) }}, 𝜎 = {{ "%.03g" % velocity_stdev }}</li>
+            <li>Average weekly across the whole period: {{ "%.02g" % (total_points_done / total_days_in_period * 7) }}, 𝜎 = {{ "%.02g" % velocity_stdev * 7 }}</li>
         </ul>
     </p>
     <p>
