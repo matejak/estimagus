@@ -197,3 +197,12 @@ def test_target_load_and_bulk_save(target_io):
     assert_targets_are_equal(one, loaded_one)
     loaded_two = all_targets_by_id["two"]
     assert_targets_are_equal(two, loaded_two)
+
+
+def test_target_forget(target_io):
+    target_io.forget_all()
+
+    one = tm.BaseTarget("one")
+    one.save_metadata(target_io)
+    target_io.forget_all()
+    assert not target_io.load_all_targets()

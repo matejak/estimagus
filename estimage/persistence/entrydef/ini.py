@@ -63,6 +63,10 @@ class IniTargetSaver(IniTargetSaverBase):
             for t in targets:
                 t.pass_data_to_saver(saver)
 
+    @classmethod
+    def forget_all(cls):
+        cls.erase()
+
 
 @persistence.loader_of(data.BaseTarget, "ini")
 class IniTargetLoader(IniTargetLoaderBase):
