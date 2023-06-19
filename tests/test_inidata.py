@@ -6,6 +6,7 @@ import pytest
 
 import estimage.inidata as tm
 from estimage.persistence import entrydef, event
+from estimage.persistence.entrydef import ini
 import estimage.data as data
 from tests.test_events import early_event, less_early_event
 

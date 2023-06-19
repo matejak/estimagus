@@ -1,3 +1,5 @@
+import datetime
+
 import flask
 import flask_login
 
@@ -17,6 +19,10 @@ def sync():
 
         task_spec = redhat_compliance.InputSpec.from_form_and_app(form, flask.current_app)
         redhat_compliance.do_stuff(task_spec)
+    else:
+        form.quarter.data = redhat_compliance.datetime_to_epoch(datetime.datetime.today())
+        next_starts_soon = redhat_compliance.days_to_next_epoch(datetime.datetime.today()) > 20
+        form.project_next.data = next_starts_soon
 
     return web_utils.render_template(
         'rhcompliance.html', title='Red Hat Compliacne Plugin', plugin_form=form, )

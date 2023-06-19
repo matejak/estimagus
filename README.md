@@ -1,5 +1,5 @@
-[![Maintainability](https://api.codeclimate.com/v1/badges/b3ef0f1a152d3e197aa1/maintainability)](https://codeclimate.com/github/matejak/estimage/maintainability)
-[![Test Coverage](https://api.codeclimate.com/v1/badges/b3ef0f1a152d3e197aa1/test_coverage)](https://codeclimate.com/github/matejak/estimage/test_coverage)
+[![Maintainability](https://api.codeclimate.com/v1/badges/b3ef0f1a152d3e197aa1/maintainability)](https://codeclimate.com/github/matejak/estimagus/maintainability)
+[![Test Coverage](https://api.codeclimate.com/v1/badges/b3ef0f1a152d3e197aa1/test_coverage)](https://codeclimate.com/github/matejak/estimagus/test_coverage)
 [![Gitter chat](https://badges.gitter.im/gitterHQ/gitter.png)](https://app.gitter.im/#/room/#estimagus:gitter.im)
 
 # Estimagus
@@ -34,7 +34,7 @@ See the `examples/docker-compose.yml` file - everything is there.
 Create a directory `data`, and put those sample ini files in it.
 The compose file is set up to mount the data directory to the container where it expects the data to be.
 
-Anyway, after running `docker-compose up estimage`, you should be able to connect to http://localhost:5000, and start exploring the app.
+Anyway, after running `docker-compose up estimagus`, you should be able to connect to http://localhost:5000, and start exploring the app.
 
 
 ## Configuration

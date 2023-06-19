@@ -22,6 +22,7 @@ EXPORTS = dict(
 
 QUARTER_TO_MONTH_NUMBER = None
 PROJECT_NAME = "OPENSCAP"
+MONTHS_IN_QUARTER = 3
 
 
 TEMPLATE_OVERRIDES = {
@@ -53,20 +54,32 @@ def epoch_start_to_datetime(epoch: str):
     epoch_groups = re.search(r"CY(\d\d)Q(\d)", epoch)
     year_number = int(epoch_groups.group(1))
     quarter_number = int(epoch_groups.group(2))
-    return datetime.datetime(2000 + year_number, 1 + (quarter_number - 1) * 3, 1)
+    return datetime.datetime(2000 + year_number, 1 + (quarter_number - 1) * MONTHS_IN_QUARTER, 1)
 
 
 def epoch_end_to_datetime(epoch: str):
     epoch_start = epoch_start_to_datetime(epoch)
-    epoch_end = epoch_start + dateutil.relativedelta.relativedelta(months=3)
+    epoch_end = epoch_start + dateutil.relativedelta.relativedelta(months=MONTHS_IN_QUARTER)
     epoch_end -= datetime.timedelta(days=1)
     return epoch_end
 
 
 def next_epoch_of(epoch: str) -> str:
     next_epoch_start = epoch_end_to_datetime(epoch) + datetime.timedelta(days=1)
-    quarter = (next_epoch_start.month - 1) // 3 + 1
+    quarter = (next_epoch_start.month - 1) // MONTHS_IN_QUARTER + 1
     return f"CY{next_epoch_start.year - 2000}Q{quarter}"
+
+
+def datetime_to_epoch(date: datetime.datetime) -> str:
+    year = date.year % 100
+    quarter = (date.month - 1) // MONTHS_IN_QUARTER + 1
+    return f"CY{year}Q{quarter}"
+
+
+def days_to_next_epoch(date: datetime.datetime) -> int:
+    current_epoch = datetime_to_epoch(date)
+    end = epoch_end_to_datetime(current_epoch)
+    return (end - date).days
 
 
 def extract_status_updates(all_events):

@@ -17,3 +17,16 @@ def test_next_period():
     assert tm.next_epoch_of("CY22Q1") == "CY22Q2"
     assert tm.next_epoch_of("CY22Q2") == "CY22Q3"
     assert tm.next_epoch_of("CY22Q4") == "CY23Q1"
+
+
+def test_date_to_period():
+    assert tm.datetime_to_epoch(datetime.datetime(2022, 1, 1)) == "CY22Q1"
+    assert tm.datetime_to_epoch(datetime.datetime(2022, 4, 1)) == "CY22Q2"
+    assert tm.datetime_to_epoch(datetime.datetime(2023, 3, 31)) == "CY23Q1"
+    assert tm.datetime_to_epoch(datetime.datetime(2023, 11, 30)) == "CY23Q4"
+
+
+def tests_days_to_next_epoch():
+    assert tm.days_to_next_epoch(datetime.datetime(2022, 3, 31)) == 0
+    assert tm.days_to_next_epoch(datetime.datetime(2023, 12, 31)) == 0
+    assert tm.days_to_next_epoch(datetime.datetime(2023, 11, 30)) == 31

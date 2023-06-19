@@ -5,6 +5,7 @@ import contextlib
 import typing
 import datetime
 import pathlib
+import os
 
 from . import data
 
@@ -70,6 +71,11 @@ class IniSaverBase(IniStorage):
     def save(self):
         with self._manipulate_existing_config(self.CONFIG_FILENAME) as config:
             self._save(config)
+
+    @classmethod
+    def erase(cls):
+        with cls._manipulate_existing_config(cls.CONFIG_FILENAME) as config:
+            config.clear()
 
     def _save(self, all_data_to_save):
         for name, data_to_save in self._data_to_save.items():

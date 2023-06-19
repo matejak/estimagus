@@ -207,6 +207,7 @@ class Importer:
     def import_data(self, spec):
         issue_names_requiring_events = set()
 
+        retro_epic_names = set()
         if spec.retrospective_query:
             retro_epic_names = get_epics_and_their_tasks_by_id(
                 self.jira, spec.retrospective_query, self._all_issues_by_name,
@@ -218,15 +219,19 @@ class Importer:
             print("Gathering retro stuff")
             print(f"{len(self._retro_targets)} issues so far")
 
+        proj_epic_names = set()
         if spec.projective_query:
             print("Gathering proj stuff")
             proj_epic_names = get_epics_and_their_tasks_by_id(
                 self.jira, spec.projective_query, self._all_issues_by_name, self._parents_child_keymap)
-            new_targets = self.export_jira_epic_chain_to_targets(proj_epic_names)
-            self._projective_targets.update(new_targets.keys())
+            new_names = proj_epic_names.difference(retro_epic_names)
+            new_targets = self.export_jira_epic_chain_to_targets(new_names)
             self._targets_by_id.update(new_targets)
+            self._projective_targets.update(new_targets.keys())
             print("Gathering projective stuff")
             print(f"{len(self._projective_targets)} issues so far")
+
+        self.resolve_inheritance(proj_epic_names.union(retro_epic_names))
 
         for name in issue_names_requiring_events:
             new_events = get_task_events(self._all_issues_by_name[name], spec.cutoff_date)
@@ -266,14 +271,23 @@ class Importer:
         fresh_target.dependents = real_target.dependents
         return fresh_target
 
-    def export_jira_epic_chain_to_targets(self, root_names):
-        all_targets_by_id = dict()
-        for iid, issue in self._all_issues_by_name.items():
-            all_targets_by_id[iid] = self.merge_jira_item_without_children(issue)
+    def export_jira_epic_chain_to_targets(self, root_names: typing.Iterable[str]) -> dict[str, target.BaseTarget]:
+        exported_targets_by_id = dict()
+        for name in root_names:
+            issue = self._all_issues_by_name[name]
+            target = self.merge_jira_item_without_children(issue)
+            exported_targets_by_id[name] = target
+            children = self._parents_child_keymap[name]
+            if not children:
+                continue
+            chain = self.export_jira_epic_chain_to_targets(children)
+            exported_targets_by_id.update(chain)
+        return exported_targets_by_id
+
+    def resolve_inheritance(self, root_names: typing.Iterable[str]):
         for root_name in root_names:
             resolve_inheritance_of_attributes(
-                root_name, all_targets_by_id, self._parents_child_keymap)
-        return all_targets_by_id
+                root_name, self._targets_by_id, self._parents_child_keymap)
 
     def _get_contents_of_rendered_field(self, item, field_name):
         ret = item.get_field(field_name) or ""
@@ -303,8 +317,12 @@ class Importer:
         return result
 
     def save(self, retro_target_io_class, proj_target_io_class, event_manager_class):
-        save_exported_jira_tasks(self._targets_by_id, self._retro_targets, retro_target_io_class)
-        save_exported_jira_tasks(self._targets_by_id, self._projective_targets, proj_target_io_class)
+        if self._retro_targets:
+            retro_target_io_class.forget_all()
+            save_exported_jira_tasks(self._targets_by_id, self._retro_targets, retro_target_io_class)
+        if self._projective_targets:
+            proj_target_io_class.forget_all()
+            save_exported_jira_tasks(self._targets_by_id, self._projective_targets, proj_target_io_class)
 
         storer = event_manager_class()
         for e in self._all_events:
