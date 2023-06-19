@@ -1,9 +1,9 @@
 version: "3"
 
 services:
-  estimage:
+  estimagus:
     image:
-      estimage
+      estimagus
     build:
       context: ..
     ports:

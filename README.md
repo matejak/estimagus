@@ -34,7 +34,7 @@ See the `examples/docker-compose.yml` file - everything is there.
 Create a directory `data`, and put those sample ini files in it.
 The compose file is set up to mount the data directory to the container where it expects the data to be.
 
-Anyway, after running `docker-compose up estimage`, you should be able to connect to http://localhost:5000, and start exploring the app.
+Anyway, after running `docker-compose up estimagus`, you should be able to connect to http://localhost:5000, and start exploring the app.
 
 
 ## Configuration
