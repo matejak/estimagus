@@ -37,6 +37,6 @@ jobs:
         if: ${{ github.repository == 'matejak/estimagus' }}
         uses: paambaati/codeclimate-action@v3.0.0
         env:
-          CC_TEST_REPORTER_ID: 57a98db83a3e5456b34353aaafbf74f2af7fdf1d90d99a2874e52dc93d8e4752
+          CC_TEST_REPORTER_ID: 707f3c07eac4f6e1a4d961cdf41db8ef2d1482bb0560489dc9999217af184368
         with:
           coverageLocations: coverage.xml:coverage.py
