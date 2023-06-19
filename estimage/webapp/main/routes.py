@@ -89,7 +89,8 @@ def move_consensus_estimate_to_authoritative(task_name):
     if form.validate_on_submit():
         if form.i_kid_you_not.data:
             pollster_cons = webdata.AuthoritativePollster()
-            estimate = pollster_cons.ask_points(form.task_name.data)
+            est_input = pollster_cons.ask_points(form.task_name.data)
+            estimate = data.Estimate.from_input(est_input)
             form.point_cost.data = str(estimate.expected)
             redhat_compliance.write_some_points(form)
         else:
