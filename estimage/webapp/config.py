@@ -4,6 +4,13 @@ import datetime
 from ..simpledata import AppData
 
 
+def _parse_csv(csv):
+    if csv == "":
+        return []
+    else:
+        return csv.split(",")
+
+
 class Config:
     SECRET_KEY = os.environ.get("SECRET_KEY")
     DATA_DIR = os.environ.get("DATA_DIR", "data")
@@ -14,7 +21,8 @@ class Config:
     GOOGLE_DISCOVERY_URL = (
         "https://accounts.google.com/.well-known/openid-configuration"
     )
-    PLUGINS = os.environ.get("PLUGINS", "").split(",") or []
+    PLUGINS = _parse_csv(os.environ.get("PLUGINS", ""))
+
 
 
 def read_or_create_config(cls):
