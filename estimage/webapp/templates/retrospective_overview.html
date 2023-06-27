@@ -29,7 +29,7 @@
     <h2>Velocity</h2>
     <p>
         <ul>
-            <li>Average weekly across the whole period: {{ "%.02g" % (total_points_done / total_days_in_period * 7) }}, 𝜎 = {{ "%.02g" % velocity_stdev * 7 }}</li>
+            <li>Average weekly across the whole period: {{ "%.02g" % weekly_velocity_mean }}, 𝜎 = {{ "%.02g" % weekly_velocity_stdev }}</li>
         </ul>
     </p>
     <p>
@@ -43,6 +43,9 @@
     <h2>Completion</h2>
     <p>
     	Projection of completion
+    </p>
+    <p>
+    Estimated time of delivery - between {{ "%.2g" % completion[0] }} to {{ "%.2g" % completion[1] }} weeks.
     </p>
     <p>
     <img src="{{ url_for('vis.visualize_completion') }}" alt="Completion projection"/>

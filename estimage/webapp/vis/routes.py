@@ -8,7 +8,7 @@ import numpy as np
 
 from . import bp
 from .. import web_utils
-from ... import utilities
+from ... import utilities, statops
 from ... import simpledata as webdata
 from ... import history
 from ...visualize import utils, velocity, burndown, pert, completion
@@ -72,16 +72,19 @@ def visualize_completion():
     aggregation.process_event_manager(all_events)
 
     velocity_array = aggregation.get_velocity_array()
-    velocity_array = velocity_array[velocity_array > 0] * 7
-    velocity_mean = velocity_array.mean()
-    velocity_array = np.convolve(velocity_array, np.ones(7) / 7, "same")
-    velocity_stdev = velocity_array.var()**0.5
+    last_nonzero_index = utilities.last_nonzero_index_of(velocity_array)
+    nonzero_weekly_velocity = velocity_array[:last_nonzero_index] * 7
+
+    v_mean, v_median = statops.get_mean_median_dissolving_outliers(nonzero_weekly_velocity, 5)
+
+    samples = 200
+    completion_dist = statops.divide_estimate_by_mean_median_fit(todo, v_mean, v_median, samples)
 
     matplotlib.use("svg")
 
     completion_class = flask.current_app.config["classes"]["MPLCompletionPlot"]
 
-    fig = completion_class(start, todo, (velocity_mean, velocity_stdev)).get_figure()
+    fig = completion_class(start, completion_dist).get_figure()
     fig.set_size_inches(* NORMAL_FIGURE_SIZE)
     return send_figure_as_svg(fig, "completion.svg")
 

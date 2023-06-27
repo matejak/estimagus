@@ -40,20 +40,14 @@ def calculate_o_p(m, E, V, lam):
 
 
 def find_optimistic_from_pert(dom, values):
-    optimistic = dom[0]
-    for index, value in enumerate(values):
-        if value > 0:
-            optimistic = dom[index]
-            break
+    first_nonzero_index = utilities.first_nonzero_index_of(values)
+    optimistic = dom[first_nonzero_index]
     return optimistic
 
 
 def find_pessimistic_from_pert(dom, values):
-    pessimistic = dom[-1]
-    for index, value in enumerate(values[::-1]):
-        if value > 0:
-            pessimistic = dom[-1 - index]
-            break
+    last_nonzero_index = utilities.last_nonzero_index_of(values)
+    pessimistic = dom[last_nonzero_index]
     return pessimistic
 
 
@@ -184,13 +178,13 @@ class Estimate:
             raise ValueError(msg)
 
         if dom is None:
-            buffer_samples = 0
+            buffer_samples = 1
             span = self.source.pessimistic - self.source.optimistic
             inflated_density = span / num_samples * 1.02
             dom = np.linspace(
                 self.source.optimistic - inflated_density * buffer_samples,
                 self.source.pessimistic + inflated_density * buffer_samples,
-                num_samples + 2 * buffer_samples)
+                num_samples)
         values = self._get_pert(dom)
         if len(dom) > 1:
             utilities.norm_pdf(values, dom[1] - dom[0])
