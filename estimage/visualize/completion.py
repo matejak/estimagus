@@ -14,11 +14,10 @@ class MPLCompletionPlot:
     DDAY_LABEL = "today"
     width = 2
 
-    def __init__(self, period_start, todo_estimation, perweek_velocity_mean_std):
-        self.period_start = period_start
-        dom, pdf = todo_estimation.divide_by_gauss_pdf(200, perweek_velocity_mean_std[0], perweek_velocity_mean_std[1])
-        self.distribution = utilities.get_random_variable(dom, pdf)
-        upper_bound = self.distribution.ppf(1)
+    def __init__(self, period_start, dist):
+        self.period_start = self.get_date_of_dday() - utils.ONE_DAY
+        self.distribution = dist
+        upper_bound = self.distribution.ppf(0.98)
         self.dom = np.arange(
                 - (self.get_date_of_dday() - period_start).days,
                 int(np.ceil(upper_bound * DAYS_IN_WEEK)) + 1)
@@ -41,6 +40,9 @@ class MPLCompletionPlot:
         where = self.distribution.ppf(value_in_percents / 100.0) * DAYS_IN_WEEK
         ax.axvline(self._dom_to_days(where), color="orange",
                    linewidth=self.width, label=f"confidence {round(value_in_percents)} %")
+        where = self.distribution.mean() * DAYS_IN_WEEK
+        ax.axvline(self._dom_to_days(where), color="black",
+                   linewidth=self.width, label="Expected")
 
     def _plot_dday(self, ax):
         ax.axvline(self._dom_to_days(0), label=self.DDAY_LABEL, color="grey", linewidth=2)

@@ -4,12 +4,13 @@ import collections
 
 import flask
 import flask_login
+import numpy as np
 
 from . import bp
 from . import forms
 from .. import web_utils
 from ... import data
-from ... import utilities
+from ... import utilities, statops
 from ... import simpledata as webdata
 from ... import history
 from ...plugins import redhat_compliance
@@ -363,8 +364,19 @@ def executive_summary_of_points_and_velocity(targets):
             cutoff_data.done += repre_points
 
     velocity_array = aggregation.get_velocity_array()
-    velocity_stdev = velocity_array.var()**0.5
     velocity_stdev_while_working = velocity_array[velocity_array > 0].var() ** 0.5
+
+    last_nonzero_index = utilities.last_nonzero_index_of(velocity_array)
+    nonzero_weekly_velocity = velocity_array[:last_nonzero_index] * 7
+
+    v_mean, v_median = statops.get_mean_median_dissolving_outliers(nonzero_weekly_velocity, 5)
+    mu, sigma = statops.get_lognorm_mu_sigma(v_mean, v_median)
+    velocity_stdev = np.sqrt(statops.get_lognorm_variance(mu, sigma))
+
+    samples = 200
+    work_remaining = cutoff_data.todo + cutoff_data.underway
+    todo = data.Estimate.from_triple(work_remaining, work_remaining, work_remaining)
+    completion_dist = statops.divide_estimate_by_mean_median_fit(todo, v_mean, v_median, samples)
 
     output = dict(
         initial_todo=not_done_on_start,
@@ -372,9 +384,11 @@ def executive_summary_of_points_and_velocity(targets):
         last_record=cutoff_data,
         total_days_in_period=(cutoff_date - start).days,
         total_days_while_working=sum(velocity_array > 0),
-        velocity_stdev=velocity_stdev,
+        weekly_velocity_mean=v_mean,
+        weekly_velocity_stdev=velocity_stdev,
         velocity_stdev_while_working=velocity_stdev_while_working,
         total_points_done=cutoff_data.done - done_on_start,
+        completion=(completion_dist.ppf(0.1), completion_dist.ppf(0.9)),
     )
     return output
 
