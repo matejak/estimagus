@@ -8,6 +8,7 @@ from jira import JIRA, exceptions
 from ...entities import target
 from ... import simpledata
 from ...entities import event as evts
+from ...webapp import web_utils
 
 
 JIRA_STATUS_TO_STATE = {
@@ -298,14 +299,17 @@ class Importer:
         ret = ret.replace("\r", "")
         return ret
 
+    @classmethod
+    def status_to_state(self, jira_string):
+        return JIRA_STATUS_TO_STATE.get(jira_string, target.State.unknown)
+
     def merge_jira_item_without_children(self, item):
         result = self.item_class(item.key)
         result.uri = item.permalink()
         result.loading_plugin = "jira"
         result.title = item.get_field("summary") or ""
         result.description = self._get_contents_of_rendered_field(item, "description")
-        result.state = JIRA_STATUS_TO_STATE.get(
-            item.get_field("status").name, target.State.unknown)
+        result.state = self.status_to_state(item.get_field("status").name)
         if item.fields.issuetype.name == "Epic" and result.state == target.State.abandoned:
             result.state = target.State.done
         result.priority = JIRA_PRIORITY_TO_VALUE.get(item.get_field("priority").name, 0)
@@ -332,6 +336,9 @@ class Importer:
 
 
 def do_stuff(spec):
+    retro_io = web_utils.get_retro_loader()[1]
+    proj_io = web_utils.get_proj_loader()[1]
+
     importer = Importer(spec)
     importer.import_data(spec)
-    importer.save(simpledata.RetroTargetIO, simpledata.ProjTargetIO, simpledata.EventManager)
+    importer.save(retro_io, proj_io, simpledata.EventManager)
