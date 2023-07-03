@@ -291,8 +291,9 @@ class Importer:
                 root_name, self._targets_by_id, self._parents_child_keymap)
 
     def _get_contents_of_rendered_field(self, item, field_name):
-        ret = item.get_field(field_name) or ""
+        ret = ""
         try:
+            ret = item.get_field(field_name) or ""
             ret = getattr(item.renderedFields, field_name)
         except AttributeError:
             pass
