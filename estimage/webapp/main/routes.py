@@ -93,22 +93,16 @@ def move_consensus_estimate_to_authoritative(task_name):
             estimate = data.Estimate.from_input(est_input)
             form.point_cost.data = str(estimate.expected)
             io_cls = web_utils.get_proj_loader()[1]
-            redhat_compliance.write_some_points(form, io_cls)
+            try:
+                redhat_compliance.write_some_points(form, io_cls)
+            except Exception as exc:
+                msg = f"Error updating the record: {exc}"
+                flask.flash(msg)
         else:
             flask.flash("Authoritative estimate not updated, request was not serious")
 
     return flask.redirect(
         flask.url_for("main.view_task", task_name=task_name))
-
-
-def propagate_estimate_to_task(task_name, est_input):
-    targets = webdata.ProjTarget.get_loaded_targets_by_id()
-    target = targets[task_name]
-
-    est = data.Estimate.from_input(est_input)
-    target.point_cost = est.expected
-
-    target.save_point_cost()
 
 
 @bp.route('/estimate/<task_name>', methods=['POST'])
@@ -261,8 +255,12 @@ def refresh():
             io_cls = web_utils.get_proj_loader()[1]
         else:
             io_cls = web_utils.get_retro_loader()[1]
-        redhat_compliance.refresh_targets(
-            form.get_what_names_to_refresh(), io_cls, form.token.data)
+        try:
+            redhat_compliance.refresh_targets(
+                form.get_what_names_to_refresh(), io_cls, form.token.data)
+        except Exception as exc:
+            msg = f"Error doing refresh: {exc}"
+            flask.flash(msg)
     redirect = web_utils.safe_url_to_redirect(form.next.data)
     return flask.redirect(redirect)
 
