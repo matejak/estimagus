@@ -22,7 +22,7 @@ Install Python dependencies listed in `requirements.txt.in` - the easiest way is
 Then, execute
 
 ```
-SECRET_KEY=abcd DATA_DIR=. python -m flask run --reload
+SECRET_KEY=abcd DATA_DIR=. python -m flask run
 ```
 
 and voila - you should be able to connect to http://localhost:5000, and start exploring the app.
@@ -45,6 +45,34 @@ Following environmental variables are recognized and used:
 - `DATA_DIR`: Where the app should look for the data.
 - `LOGIN_PROVIDER_NAME`: one of `autologin` or `google`. Autologin logs in any user, google allows Google login when set up properly.
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`: When using google login, you need to obtain those from Google to have the Google login working.
+- `PLUGINS`: An ordered, comma-separated list of plugin names to load.
+
+
+## Assumptions
+
+### Planning
+
+- Any task's size can be expressed as an amount of "points" - whatever that means.
+  A point is the only unit available, it can reflect e.g. relative difficulty or time cost, but one can't have both.
+- Task can be meaningfully estimated using a (possibly degenerate) three-point estimate.
+- The expected time when the task/epic is supposed to be worked on can be set statically by specifying two dates.
+- Task sizes are a linear quantity, and a collection of tasks (epic) doesn't entail anything else besides its tasks.
+  The size of work on an epic can be estimated by adding up (whatever that means) estimations of individual tasks.
+- The plan and the actual execution are related only through the velocity.
+  Velocity is treated as a black box.
+  There is no distinction between a team member taking time off and underestimation - both result in temporal reduction of velocity.
+
+
+### Execution
+
+- Tasks are being worked on when the task's state is "In Progress".
+- The expected value of task's estimate corresponds to the work that has been done on the task.
+- There is no way how to directly measure the rate of progress (velocity) before concluding an element of work (e.g. task, subtask).
+  The velocity can only be measured indirectly based on the estimated size and delivery time.
+- The velocity is constant in time while the task is in progress.
+- Execution of each tasks is an independent event.
+  Tasks may depend on each other, but how relatively smoothly will a task flow can't be deduced from execution of other tasks.
+- If the team reestimates anything, the history of reestimations is not relevant.
 
 
 ## Features
