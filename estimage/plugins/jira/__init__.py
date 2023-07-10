@@ -224,11 +224,15 @@ class Importer:
         if spec.projective_query:
             print("Gathering proj stuff")
             proj_epic_names = get_epics_and_their_tasks_by_id(
-                self.jira, spec.projective_query, self._all_issues_by_name, self._parents_child_keymap)
+                self.jira, spec.projective_query, self._all_issues_by_name,
+                self._parents_child_keymap)
             new_names = proj_epic_names.difference(retro_epic_names)
             new_targets = self.export_jira_epic_chain_to_targets(new_names)
+            known_names = proj_epic_names.intersection(retro_epic_names)
+            known_targets = self.export_jira_epic_chain_to_targets(known_names)
             self._targets_by_id.update(new_targets)
             self._projective_targets.update(new_targets.keys())
+            self._projective_targets.update(known_targets.keys())
             print("Gathering projective stuff")
             print(f"{len(self._projective_targets)} issues so far")
 
@@ -300,8 +304,8 @@ class Importer:
         ret = ret.replace("\r", "")
         return ret
 
-    @classmethod
-    def status_to_state(self, jira_string):
+    @staticmethod
+    def status_to_state(jira_string):
         return JIRA_STATUS_TO_STATE.get(jira_string, target.State.unknown)
 
     def merge_jira_item_without_children(self, item):
