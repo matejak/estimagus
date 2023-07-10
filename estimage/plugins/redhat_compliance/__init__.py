@@ -7,6 +7,7 @@ import typing
 import flask
 
 from ... import simpledata, data, persistence
+from ...entities import target
 from .. import jira
 from ...webapp import web_utils
 from .forms import AuthoritativeForm
@@ -27,6 +28,21 @@ MONTHS_IN_QUARTER = 3
 
 TEMPLATE_OVERRIDES = {
     "tree_view_retrospective.html": "rhcompliance-retrotree.html",
+}
+
+
+RHELPLAN_STATUS_TO_STATE = {
+    "New": target.State.todo,
+    "Verified": target.State.done,
+    "Closed": target.State.done,
+    "In Progress": target.State.in_progress,
+    "ASSIGNED": target.State.in_progress,
+    "ON_DEV": target.State.in_progress,
+    "POST": target.State.in_progress,
+    "MODIFIED": target.State.in_progress,
+    "Review": target.State.review,
+    "ON_QA": target.State.review,
+    "To Do": target.State.todo,
 }
 
 
@@ -186,10 +202,29 @@ class Importer(jira.Importer):
         apply_some_events_into_issues(self._targets_by_id, self._all_events)
         return super().save(retro_target_io_class, proj_target_io_class, event_manager_class)
 
+    @classmethod
+    def _status_to_state(cls, item, jira_string):
+        item_name = item.key
+
+        if item_name.startswith("OPENSCAP"):
+            return super()._status_to_state(item, jira_string)
+        elif item_name.startswith("RHELPLAN"):
+            return RHELPLAN_STATUS_TO_STATE.get(jira_string, target.State.unknown)
+        else:
+            return RHELPLAN_STATUS_TO_STATE.get(jira_string, target.State.unknown)
+
+
+def _get_simple_spec(token):
+    Spec = collections.namedtuple("Spec", ["server_url", "token", "item_class"])
+    spec = Spec(
+        server_url="https://issues.redhat.com",
+        token=token,
+        item_class=flask.current_app.config["classes"]["BaseTarget"])
+    return spec
+
 
 def refresh_targets(names, mode, token):
-    Spec = collections.namedtuple("Spec", ["server_url", "token", "item_class"])
-    spec = Spec(server_url="https://issues.redhat.com", token=token)
+    spec = _get_simple_spec(token)
     if mode == "projective":
         io_cls = web_utils.get_proj_loader()[1]
     else:
@@ -204,8 +239,7 @@ def write_some_points(form):
 
 
 def write_points_to_task(name, token, points):
-    Spec = collections.namedtuple("Spec", ["server_url", "token", "item_class"])
-    spec = Spec(server_url="https://issues.redhat.com", token=token, item_class=flask.current_app.config["classes"]["BaseTarget"])
+    spec = _get_simple_spec(token)
     io_cls = web_utils.get_proj_loader()[1]
     importer = Importer(spec)
     our_target = data.BaseTarget.load_metadata(name, io_cls)

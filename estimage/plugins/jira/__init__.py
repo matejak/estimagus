@@ -131,18 +131,19 @@ def jira_date_to_datetime(jira_date):
     return datetime.datetime.strptime(jira_date, "%Y-%m-%d")
 
 
-def import_event(event, date, related_task_name):
+def import_event(event, date, related_task):
     STORY_POINTS = "customfield_12310243"
 
     field_name = event.field
     former_value = event.fromString
     new_value = event.toString
+    related_task_name = related_task.key
 
     evt = None
     if field_name == "status":
         evt = evts.Event(related_task_name, "state", date)
-        evt.value_before = JIRA_STATUS_TO_STATE.get(former_value, target.State.unknown)
-        evt.value_after = JIRA_STATUS_TO_STATE.get(new_value, target.State.unknown)
+        evt.value_before = Importer.status_to_state(related_task, former_value)
+        evt.value_after = Importer.status_to_state(related_task, new_value)
         evt.msg = f"Status changed from '{former_value}' to '{new_value}'"
     elif field_name == STORY_POINTS:
         evt = evts.Event(related_task_name, "points", date)
@@ -158,20 +159,20 @@ def import_event(event, date, related_task_name):
     return evt
 
 
-def append_event_entry(events, event, date, related_task_name):
-    event = import_event(event, date, related_task_name)
+def append_event_entry(events, event, date, related_task):
+    event = import_event(event, date, related_task)
     if event is not None:
         events.append(event)
     return events
 
 
-def get_events_from_relevant_task_histories(histories, task_name):
+def get_events_from_relevant_task_histories(histories, task):
     events = []
     for history in histories:
         date = jira_datetime_to_datetime(history.created)
 
         for event in history.items:
-            append_event_entry(events, event, date, task_name)
+            append_event_entry(events, event, date, task)
     return events
 
 
@@ -185,7 +186,7 @@ def get_task_events(task, cutoff_date):
         if jira_datetime_to_datetime(history.created) >= cutoff_datetime
     ]
 
-    events = get_events_from_relevant_task_histories(recent_enough_histories, task.key)
+    events = get_events_from_relevant_task_histories(recent_enough_histories, task)
     return events
 
 
@@ -246,7 +247,7 @@ class Importer:
     def find_targets(self, target_names: typing.Iterable[str]):
         target_ids_sequence = ", ".join(target_names)
         query = f"id in ({target_ids_sequence})"
-        targets = self.jira.search_issues(query)
+        targets = self.jira.search_issues(query, expand="renderedFields")
         targets_by_id = {t.key: t for t in targets}
         return [targets_by_id[name] for name in target_names]
 
@@ -304,8 +305,14 @@ class Importer:
         ret = ret.replace("\r", "")
         return ret
 
-    @staticmethod
-    def status_to_state(jira_string):
+    @classmethod
+    def status_to_state(cls, item, jira_string=""):
+        if not jira_string:
+            jira_string = item.get_field("status").name
+        return cls._status_to_state(item, jira_string)
+
+    @classmethod
+    def _status_to_state(cls, item, jira_string):
         return JIRA_STATUS_TO_STATE.get(jira_string, target.State.unknown)
 
     def merge_jira_item_without_children(self, item):
@@ -314,7 +321,7 @@ class Importer:
         result.loading_plugin = "jira"
         result.title = item.get_field("summary") or ""
         result.description = self._get_contents_of_rendered_field(item, "description")
-        result.state = self.status_to_state(item.get_field("status").name)
+        result.state = self.status_to_state(item)
         if item.fields.issuetype.name == "Epic" and result.state == target.State.abandoned:
             result.state = target.State.done
         result.priority = JIRA_PRIORITY_TO_VALUE.get(item.get_field("priority").name, 0)
