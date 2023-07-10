@@ -8,7 +8,6 @@ from jira import JIRA, exceptions
 from ...entities import target
 from ... import simpledata
 from ...entities import event as evts
-from ...webapp import web_utils
 
 
 JIRA_STATUS_TO_STATE = {
@@ -347,10 +346,7 @@ class Importer:
         print(f"Got about {len(self._all_events)} events")
 
 
-def do_stuff(spec):
-    retro_io = web_utils.get_retro_loader()[1]
-    proj_io = web_utils.get_proj_loader()[1]
-
+def do_stuff(spec, retro_io, proj_io):
     importer = Importer(spec)
     importer.import_data(spec)
     importer.save(retro_io, proj_io, simpledata.EventManager)

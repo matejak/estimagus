@@ -9,7 +9,6 @@ import flask
 from ... import simpledata, data, persistence
 from ...entities import target
 from .. import jira
-from ...webapp import web_utils
 from .forms import AuthoritativeForm
 
 
@@ -223,33 +222,26 @@ def _get_simple_spec(token):
     return spec
 
 
-def refresh_targets(names, mode, token):
+def refresh_targets(names, io_cls, token):
     spec = _get_simple_spec(token)
-    if mode == "projective":
-        io_cls = web_utils.get_proj_loader()[1]
-    else:
-        io_cls = web_utils.get_retro_loader()[1]
     real_targets = [data.BaseTarget.load_metadata(name, io_cls) for name in names]
     importer = Importer(spec)
     importer.refresh_targets(real_targets, io_cls)
 
 
-def write_some_points(form):
-    return write_points_to_task(form.task_name.data, form.token.data, float(form.point_cost.data))
+def write_some_points(form, io_cls):
+    return write_points_to_task(io_cls, form.task_name.data, form.token.data, float(form.point_cost.data))
 
 
-def write_points_to_task(name, token, points):
+def write_points_to_task(io_cls, name, token, points):
     spec = _get_simple_spec(token)
-    io_cls = web_utils.get_proj_loader()[1]
     importer = Importer(spec)
     our_target = data.BaseTarget.load_metadata(name, io_cls)
     updated_target = importer.update_points_of(our_target, points)
     updated_target.save_metadata(io_cls)
 
 
-def do_stuff(spec):
-    retro_loader = web_utils.get_retro_loader()[1]
-    proj_loader = web_utils.get_proj_loader()[1]
+def do_stuff(spec, retro_loader, proj_loader):
     importer = Importer(spec)
     importer.import_data(spec)
     importer.save(retro_loader, proj_loader, simpledata.EventManager)

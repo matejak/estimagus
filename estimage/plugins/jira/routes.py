@@ -15,7 +15,11 @@ def jira_plugin():
     if form.validate_on_submit():
 
         task_spec = jira.InputSpec.from_form_and_app(form, flask.current_app)
-        jira.do_stuff(task_spec)
+
+        retro_io = web_utils.get_retro_loader()[1]
+        proj_io = web_utils.get_proj_loader()[1]
+
+        jira.do_stuff(task_spec, retro_io, proj_io)
 
     return web_utils.render_template(
         'jira.html', title='Jira Plugin', plugin_form=form, )

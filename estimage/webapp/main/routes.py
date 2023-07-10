@@ -92,7 +92,8 @@ def move_consensus_estimate_to_authoritative(task_name):
             est_input = pollster_cons.ask_points(form.task_name.data)
             estimate = data.Estimate.from_input(est_input)
             form.point_cost.data = str(estimate.expected)
-            redhat_compliance.write_some_points(form)
+            io_cls = web_utils.get_proj_loader()[1]
+            redhat_compliance.write_some_points(form, io_cls)
         else:
             flask.flash("Authoritative estimate not updated, request was not serious")
 
@@ -256,8 +257,12 @@ def index():
 def refresh():
     form = redhat_compliance.forms.RedhatComplianceRefreshForm()
     if form.validate_on_submit():
+        if form.mode.data == "projective":
+            io_cls = web_utils.get_proj_loader()[1]
+        else:
+            io_cls = web_utils.get_retro_loader()[1]
         redhat_compliance.refresh_targets(
-            form.get_what_names_to_refresh(), form.mode.data, form.token.data)
+            form.get_what_names_to_refresh(), io_cls, form.token.data)
     redirect = web_utils.safe_url_to_redirect(form.next.data)
     return flask.redirect(redirect)
 
