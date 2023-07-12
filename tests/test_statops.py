@@ -150,6 +150,15 @@ def test_estimate_divided_by_lognorm():
     assert sp.stats.kstest(forecast, experiment).pvalue > 0.05
 
 
+def test_separate_array():
+    testa = np.array([1])
+    assert tm.separate_array_into_good_and_bad(testa, 2)[0][0] == 1
+    assert not tm.separate_array_into_good_and_bad(testa, 2)[1]
+
+    assert tm.separate_array_into_good_and_bad(testa, 1)[1][0] == 1
+    assert not tm.separate_array_into_good_and_bad(testa, 1)[0]
+
+
 def test_mean_median_without_outliers():
     mean = 1.2
     median = 1.0

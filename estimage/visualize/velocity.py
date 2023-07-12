@@ -4,7 +4,10 @@ import datetime
 import numpy as np
 
 from . import utils
-from .. import history, PluginResolver
+from .. import history, PluginResolver, statops
+
+
+DAYS_IN_WEEK = 7
 
 
 class TierStyle(typing.NamedTuple):
@@ -69,17 +72,15 @@ class MPLVelocityPlot:
         fig, ax = plt.subplots()
         ax.grid(True)
 
-        days_in_real_week = 7
-
         self._prepare_plots(cutoff_date)
 
         aggregate_focus = np.zeros_like(self.velocity_focus[0])
         for tier, tier_focus in enumerate(self.velocity_focus):
             aggregate_focus += tier_focus
-            self._plot_velocity_tier(ax, aggregate_focus * days_in_real_week, tier)
+            self._plot_velocity_tier(ax, aggregate_focus * DAYS_IN_WEEK, tier)
         all_tiers_rolling_velocity = np.sum(self.velocity_estimate, 0)
         ax.plot(
-            self.days, all_tiers_rolling_velocity * days_in_real_week,
+            self.days, all_tiers_rolling_velocity * DAYS_IN_WEEK,
             color="orange", label="Rolling velocity estimate")
 
         index_of_dday = history.days_between(self.start, self.get_date_of_dday())
@@ -90,4 +91,64 @@ class MPLVelocityPlot:
         utils.x_axis_weeks_and_months(ax, self.start, self.end)
         ax.set_ylabel("team velocity / points per week")
 
+        return fig
+
+
+@PluginResolver.class_is_extendable("VelocityFitPlot")
+class MPLVelocityFitPlot:
+    STYLES = dict(
+        hist=dict(alpha=0.75),
+        hist_likely=dict(color="b"),
+        hist_spiked=dict(color="r"),
+        fit_likely=dict(color="gray", linestyle="--"),
+        fit_real=dict(color="black"),
+    )
+
+    def __init__(self, nonzero_velocity_array):
+        self.velocity_array = nonzero_velocity_array
+        self.outlier_thresh = 5
+        self.orderly_velocity, self.spiked_velocity = statops.separate_array_into_good_and_bad(
+            nonzero_velocity_array, self.outlier_thresh)
+        self.orderly_fit = statops.get_lognorm_given_mean_median(
+            self.orderly_velocity.mean(), np.median(self.orderly_velocity))
+        mean, median = statops.get_mean_median_dissolving_outliers(
+            self.velocity_array, self.outlier_thresh)
+        self.real_fit = statops.get_lognorm_given_mean_median(mean, median)
+        self._y_max = 0
+
+    def _plot_histogram(self, ax):
+        values, bins = np.histogram(self.velocity_array, bins="auto")
+        self._y_max = values.max()
+        style = self.STYLES["hist"] | self.STYLES["hist_likely"]
+        ax.hist(self.orderly_velocity, bins, ** style, label="likely velocity")
+        style = self.STYLES["hist"] | self.STYLES["hist_spiked"]
+        ax.hist(self.spiked_velocity, bins, ** style, label="outliers")
+
+    def _plot_fits(self, ax):
+        dom = np.linspace(0, self.velocity_array.max() * 1.1, 200)
+        hom = self.orderly_fit.pdf(dom)
+        style = self.STYLES["fit_likely"]
+        ax.plot(dom, hom / hom.max() * self._y_max, ** style, label="fit of likely velocity")
+        hom = self.real_fit.pdf(dom)
+        style = self.STYLES["fit_real"]
+        ax.plot(dom, hom / hom.max() * self._y_max, ** style, label="fit of real velocity")
+
+    def get_figure(self):
+        plt = utils.get_standard_pyplot()
+
+        fig, ax = plt.subplots()
+        ax.grid(True)
+        ax.set_xlabel("team velocity / points per week")
+
+        self._plot_histogram(ax)
+        ax.set_ylabel("relative frequency")
+
+        ax2 = ax.twinx()
+        self._plot_fits(ax)
+        ax2.set_ylabel("probability density")
+        ax2.set_ylim(0, 1)
+        ax2.set_yticklabels([])
+
+        ax.set_xlim(0, None)
+        ax.legend(loc="upper right")
         return fig

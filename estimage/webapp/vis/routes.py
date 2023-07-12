@@ -16,6 +16,7 @@ from ...visualize import utils, velocity, burndown, pert, completion
 import matplotlib
 
 
+WIDE_FIGURE_SIZE = (12.0, 4.4)
 NORMAL_FIGURE_SIZE = (6.0, 4.4)
 SMALL_FIGURE_SIZE = (2.2, 1.6)
 
@@ -85,6 +86,35 @@ def visualize_completion():
     completion_class = flask.current_app.config["classes"]["MPLCompletionPlot"]
 
     fig = completion_class(start, completion_dist).get_figure()
+    fig.set_size_inches(* NORMAL_FIGURE_SIZE)
+    return send_figure_as_svg(fig, "completion.svg")
+
+
+@bp.route('/velocity-fit.svg')
+@flask_login.login_required
+def visualize_velocity_fit():
+    user = flask_login.current_user
+    user_id = user.get_id()
+    all_events = webdata.EventManager()
+    all_events.load()
+
+    all_targets_by_id, _ = web_utils.get_all_tasks_by_id_and_user_model("retro", user_id)
+    all_targets = list(all_targets_by_id.values())
+    targets_tree_without_duplicates = utilities.reduce_subsets_from_sets([t for t in all_targets if t.tier == 0])
+
+    start, end = flask.current_app.config["RETROSPECTIVE_PERIOD"]
+    aggregation = history.Aggregation.from_targets(targets_tree_without_duplicates, start, end)
+    aggregation.process_event_manager(all_events)
+
+    velocity_array = aggregation.get_velocity_array()
+    last_nonzero_index = utilities.last_nonzero_index_of(velocity_array)
+    nonzero_weekly_velocity = velocity_array[:last_nonzero_index] * 7
+
+    matplotlib.use("svg")
+
+    fit_class = flask.current_app.config["classes"]["VelocityFitPlot"]
+
+    fig = fit_class(nonzero_weekly_velocity).get_figure()
     fig.set_size_inches(* NORMAL_FIGURE_SIZE)
     return send_figure_as_svg(fig, "completion.svg")
 
@@ -165,7 +195,7 @@ def visualize_task(task_name, nominal_or_remaining):
 def visualize_epic_burndown(epic_name, size):
     allowed_sizes = ("small", "normal")
     if size not in allowed_sizes:
-        msg = "Figure size must be one of {allowed_sizes}, got '{size}' instead."
+        msg = f"Figure size must be one of {allowed_sizes}, got '{size}' instead."
         raise ValueError(msg)
 
     cls, loader = web_utils.get_retro_loader()
@@ -183,9 +213,9 @@ def visualize_epic_burndown(epic_name, size):
 @bp.route('/tier<tier>-burndown-<size>.svg')
 @flask_login.login_required
 def visualize_overall_burndown(tier, size):
-    allowed_sizes = ("small", "normal")
+    allowed_sizes = ("small", "normal", "wide")
     if size not in allowed_sizes:
-        msg = "Figure size must be one of {allowed_sizes}, got '{size}' instead."
+        msg = f"Figure size must be one of {allowed_sizes}, got '{size}' instead."
         raise ValueError(msg)
     if (tier := int(tier)) < 0:
         msg = "Tier must be a non-negative number, got {tier}"
@@ -218,6 +248,9 @@ def output_burndown(target_tree, size):
     if size == "small":
         fig = burndown_class(aggregation).get_small_figure()
         fig.set_size_inches(* SMALL_FIGURE_SIZE)
+    elif size == "wide":
+        fig = burndown_class(aggregation).get_figure()
+        fig.set_size_inches(* WIDE_FIGURE_SIZE)
     else:
         fig = burndown_class(aggregation).get_figure()
         fig.set_size_inches(* NORMAL_FIGURE_SIZE)
