@@ -185,7 +185,8 @@ class Importer(jira.Importer):
         jira_task = self.find_target(our_task.name)
         remote_points = self._get_points_of(jira_task)
         if remote_points == points:
-            return jira_task
+            our_task.point_cost = points
+            return our_task
         if remote_points != our_task.point_cost:
             msg = (
                 f"Trying to update issue {our_task.name} "
