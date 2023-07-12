@@ -22,7 +22,17 @@ def sync():
         retro_loader = web_utils.get_retro_loader()[1]
         proj_loader = web_utils.get_proj_loader()[1]
 
-        redhat_compliance.do_stuff(task_spec, retro_loader, proj_loader)
+        error_msg = ""
+        try:
+            redhat_compliance.do_stuff(task_spec, retro_loader, proj_loader)
+        except redhat_compliance.jira.exceptions.JIRAError as exc:
+            if 500 <= exc.status_code < 600:
+                error_msg = f"Error {exc.status_code} when interacting with Jira, accessing URL {exc.url}"
+            else:
+                error_msg = f"Error {exc.status_code} when interacting with Jira: {exc.text}"
+
+        if error_msg:
+            flask.flash(error_msg)
     else:
         form.quarter.data = redhat_compliance.datetime_to_epoch(datetime.datetime.today())
         next_starts_soon = redhat_compliance.days_to_next_epoch(datetime.datetime.today()) < 20
