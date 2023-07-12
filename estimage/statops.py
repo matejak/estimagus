@@ -181,9 +181,16 @@ def get_lognorm_mu_sigma(mean, median):
     return mu, sigma
 
 
-def get_mean_median_dissolving_outliers(wild_array, outlier_threshold=5):
+def separate_array_into_good_and_bad(wild_array, outlier_threshold):
     raw_mean = wild_array.mean()
     good_array = wild_array[wild_array < raw_mean * outlier_threshold]
+    bad_array = wild_array[wild_array >= raw_mean * outlier_threshold]
+    return good_array, bad_array
+
+
+def get_mean_median_dissolving_outliers(wild_array, outlier_threshold=5):
+    raw_mean = wild_array.mean()
+    good_array, _ = separate_array_into_good_and_bad(wild_array, outlier_threshold)
     low_mean = good_array.mean()
     low_median = np.median(good_array)
     return raw_mean, low_median * raw_mean / low_mean

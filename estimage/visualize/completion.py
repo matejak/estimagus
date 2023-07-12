@@ -9,7 +9,7 @@ from .. import utilities, PluginResolver
 DAYS_IN_WEEK = 7
 
 
-@PluginResolver.class_is_extendable("MPLCompletionPlot")
+@PluginResolver.class_is_extendable("CompletionPlot")
 class MPLCompletionPlot:
     DDAY_LABEL = "today"
     width = 2
