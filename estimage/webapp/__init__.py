@@ -5,8 +5,8 @@ from flask_login import LoginManager
 from flask_bootstrap import Bootstrap5
 from jinja2 import loaders
 
-from .. import data, simpledata, plugins, PluginResolver
-from . import users, config
+from .. import data, simpledata, plugins
+from . import users, config, plugin_resolver
 
 from .main import bp as main_bp
 from .vis import bp as vis_bp
@@ -27,7 +27,7 @@ class PluginFriendlyFlask(Flask):
             (templates_folder, plugins_folder))
 
         self.template_overrides_map = dict()
-        self.plugin_resolver = PluginResolver()
+        self.plugin_resolver = plugin_resolver.WebappPluginResolver()
         self.plugin_resolver.add_known_extendable_classes()
 
     def set_plugins_dict(self, plugins_dict):
