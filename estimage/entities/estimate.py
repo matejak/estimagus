@@ -178,12 +178,9 @@ class Estimate:
             raise ValueError(msg)
 
         if dom is None:
-            buffer_samples = 1
-            span = self.source.pessimistic - self.source.optimistic
-            inflated_density = span / num_samples * 1.02
             dom = np.linspace(
-                self.source.optimistic - inflated_density * buffer_samples,
-                self.source.pessimistic + inflated_density * buffer_samples,
+                self.source.optimistic,
+                self.source.pessimistic,
                 num_samples)
         values = self._get_pert(dom)
         if len(dom) > 1:
