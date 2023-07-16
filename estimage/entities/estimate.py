@@ -233,12 +233,7 @@ class Estimate:
         return composed_pert
 
     def compose_perts_of_same_scale(self, pert1, pert2):
-        convolution = np.convolve(pert1[1], pert2[1])
-        domain = np.linspace(
-            pert1[0][0] + pert2[0][0],
-            pert1[0][-1] + pert2[0][-1],
-            len(convolution)
-        )
+        domain, convolution = utilities.eco_convolve(* pert1, * pert2)
         return np.array([domain, convolution])
 
     @property
