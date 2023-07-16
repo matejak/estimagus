@@ -3,6 +3,7 @@ import functools
 import typing
 
 import numpy as np
+import scipy as sp
 
 
 def first_nonzero_index_of(values):
@@ -64,9 +65,6 @@ def norm_pdf(values, dx):
 
 
 def get_random_variable(dom, values):
-    import numpy as np
-    import scipy as sp
-
     class Rv(sp.stats.rv_continuous):
         def __init__(self, * args, ** kwargs):
             super().__init__(* args, ** kwargs)
@@ -78,3 +76,22 @@ def get_random_variable(dom, values):
             self._ppf = sp.interpolate.interp1d(np.cumsum(values) / sum(values), dom, kind="linear")
 
     return Rv()(loc=0, scale=1)
+
+
+def _trim_dom_hom(dom, hom):
+    starting_index = first_nonzero_index_of(hom)
+    ending_index = last_nonzero_index_of(hom)
+    sl = slice(starting_index, ending_index + 1)
+    return dom[sl], hom[sl]
+
+
+def eco_convolve(dom1, hom1, dom2, hom2):
+    dom1, hom1 = _trim_dom_hom(dom1, hom1)
+    dom2, hom2 = _trim_dom_hom(dom2, hom2)
+    hom = np.convolve(hom1, hom2)
+    dom = np.linspace(
+        dom1[0] + dom2[0],
+        dom1[-1] + dom2[-1],
+        len(hom)
+    )
+    return dom, hom
