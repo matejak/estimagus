@@ -74,18 +74,21 @@ def visualize_completion():
 
     velocity_array = aggregation.get_velocity_array()
     last_nonzero_index = utilities.last_nonzero_index_of(velocity_array)
-    nonzero_weekly_velocity = velocity_array[:last_nonzero_index] * 7
+    nonzero_daily_velocity = velocity_array[:last_nonzero_index]
 
-    v_mean, v_median = statops.get_mean_median_dissolving_outliers(nonzero_weekly_velocity, 5)
+    v_mean, v_median = statops.get_mean_median_dissolving_outliers(nonzero_daily_velocity, 5)
 
-    samples = 200
-    completion_dist = statops.divide_estimate_by_mean_median_fit(todo, v_mean, v_median, samples)
+    samples = 300
+    dist = statops.get_lognorm_given_mean_median(v_mean, v_median, samples)
+    dom = np.linspace(0, v_mean * 10, samples)
+    velocity_pdf = dist.pdf(dom)
+    completion_projection = statops.construct_evaluation(dom, velocity_pdf, todo.expected)
 
     matplotlib.use("svg")
 
     completion_class = flask.current_app.config["classes"]["MPLCompletionPlot"]
 
-    fig = completion_class(start, completion_dist).get_figure()
+    fig = completion_class(start, completion_projection).get_figure()
     fig.set_size_inches(* NORMAL_FIGURE_SIZE)
     return send_figure_as_svg(fig, "completion.svg")
 

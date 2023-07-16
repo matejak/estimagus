@@ -149,6 +149,92 @@ def test_estimate_divided_by_lognorm():
     experiment = estimate.pert_rvs(samples * 10) / velocity_fit.rvs(size=samples * 10)
     assert sp.stats.kstest(forecast, experiment).pvalue > 0.05
 
+    estimate = data.Estimate.from_triple(0, 0, 0)
+    completion_dist = tm.divide_estimate_by_mean_median_fit(estimate, velocity_mean, 1.5, samples)
+    forecast = completion_dist.rvs(size=samples * 10)
+    assert forecast.max() < 0.1
+
+
+@pytest.fixture
+def degenerate_velocity():
+    velocity_dom = np.array([2])
+    velocity_hom = np.array([1])
+    return velocity_dom, velocity_hom
+
+
+def test_trivial_completion(degenerate_velocity):
+    velocity_dom, velocity_hom = degenerate_velocity
+
+    completed_dom, completed_hom = tm.get_completion_pdf(velocity_dom, velocity_hom, 0)
+    assert len(completed_dom) == 1
+    assert completed_dom[0] == 0
+    assert completed_hom[0] == 1
+
+    completed_dom, completed_hom = tm.get_completion_pdf(velocity_dom, velocity_hom, 1)
+    assert len(completed_dom) == 1
+    assert completed_dom[0] == 2
+    assert completed_hom[0] == 1
+
+
+@pytest.fixture
+def quasireal_velocity():
+    velocity_dom = np.arange(5) + 1
+    velocity_hom = np.zeros(5)
+    sl = slice(1, 4)
+    velocity_hom[sl] = 1 / 3.0
+    return velocity_dom, velocity_hom
+
+
+def test_quasireal_completion(quasireal_velocity):
+    velocity_dom, velocity_hom = quasireal_velocity
+    sl = velocity_hom > 0
+
+    completed_dom, completed_hom = tm.get_completion_pdf(velocity_dom, velocity_hom, 0)
+    assert len(completed_dom) == 1
+    assert completed_dom[0] == 0
+    assert completed_hom[0] == 1
+
+    completed_dom, completed_hom = tm.get_completion_pdf(velocity_dom, velocity_hom, 1)
+    np.testing.assert_array_almost_equal(completed_dom, velocity_dom[sl])
+    np.testing.assert_array_almost_equal(completed_hom, velocity_hom[sl])
+
+    completed_dom, completed_hom = tm.get_completion_pdf(velocity_dom, velocity_hom, 10)
+    assert completed_hom.sum() == pytest.approx(1)
+    assert completed_dom[np.argmax(completed_hom)] == 10 * velocity_dom[2]
+    assert completed_hom.min() >= 0
+    assert completed_dom[0] <= 10 * velocity_dom[sl][0]
+    assert completed_dom[-1] >= 10 * velocity_dom[sl][-1]
+
+
+def test_evaluation(degenerate_velocity, quasireal_velocity):
+    assert tm.evaluate_completion_pdf(* degenerate_velocity, 2.1) == 0
+    assert tm.evaluate_completion_pdf(* degenerate_velocity, 1.9) == 1
+    assert tm.evaluate_completion_pdf(* quasireal_velocity, 4.5) == 0
+    assert tm.evaluate_completion_pdf(* quasireal_velocity, 3.5) == 1 / 3.0
+    assert tm.evaluate_completion_pdf(* quasireal_velocity, 2.5) == 2 / 3.0
+
+
+def test_construct_evaluation(quasireal_velocity):
+    distfun = tm.construct_evaluation(* quasireal_velocity, 0)
+    assert distfun.size == 1
+    assert distfun[0] == 1
+
+    distfun = tm.construct_evaluation(* quasireal_velocity, 0.1)
+    assert distfun.size == 2
+    assert distfun[-1] == 1
+
+    distfun = tm.construct_evaluation(* quasireal_velocity, 3.9)
+    assert distfun.size == 3
+    assert distfun[-1] == pytest.approx(1)
+
+    distfun = tm.construct_evaluation(* quasireal_velocity, 4)
+    assert distfun.size == 4
+    assert distfun[-1] == pytest.approx(1)
+
+    distfun = tm.construct_evaluation(* quasireal_velocity, 4, 3)
+    assert distfun.size == 3
+    assert distfun[-1] < 1
+
 
 def test_separate_array():
     testa = np.array([1])

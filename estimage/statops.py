@@ -4,13 +4,10 @@ import scipy as sp
 from . import utilities
 
 
-def find_pdf_bounds(sampled_pdf):
-    first = utilities.first_nonzero_index_of(sampled_pdf) - 1
-    last_inclusive = utilities.last_nonzero_index_of(sampled_pdf) + 1
-    if first < 0 or last_inclusive > len(sampled_pdf):
-        msg = "The PDF was not padded with zeroes accordingly"
-        raise ValueError(msg)
-    return (first, last_inclusive + 1)
+def get_pdf_bounds_slice(sampled_pdf):
+    first = utilities.first_nonzero_index_of(sampled_pdf)
+    last_inclusive = utilities.last_nonzero_index_of(sampled_pdf)
+    return slice(first, last_inclusive + 1)
 
 
 class Dist:
@@ -32,10 +29,9 @@ class Dist:
             self.dom, self.cached_pdf, fill_value=0, bounds_error=False)
         cdf_fun = sp.interpolate.interp1d(
             self.dom, self.cached_cdf, fill_value=(0, 1), bounds_error=False)
-        pdf_bounds = find_pdf_bounds(self.cached_pdf)
-        sl = slice(* pdf_bounds)
+        pdf_bounds = get_pdf_bounds_slice(self.cached_pdf)
         ppf_fun = sp.interpolate.interp1d(
-            self.cached_cdf[sl], self.dom[sl])
+            self.cached_cdf[pdf_bounds], self.dom[pdf_bounds])
 
         class randvar(sp.stats.rv_continuous):
 
@@ -50,10 +46,9 @@ class Dist:
         return randvar(a=self.a, b=self.b)
 
     def get_inverse(self):
-        pdf_bounds = find_pdf_bounds(self.cached_pdf)
-        sl = slice(* pdf_bounds)
-        inverse_cached_cdf = 1 - self.cached_cdf[sl]
-        inverse_dom = 1.0 / self.dom[sl]
+        pdf_bounds = get_pdf_bounds_slice(self.cached_pdf)
+        inverse_cached_cdf = 1 - self.cached_cdf[pdf_bounds]
+        inverse_dom = 1.0 / self.dom[pdf_bounds]
 
         new_a = inverse_dom[-1]
         new_b = inverse_dom[0]
@@ -114,9 +109,8 @@ def get_random_var(dom, hom):
 
 
 def _minimize_pdf_dom_hom(dom, hom):
-    bounds = find_pdf_bounds(hom)
-    sl = slice(* bounds)
-    return dom[sl], hom[sl]
+    bounds = get_pdf_bounds_slice(hom)
+    return dom[bounds], hom[bounds]
 
 
 # see also https://en.wikipedia.org/wiki/Distribution_of_the_product_of_two_random_variables
@@ -196,9 +190,9 @@ def get_mean_median_dissolving_outliers(wild_array, outlier_threshold=5):
     return raw_mean, low_median * raw_mean / low_mean
 
 
-def get_lognorm_given_mean_median(mean, median):
-    dom = np.linspace(0, 1, 200)
-    better_spaced_dom = dom ** 1.8 * mean * 50
+def get_lognorm_given_mean_median(mean, median, samples=200):
+    dom = np.linspace(0, 1, samples)
+    better_spaced_dom = dom ** 1.8 * mean * 20
     mu, sigma = get_lognorm_mu_sigma(mean, median)
     hom = lognorm_pdf(better_spaced_dom, mu, sigma)
     hom[0] = 0
@@ -243,3 +237,32 @@ def get_lognorm_mu_sigma_from_lognorm_mean_variance(mean, variance):
     sigma = np.sqrt(np.log(variance / mean ** 2 + 1))
     mu = np.log(mean) - sigma ** 2 / 2.0
     return mu, sigma
+
+
+def get_completion_pdf(velocity_dom, velocity_hom, numiter):
+    res_dom = np.zeros(1)
+    res_hom = np.ones(1)
+    for _ in range(numiter):
+        res_dom, res_hom = utilities.eco_convolve(velocity_dom, velocity_hom, res_dom, res_hom)
+    return res_dom, res_hom
+
+
+def evaluate_completion_pdf(completion_dom, completion_hom, target):
+    ratio = completion_hom[completion_dom > target].sum()
+    return ratio / completion_hom.sum()
+
+
+def construct_evaluation(velocity_dom, velocity_hom, target, iter_limit=100):
+    if target == 0:
+        return np.ones(1)
+    res_dom = np.zeros(1)
+    res_hom = np.ones(1)
+    results = []
+    for _ in range(iter_limit):
+        result = evaluate_completion_pdf(res_dom, res_hom, target)
+        results.append(result)
+        if result > 0.99:
+            break
+        res_dom, res_hom = utilities.eco_convolve(velocity_dom, velocity_hom, res_dom, res_hom)
+        res_hom[res_hom < res_hom.max() * 1e-4] = 0
+    return np.array(results)
