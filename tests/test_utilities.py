@@ -23,6 +23,8 @@ def test_set_reduction_normal():
 def test_first_nonzero_index():
     arr = np.array([1])
     assert tm.first_nonzero_index_of(arr) == 0
+    arr = np.array([-1])
+    assert tm.first_nonzero_index_of(arr) == 0
     arr = np.array([0, 1])
     assert tm.first_nonzero_index_of(arr) == 1
     arr = np.array([2, 1])
@@ -36,6 +38,8 @@ def test_first_nonzero_index():
 
 def test_last_nonzero_index():
     arr = np.array([1])
+    assert tm.last_nonzero_index_of(arr) == 0
+    arr = np.array([-1])
     assert tm.last_nonzero_index_of(arr) == 0
     arr = np.array([0, 1])
     assert tm.last_nonzero_index_of(arr) == 1

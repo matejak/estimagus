@@ -10,7 +10,7 @@ def first_nonzero_index_of(values):
     if not np.any(values != 0):
         raise ValueError("Array is identical to zero")
     for index, value in enumerate(values):
-        if value > 0:
+        if value != 0:
             return index
 
 
@@ -18,7 +18,7 @@ def last_nonzero_index_of(values):
     if not np.any(values != 0):
         raise ValueError("Array is identical to zero")
     for index, value in enumerate(values[::-1]):
-        if value > 0:
+        if value != 0:
             return len(values) - 1 - index
 
 
