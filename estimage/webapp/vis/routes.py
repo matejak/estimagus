@@ -73,8 +73,8 @@ def visualize_completion():
     aggregation.process_event_manager(all_events)
 
     velocity_array = aggregation.get_velocity_array()
-    last_nonzero_index = utilities.last_nonzero_index_of(velocity_array)
-    nonzero_daily_velocity = velocity_array[:last_nonzero_index]
+    sl = statops.get_pdf_bounds_slice(velocity_array)
+    nonzero_daily_velocity = velocity_array[sl]
 
     v_mean, v_median = statops.get_mean_median_dissolving_outliers(nonzero_daily_velocity, 5)
 
@@ -82,7 +82,7 @@ def visualize_completion():
     dist = statops.get_lognorm_given_mean_median(v_mean, v_median, samples)
     dom = np.linspace(0, v_mean * 10, samples)
     velocity_pdf = dist.pdf(dom)
-    completion_projection = statops.construct_evaluation(dom, velocity_pdf, todo.expected)
+    completion_projection = statops.construct_evaluation(dom, velocity_pdf, todo.expected, 200)
 
     matplotlib.use("svg")
 
@@ -110,8 +110,8 @@ def visualize_velocity_fit():
     aggregation.process_event_manager(all_events)
 
     velocity_array = aggregation.get_velocity_array()
-    last_nonzero_index = utilities.last_nonzero_index_of(velocity_array)
-    nonzero_weekly_velocity = velocity_array[:last_nonzero_index] * 7
+    sl = statops.get_pdf_bounds_slice(velocity_array)
+    nonzero_weekly_velocity = velocity_array[sl] * 7
 
     matplotlib.use("svg")
 

@@ -366,17 +366,23 @@ def executive_summary_of_points_and_velocity(targets):
     velocity_array = aggregation.get_velocity_array()
     velocity_stdev_while_working = velocity_array[velocity_array > 0].var() ** 0.5
 
-    last_nonzero_index = utilities.last_nonzero_index_of(velocity_array)
-    nonzero_weekly_velocity = velocity_array[:last_nonzero_index] * 7
-
-    v_mean, v_median = statops.get_mean_median_dissolving_outliers(nonzero_weekly_velocity, 5)
-    mu, sigma = statops.get_lognorm_mu_sigma(v_mean, v_median)
-    velocity_stdev = np.sqrt(statops.get_lognorm_variance(mu, sigma))
-
     samples = 200
     work_remaining = cutoff_data.todo + cutoff_data.underway
     todo = data.Estimate.from_triple(work_remaining, work_remaining, work_remaining)
-    completion_dist = statops.divide_estimate_by_mean_median_fit(todo, v_mean, v_median, samples)
+
+    v_mean = 0
+    velocity_stdev = 0
+    completion_interval = (np.inf, np.inf)
+    if velocity_array.max() > 0:
+        last_nonzero_index = utilities.last_nonzero_index_of(velocity_array)
+        nonzero_weekly_velocity = velocity_array[:last_nonzero_index] * 7
+
+        v_mean, v_median = statops.get_mean_median_dissolving_outliers(nonzero_weekly_velocity, 5)
+        mu, sigma = statops.get_lognorm_mu_sigma(v_mean, v_median)
+        velocity_stdev = np.sqrt(statops.get_lognorm_variance(mu, sigma))
+
+        completion_dist = statops.divide_estimate_by_mean_median_fit(todo, v_mean, v_median, samples)
+        completion_interval = (completion_dist.ppf(0.1), completion_dist.ppf(0.9))
 
     output = dict(
         initial_todo=not_done_on_start,
@@ -388,7 +394,7 @@ def executive_summary_of_points_and_velocity(targets):
         weekly_velocity_stdev=velocity_stdev,
         velocity_stdev_while_working=velocity_stdev_while_working,
         total_points_done=cutoff_data.done - done_on_start,
-        completion=(completion_dist.ppf(0.1), completion_dist.ppf(0.9)),
+        completion=completion_interval,
     )
     return output
 
