@@ -50,14 +50,19 @@ Following environmental variables are recognized and used:
 
 ## Assumptions
 
+Some assumptions are hard, while others may be subjects to change.
+
+
 ### Planning
 
 - Any task's size can be expressed as an amount of "points" - whatever that means.
-  A point is the only unit available, it can reflect e.g. relative difficulty or time cost, but one can't have both.
-- Task can be meaningfully estimated using a (possibly degenerate) three-point estimate.
-- The expected time when the task/epic is supposed to be worked on can be set statically by specifying two dates.
+  A point is the only unit available at a time, it can reflect e.g. relative difficulty or time cost, but one can't have both quantities next to each other.
+- Task can be meaningfully estimated using a (possibly degenerate) three-point estimate (optimistic, most likely, pessimistic) interval that covers the actual value with an estimated probability of about 95%.
+  It is therefore possible (with about 5% probability) that the actual case is worse than pessimistic, or better than optimistic.
+- The expected time when a unit or collection of work (task or epic) is supposed to be worked on can be set statically by specifying start and end dates.
 - Task sizes are a linear quantity, and a collection of tasks (epic) doesn't entail anything else besides its tasks.
   The size of work on an epic can be estimated by adding up (whatever that means) estimations of individual tasks.
+  Integration of work between individual tasks is therefore factored in task estimates.
 - The plan and the actual execution are related only through the velocity.
   Velocity is treated as a black box.
   There is no distinction between a team member taking time off and underestimation - both result in temporal reduction of velocity.
@@ -73,6 +78,13 @@ Following environmental variables are recognized and used:
 - Execution of each tasks is an independent event.
   Tasks may depend on each other, but how relatively smoothly will a task flow can't be deduced from execution of other tasks.
 - If the team reestimates anything, the history of reestimations is not relevant.
+
+
+## Purpose
+
+- Allow for more natural expression of estimations.
+- Provide fast feedback on iterations while they are in progress.
+- Use the data to make predictions about the future with a specific certainty.
 
 
 ## Features
