@@ -76,7 +76,7 @@ def visualize_completion():
     sl = statops.get_pdf_bounds_slice(velocity_array)
     nonzero_daily_velocity = velocity_array[sl]
 
-    v_mean, v_median = statops.get_mean_median_dissolving_outliers(nonzero_daily_velocity, 5)
+    v_mean, v_median = statops.get_mean_median_dissolving_outliers(nonzero_daily_velocity, 3)
 
     samples = 300
     dist = statops.get_lognorm_given_mean_median(v_mean, v_median, samples)

@@ -100,20 +100,20 @@ class MPLVelocityFitPlot:
         hist=dict(alpha=0.75),
         hist_likely=dict(color="b"),
         hist_spiked=dict(color="r"),
-        fit_likely=dict(color="gray", linestyle="--"),
-        fit_real=dict(color="black"),
+        fit_raw=dict(color="gray", linestyle="--"),
+        fit_likely=dict(color="black"),
     )
 
     def __init__(self, nonzero_velocity_array):
         self.velocity_array = nonzero_velocity_array
-        self.outlier_thresh = 5
+        self.outlier_thresh = 3
         self.orderly_velocity, self.spiked_velocity = statops.separate_array_into_good_and_bad(
             nonzero_velocity_array, self.outlier_thresh)
-        self.orderly_fit = statops.get_lognorm_given_mean_median(
-            self.orderly_velocity.mean(), np.median(self.orderly_velocity))
+        self.raw_fit = statops.get_lognorm_given_mean_median(
+            nonzero_velocity_array.mean(), np.median(nonzero_velocity_array))
         mean, median = statops.get_mean_median_dissolving_outliers(
             self.velocity_array, self.outlier_thresh)
-        self.real_fit = statops.get_lognorm_given_mean_median(mean, median)
+        self.orderly_fit = statops.get_lognorm_given_mean_median(mean, median)
         self._y_max = 0
 
     def _plot_histogram(self, ax):
@@ -126,12 +126,12 @@ class MPLVelocityFitPlot:
 
     def _plot_fits(self, ax):
         dom = np.linspace(0, self.velocity_array.max() * 1.1, 200)
+        hom = self.raw_fit.pdf(dom)
+        style = self.STYLES["fit_raw"]
+        ax.plot(dom, hom / hom.max() * self._y_max, ** style, label="fit of raw velocity")
         hom = self.orderly_fit.pdf(dom)
         style = self.STYLES["fit_likely"]
         ax.plot(dom, hom / hom.max() * self._y_max, ** style, label="fit of likely velocity")
-        hom = self.real_fit.pdf(dom)
-        style = self.STYLES["fit_real"]
-        ax.plot(dom, hom / hom.max() * self._y_max, ** style, label="fit of real velocity")
 
     def get_figure(self):
         plt = utils.get_standard_pyplot()
