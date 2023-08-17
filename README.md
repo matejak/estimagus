@@ -78,6 +78,15 @@ Some assumptions are hard, while others may be subjects to change.
 - Execution of each tasks is an independent event.
   Tasks may depend on each other, but how relatively smoothly will a task flow can't be deduced from execution of other tasks.
 - If the team reestimates anything, the history of reestimations is not relevant.
+- It is impossible to find out who or how many people worked to complete a task.
+
+
+### Casual Model
+
+- Team works on multiple tasks simultainously.
+- Some time between start and end of the work, the task is marked as being in progress, and it is concluded at some point.
+- The team's work is reflected in progress that at one point results in a completion of a task, which is a measurable event.
+- The relation between measurable progress and subjective effort is not solid, but the correlation is significant.
 
 
 ## Purpose
