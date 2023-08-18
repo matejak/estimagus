@@ -11,6 +11,9 @@ import estimage.entities.target as target
 from test_events import early_event, less_early_event, late_event, ONE_DAY, PERIOD_START, LONG_PERIOD_END
 
 
+LATER = PERIOD_START + datetime.timedelta(days=9)
+
+
 @pytest.fixture
 def simple_target():
     ret = target.BaseTarget("task")
@@ -79,7 +82,7 @@ def fiveday_repre():
 
 
 def test_repre(repre):
-    someday = datetime.datetime(2022, 10, 10)
+    someday = LATER
     day_after = someday + ONE_DAY
 
     repre.update(someday, points=5, status=target.State.in_progress)
@@ -336,8 +339,8 @@ def test_out_of_bounds_events_ok(repre):
     repre.process_events([event])
 
 
-def test_last_measurement_events(repre):
-    someday = datetime.datetime(2022, 10, 10)
+def test_general_events(repre):
+    someday = LATER
     day_after = someday + ONE_DAY
     day_before = someday - ONE_DAY
 
@@ -352,9 +355,31 @@ def test_last_measurement_events(repre):
     assert repre.get_points_at(day_before) == 5
     assert repre.get_points_at(someday) == 5
     assert repre.get_points_at(day_after) == 5
+    assert repre.points_completed(someday) == 0
+    assert repre.points_completed(day_before) == 0
 
-    last_measurement_state = data.Event.last_state_measurement("task_name", someday, target.State.todo)
-    repre.process_events([last_measurement_state])
-    assert repre.get_status_at(day_before) == target.State.todo
-    assert repre.get_status_at(someday) == target.State.todo
-    assert repre.get_status_at(day_after) == target.State.unknown
+
+def test_solution_progress():
+    end = PERIOD_START + ONE_DAY * 5
+    issue_started_at = PERIOD_START + ONE_DAY * 1
+    issue_done_at = PERIOD_START + ONE_DAY * 2
+    t = target.BaseTarget("T")
+    t.point_cost = 5
+    t.state = target.State.done
+    r = history.aggregation.convert_target_to_representation(t, PERIOD_START, end)
+
+    event_start = data.Event("T", "state", issue_started_at)
+    event_start.value_before = target.State.todo
+    event_start.value_after = target.State.in_progress
+
+    event_end = data.Event("T", "state", issue_done_at)
+    event_end.value_before = target.State.in_progress
+    event_end.value_after = target.State.done
+
+    events = dict(state=[event_start, event_end])
+    r.process_events_by_type(events)
+    status_array = r.status_timeline.get_array()
+    assert status_array[0] == target.State.todo
+    assert status_array[1] == target.State.in_progress
+    assert status_array[2] == target.State.done
+    assert status_array[3] == target.State.done

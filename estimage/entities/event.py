@@ -32,13 +32,6 @@ class Event:
         return ret
 
     @classmethod
-    def last_state_measurement(cls, task_name, when, value):
-        ret = cls(task_name, "state", when)
-        ret.value_after = target.State.unknown
-        ret.value_before = value
-        return ret
-
-    @classmethod
     def consistent(cls, events: typing.Iterable["Event"]):
         events = sorted(events, key=lambda e: e.time)
         return cls._consistent_sorted_events(events)

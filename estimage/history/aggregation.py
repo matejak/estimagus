@@ -64,9 +64,9 @@ def apply_span_to_timeline(timeline, span, start, end):
         timeline.set_gradient_values(span[1], end_remainder, end, end_remainder)
 
 
-def _convert_target_to_representation(
+def convert_target_to_representation(
         source: target.BaseTarget,
-        start: datetime.datetime, end: datetime.datetime) -> typing.List[progress.Progress]:
+        start: datetime.datetime, end: datetime.datetime) -> progress.Progress:
     repre = progress.Progress(start, end)
     repre.task_name = source.name
     repre.points_timeline.set_value_at(end, source.point_cost)
@@ -107,7 +107,7 @@ def convert_target_to_representations_of_leaves(
             propagate_span_to_children(source.work_span, d, start, end)
             ret.extend(convert_target_to_representations_of_leaves(d, start, end))
     else:
-        ret = [_convert_target_to_representation(source, start, end)]
+        ret = [convert_target_to_representation(source, start, end)]
     return ret
 
 

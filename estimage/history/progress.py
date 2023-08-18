@@ -91,11 +91,15 @@ class Progress:
     def fill_history_from(self, when):
         init_event = data.Event("", "points", when)
 
-        init_event.value_before = self.points_timeline.value_at(when)
+        value = self.points_timeline.value_at(when)
+        init_event.value_before = value
         self.points_timeline.process_events([init_event])
+        self.points_timeline.set_value_at(when, value)
 
-        init_event.value_before = self.status_timeline.value_at(when)
+        value = self.status_timeline.value_at(when)
+        init_event.value_before = value
         self.status_timeline.process_events([init_event])
+        self.status_timeline.set_value_at(when, value)
 
     def is_done(self, latest_at=None):
         relevant_slice = slice(0, None)

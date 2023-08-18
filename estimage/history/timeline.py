@@ -74,9 +74,11 @@ class Timeline:
                 raise ValueError(msg)
             self._data[0:index] = e.value_before
 
-        indices_from_oldest = indices_from_newest[::-1]
-        for i, e in zip(indices_from_oldest, events_from_oldest):
-            self._data[i] = e.value_before
+        conservative_event_handling = False
+        if conservative_event_handling:
+            indices_from_oldest = indices_from_newest[::-1]
+            for i, e in zip(indices_from_oldest, events_from_oldest):
+                self._data[i] = e.value_before
 
     def set_value_at(self, time: datetime.datetime, value):
         index = self._localize_date(time)

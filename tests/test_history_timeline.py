@@ -45,7 +45,7 @@ def test_timeline_applies_distinct_events(long_timeline, early_event, late_event
     assert long_timeline.value_at(LONG_PERIOD_END) == 0
     assert long_timeline.value_at(PERIOD_START) == 15
     assert long_timeline.value_at(early_event.time + ONE_DAY * 2) == 10
-    assert long_timeline.value_at(late_event.time) == 10
+    assert long_timeline.value_at(late_event.time) == 0
     assert long_timeline.value_at(late_event.time + ONE_DAY) == 0
 
 
@@ -63,6 +63,6 @@ def test_timeline_process_close_and_distinct_events(
     assert long_timeline.value_at(LONG_PERIOD_END) == 0
     assert long_timeline.value_at(PERIOD_START) == 15
     assert long_timeline.value_at(early_event.time + ONE_DAY * 2) == 10
-    assert long_timeline.value_at(late_event.time) == 10
+    assert long_timeline.value_at(late_event.time) == 0
     assert long_timeline.value_at(late_event.time + ONE_DAY) == 0
-    assert long_timeline.value_at(less_early_event.time) == 17
+    assert long_timeline.value_at(less_early_event.time) == 10
