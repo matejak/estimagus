@@ -83,10 +83,17 @@ Some assumptions are hard, while others may be subjects to change.
 
 ### Casual Model
 
-- Team works on multiple tasks simultainously.
-- Some time between start and end of the work, the task is marked as being in progress, and it is concluded at some point.
-- The team's work is reflected in progress that at one point results in a completion of a task, which is a measurable event.
-- The relation between measurable progress and subjective effort is not solid, but the correlation is significant.
+- Team works on multiple tasks simultaneously. Nevertheless, the team achieves constant progress every day, which is invisible until the task being worked on is completed.
+- The expected progress rate that can be modeled is objectively fluctuating around a constant value. The actual rate is based on the expected rate, additionally influenced by individual conditions of team members. Finally, the observed rate is influenced also by irregularities in issues difficulty.
+- Some time between start and end of the work, the task is marked as being in progress, and it is concluded at some point. The discrepancy between the actual and recorded start is random, although most likely zero (precise tracking), absent-minded (bogus 1-day tasks), or delayed (late record of the start or end).
+
+
+### Considerations
+
+- The target of estimation is one of the team's progress rate (velocity).
+- The only observable data are events of task completion. Due to tracking errors and possible estimation errors, the observed velocity can be extremely volatile.
+- Only the delayed start is considered.
+- Observed velocity: Expected times team availability ratio over sum(real period - starting delay; of tasks that were recorded as in progress at that time).
 
 
 ## Purpose
