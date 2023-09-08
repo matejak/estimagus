@@ -1,3 +1,5 @@
+import pathlib
+
 import datetime
 import json
 
@@ -20,6 +22,13 @@ def save_data(what):
     old.update(what)
     with open("/tmp/estimage_demo.json", "w") as f:
         json.dump(old, f)
+
+
+def reset_data():
+    with open("/tmp/estimage_demo.json", "w") as f:
+        json.dump(dict(), f)
+    mgr = simpledata.EventManager()
+    pathlib.Path(mgr._io_cls.CONFIG_FILENAME).unlink(missing_ok=True)
 
 
 class NotToday:

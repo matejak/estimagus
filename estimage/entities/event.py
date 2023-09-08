@@ -81,3 +81,6 @@ class EventManager:
             events_task_names = loader.load_event_names()
             for name in events_task_names:
                 self._events[name] = loader.load_events_of(name)
+
+    def erase(self):
+        pass
