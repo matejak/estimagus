@@ -44,6 +44,19 @@
 		{% endblock %}
 	    </div>
 	</nav>
+        {%- if breadcrumbs %}
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                {%- for name, link in breadcrumbs.items() %}
+                {%- if link %}
+		<li class="breadcrumb-item"><a href="{{ link }}">{{ name }}</a></li>
+                {%- else %}
+		<li class="breadcrumb-item active" aria-current="page">{{ name }}</li>
+                {%- endif %}
+                {% endfor -%}
+            </ol>
+        </nav>
+        {%- endif %}
 	{{ render_messages() }}
         {% block content %}{% endblock %}
 	{{ bootstrap.load_js() }}

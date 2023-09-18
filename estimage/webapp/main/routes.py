@@ -1,5 +1,6 @@
 import datetime
 import types
+import collections
 
 import flask
 import flask_login
@@ -202,9 +203,30 @@ def view_task(task_name):
 
         similar_targets = get_similar_targets_with_estimations(user_id, task_name)
 
+    breadcrumbs = get_projective_breadcrumbs()
+    append_target_to_breadcrumbs(breadcrumbs, t, all_targets, lambda n: flask.url_for("view_epic", epic_name=n))
+
     return web_utils.render_template(
-        'issue_view.html', title='Estimate Issue',
+        'issue_view.html', title='Estimate Issue', breadcrumbs=breadcrumbs,
         user=user, forms=request_forms, task=t, context=context, similar_sized_targets=similar_targets)
+
+
+def get_projective_breadcrumbs():
+    breadcrumbs = collections.OrderedDict()
+    breadcrumbs["projective"] = flask.url_for("main.tree_view")
+    return breadcrumbs
+
+
+def append_parent_to_breadcrumbs(breadcrumbs, target, all_targets_by_id, name_to_url):
+    for parent_name in target.parent:
+        parent = all_targets_by_id[parent_name]
+        append_parent_to_breadcrumbs(breadcrumbs, parent, all_targets_by_id, name_to_url)
+    breadcrumbs[target.name] = name_to_url(target.name)
+
+
+def append_target_to_breadcrumbs(breadcrumbs, target, all_targets_by_id, name_to_url):
+    append_parent_to_breadcrumbs(breadcrumbs, target, all_targets_by_id, name_to_url)
+    breadcrumbs[target.name] = None
 
 
 @bp.route('/projective/epic/<epic_name>')
@@ -227,8 +249,11 @@ def view_epic(epic_name):
     refresh_form.mode.data = "projective"
     refresh_form.next.data = flask.request.path
 
+    breadcrumbs = get_projective_breadcrumbs()
+    append_target_to_breadcrumbs(breadcrumbs, t, all_targets, lambda n: flask.url_for("view_epic", epic_name=n))
+
     return web_utils.render_template(
-        'epic_view.html', title='View epic', epic=t, estimate=estimate, model=model,
+        'epic_view.html', title='View epic', epic=t, estimate=estimate, model=model, breadcrumbs=breadcrumbs,
         refresh_form=refresh_form)
 
 

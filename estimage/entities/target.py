@@ -28,6 +28,7 @@ class BaseTarget:
     title: str
     description: str
     dependents: typing.List["BaseTarget"]
+    parent: "BaseTarget"
     state: State
     collaborators: typing.List[str]
     assignee: str
@@ -46,6 +47,7 @@ class BaseTarget:
         self.title = ""
         self.description = ""
         self.dependents = []
+        self.parent = None
         self.state = State.unknown
         self.collaborators = []
         self.assignee = ""
@@ -140,3 +142,8 @@ class BaseTarget:
 
     def get_tree(self):
         return self.to_tree([self])
+
+    def denormalize(self):
+        for d in self.dependents:
+            d.parent = self
+            d.denormalize()

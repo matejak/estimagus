@@ -206,3 +206,10 @@ def test_target_forget(target_io):
     one.save_metadata(target_io)
     target_io.forget_all()
     assert not target_io.load_all_targets()
+
+
+def test_target_denormalize(tree_target):
+    tree_target.denormalize()
+    assert tree_target.parent is None
+    leaf = tree_target.dependents[0]
+    assert tree_target == leaf.parent

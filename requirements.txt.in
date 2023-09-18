@@ -13,3 +13,4 @@ jira
 
 pytest
 pytest-dependency
+ruff
