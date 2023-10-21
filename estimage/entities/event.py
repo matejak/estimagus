@@ -83,4 +83,4 @@ class EventManager:
                 self._events[name] = loader.load_events_of(name)
 
     def erase(self):
-        pass
+        self._events.clear()
