@@ -337,7 +337,7 @@ def tree_view():
         targets=targets_tree_without_duplicates, model=model)
 
 
-def executive_summary_of_points_and_velocity(targets):
+def executive_summary_of_points_and_velocity(targets, cls=history.Summary):
     all_events = webdata.EventManager()
     all_events.load()
 
@@ -345,58 +345,9 @@ def executive_summary_of_points_and_velocity(targets):
     cutoff_date = min(datetime.datetime.today(), end)
     aggregation = history.Aggregation.from_targets(targets, start, end)
     aggregation.process_event_manager(all_events)
+    summary = cls(aggregation, cutoff_date)
 
-    done_on_start = 0
-    not_done_on_start = 0
-    cutoff_data = types.SimpleNamespace(todo=0, underway=0, done=0)
-    for r in aggregation.repres:
-        repre_points = r.get_points_at(start)
-        if r.get_status_at(start) in (data.State.todo, data.State.in_progress, data.State.review):
-            not_done_on_start += repre_points
-        elif r.get_status_at(start) == data.State.done:
-            done_on_start += repre_points
-
-        if r.get_status_at(cutoff_date) == data.State.todo:
-            cutoff_data.todo += repre_points
-        elif r.get_status_at(cutoff_date) in (data.State.in_progress, data.State.review):
-            cutoff_data.underway += repre_points
-        elif r.get_status_at(cutoff_date) == data.State.done:
-            cutoff_data.done += repre_points
-
-    velocity_array = aggregation.get_velocity_array()
-    velocity_stdev_while_working = velocity_array[velocity_array > 0].var() ** 0.5
-
-    samples = 200
-    work_remaining = cutoff_data.todo + cutoff_data.underway
-    todo = data.Estimate.from_triple(work_remaining, work_remaining, work_remaining)
-
-    v_mean = 0
-    velocity_stdev = 0
-    completion_interval = (np.inf, np.inf)
-    if velocity_array.max() > 0:
-        last_nonzero_index = utilities.last_nonzero_index_of(velocity_array)
-        nonzero_weekly_velocity = velocity_array[:last_nonzero_index] * 7
-
-        v_mean, v_median = statops.get_mean_median_dissolving_outliers(nonzero_weekly_velocity, 5)
-        mu, sigma = statops.get_lognorm_mu_sigma(v_mean, v_median)
-        velocity_stdev = np.sqrt(statops.get_lognorm_variance(mu, sigma))
-
-        completion_dist = statops.divide_estimate_by_mean_median_fit(todo, v_mean, v_median, samples)
-        completion_interval = (completion_dist.ppf(0.1), completion_dist.ppf(0.9))
-
-    output = dict(
-        initial_todo=not_done_on_start,
-        initial_done=done_on_start,
-        last_record=cutoff_data,
-        total_days_in_period=(cutoff_date - start).days,
-        total_days_while_working=sum(velocity_array > 0),
-        weekly_velocity_mean=v_mean,
-        weekly_velocity_stdev=velocity_stdev,
-        velocity_stdev_while_working=velocity_stdev_while_working,
-        total_points_done=cutoff_data.done - done_on_start,
-        completion=completion_interval,
-    )
-    return output
+    return summary
 
 
 @bp.route('/retrospective')
@@ -409,12 +360,12 @@ def overview_retro():
     tier0_targets = [t for t in all_targets_by_id.values() if t.tier == 0]
     tier0_targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(tier0_targets)
 
-    summary = executive_summary_of_points_and_velocity(tier0_targets_tree_without_duplicates)
+    summary = executive_summary_of_points_and_velocity(tier0_targets_tree_without_duplicates, statops.StatSummary)
 
     return web_utils.render_template(
         "retrospective_overview.html",
         title="Retrospective view",
-        ** summary)
+        summary=summary)
 
 
 @bp.route('/retrospective_tree')
@@ -443,7 +394,7 @@ def tree_view_retro():
         "tree_view_retrospective.html",
         title="Retrospective Tasks tree view",
         targets=priority_sorted_targets, today=datetime.datetime.today(), model=model,
-        refresh_form=refresh_form, ** summary)
+        refresh_form=refresh_form, summary=summary)
 
 
 @bp.route('/retrospective/epic/<epic_name>')
@@ -455,11 +406,10 @@ def view_epic_retro(epic_name):
     all_targets_by_id, model = web_utils.get_all_tasks_by_id_and_user_model("retro", user_id)
     t = all_targets_by_id[epic_name]
 
-    executive_summary = executive_summary_of_points_and_velocity(t.children)
-
+    summary = executive_summary_of_points_and_velocity(t.children)
     breadcrumbs = get_retro_breadcrumbs()
     append_target_to_breadcrumbs(breadcrumbs, t, lambda n: flask.url_for("main.view_epic_retro", epic_name=n))
 
     return web_utils.render_template(
         'epic_view_retrospective.html', title='View epic', breadcrumbs=breadcrumbs,
-        today=datetime.datetime.today(), epic=t, model=model, ** executive_summary)
+        today=datetime.datetime.today(), epic=t, model=model, summary=summary)

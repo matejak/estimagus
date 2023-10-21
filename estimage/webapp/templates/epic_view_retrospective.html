@@ -12,14 +12,14 @@
     <div class="col">
     <h2>Burndown</h2>
     <p>
-        Total epic SP waiting to be completed at start of the sprint: {{ initial_todo | round | int }}
+        Total epic SP waiting to be completed at start of the sprint: {{ summary.initial_todo | round | int }}
     </p>
     <p>
         Last recorded data:
         <ul>
-            <li>TODO: {{ last_record.todo | round | int }}</li>
-            <li>In Progress / needs review: {{ last_record.underway | round | int }}</li>
-            <li>Done: {{ last_record.done | round | int }}</li>
+            <li>TODO: {{ summary.cutoff_todo | round | int }}</li>
+            <li>In Progress / needs review: {{ summary.cutoff_underway | round | int }}</li>
+            <li>Done: {{ summary.cutoff_done | round | int }}</li>
         </ul>
     </p>
     <p>
@@ -28,10 +28,10 @@
     </div>
     <div class="col">
     <h2>Velocity</h2>
-	    {% if total_days_while_working %}
+	    {% if summary.total_days_with_velocity %}
     <p>
         <ul>
-            <li>Average weekly when there was work: {{ "%.02g" % (total_points_done / total_days_while_working * 7) }}</li>
+            <li>Average weekly when there was work: {{ "%.02g" % (summary.total_points_done / summary.total_days_with_velocity * 7) }}</li>
         </ul>
     </p>
     <p>

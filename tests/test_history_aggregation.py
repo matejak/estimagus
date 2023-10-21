@@ -273,6 +273,14 @@ def simple_long_period_aggregation(simple_target):
     return ret
 
 
+def add_status_event_days_after_start(mgr, target, days, before, after):
+    date = PERIOD_START + datetime.timedelta(days=days)
+    evt = data.Event(target.name, "state", date)
+    evt.value_before = before
+    evt.value_after = after
+    mgr.add_event(evt)
+
+
 def test_event_processing(simple_long_period_aggregation):
     start = PERIOD_START
 
@@ -316,3 +324,47 @@ def test_aggregation_and_event_manager(mgr, simple_long_period_aggregation, simp
     repre = simple_long_period_aggregation.repres[0]
     assert repre.get_points_at(LONG_PERIOD_END) == float(early_event.value_after)
     assert repre.get_points_at(PERIOD_START) == float(early_event.value_before)
+
+
+def get_wip_aggregation(simple_target, mgr):
+    simple_target.state = data.State.in_progress
+    add_status_event_days_after_start(
+        mgr, simple_target, 10, data.State.todo, data.State.in_progress)
+    aggregation = tm.Aggregation.from_target(simple_target, PERIOD_START, LONG_PERIOD_END)
+    aggregation.process_event_manager(mgr)
+    return aggregation
+
+
+def get_done_aggregation(simple_target, mgr, was_underway_for_days):
+    simple_target.state = data.State.done
+    add_status_event_days_after_start(
+        mgr, simple_target, 10, data.State.todo, data.State.in_progress)
+    add_status_event_days_after_start(
+        mgr, simple_target, 10 + was_underway_for_days, data.State.in_progress, data.State.done)
+    aggregation = tm.Aggregation.from_target(simple_target, PERIOD_START, LONG_PERIOD_END)
+    aggregation.process_event_manager(mgr)
+    return aggregation
+
+
+def test_aggregation_summary(simple_target, mgr):
+    a = get_wip_aggregation(simple_target, mgr)
+    summary = tm.Summary(a, LONG_PERIOD_END)
+    assert summary.initial_todo == simple_target.point_cost
+    assert summary.total_days_in_period == (LONG_PERIOD_END - PERIOD_START).days
+    assert summary.cutoff_todo == 0
+    assert summary.cutoff_underway == simple_target.point_cost
+
+def test_aggregation_velocity_summary(simple_target, mgr):
+    a = get_done_aggregation(simple_target, mgr, 0)
+    summary = tm.Summary(a, LONG_PERIOD_END)
+    assert summary.total_days_with_velocity == 1
+    assert summary.nonzero_velocity == simple_target.point_cost
+    mean_velocity = summary.weekly_velocity
+    assert 0 < mean_velocity < summary.nonzero_velocity
+
+    mgr.erase()
+    a = get_done_aggregation(simple_target, mgr, 2)
+    summary = tm.Summary(a, LONG_PERIOD_END)
+    assert summary.total_days_with_velocity == 2
+    assert summary.nonzero_velocity == simple_target.point_cost / 2.0
+    assert mean_velocity == summary.weekly_velocity

@@ -10,14 +10,14 @@
 {% block burndown %}
     <h2>Burndown</h2>
     <p>
-        Total SP waiting to be completed at start of the sprint: {{ initial_todo | round | int }}
+        Total SP waiting to be completed at start of the sprint: {{ summary.initial_todo | round | int }}
     </p>
     <p>
         Last recorded data:
         <ul>
-            <li>TODO: {{ last_record.todo | round | int }}</li>
-            <li>In Progress / needs review: {{ last_record.underway | round | int }}</li>
-            <li>Done: {{ last_record.done | round | int }}</li>
+            <li>TODO: {{ summary.cutoff_todo | round | int }}</li>
+            <li>In Progress / needs review: {{ summary.cutoff_underway | round | int }}</li>
+            <li>Done: {{ summary.cutoff_done | round | int }}</li>
         </ul>
     </p>
     <p>
@@ -32,7 +32,7 @@
     <div class="col">
     <p>
         <ul>
-            <li>Average weekly across the whole period: {{ "%.02g" % weekly_velocity_mean }}, 𝜎 = {{ "%.02g" % weekly_velocity_stdev }}</li>
+            <li>Average weekly across the whole period: {{ "%.02g" % (summary.daily_velocity * 7) }}{# , 𝜎 = "%.02g" % weekly_velocity_stdev #}</li>
         </ul>
     </p>
     <p>
@@ -58,7 +58,7 @@
     	Projection of completion
     </p>
     <p>
-    Estimated time of delivery - between {{ "%.2g" % completion[0] }} to {{ "%.2g" % completion[1] }} weeks.
+    Estimated time of delivery - between {{ "%.2g" % summary.completion[0] }} to {{ "%.2g" % (summary.completion[1] / 7.0) }} weeks.
     </p>
     <p>
     <img src="{{ url_for('vis.visualize_completion') }}" alt="Completion projection"/>

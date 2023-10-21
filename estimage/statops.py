@@ -1,6 +1,9 @@
+import datetime
+
 import numpy as np
 import scipy as sp
 
+from .history import Summary, Aggregation
 from . import utilities
 
 
@@ -266,3 +269,30 @@ def construct_evaluation(velocity_dom, velocity_hom, target, iter_limit=100):
         res_dom, res_hom = utilities.eco_convolve(velocity_dom, velocity_hom, res_dom, res_hom)
         res_hom[res_hom < res_hom.max() * 1e-4] = 0
     return np.array(results)
+
+
+class StatSummary(Summary):
+    OUTLIER_THRESHOLD = 3
+
+    def __init__(self, a: Aggregation, cutoff: datetime.datetime, samples: int=200):
+        super().__init__(a, cutoff)
+        self._samples = samples
+
+        self.completion = (np.inf, np.inf)
+        self._projection_summary()
+
+    def _projection_summary(self):
+        todo = self.cutoff_todo + self.cutoff_underway
+
+        if self.daily_velocity > 0:
+            sl = get_pdf_bounds_slice(self._velocity_array)
+            nonzero_daily_velocity = self._velocity_array[sl]
+
+            v_mean, v_median = get_mean_median_dissolving_outliers(nonzero_daily_velocity, self.OUTLIER_THRESHOLD)
+
+            dist = get_lognorm_given_mean_median(v_mean, v_median, self._samples)
+            dom = np.linspace(0, v_mean * 10, self._samples)
+            velocity_pdf = dist.pdf(dom)
+
+            completion_projection = construct_evaluation(dom, velocity_pdf, todo, 200)
+            self.completion = (0, len(completion_projection))
