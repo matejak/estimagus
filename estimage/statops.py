@@ -179,13 +179,15 @@ def get_lognorm_mu_sigma(mean, median):
 
 
 def separate_array_into_good_and_bad(wild_array, outlier_threshold):
+    if outlier_threshold == -1:
+        return wild_array, np.array([])
     raw_mean = wild_array.mean()
     good_array = wild_array[wild_array < raw_mean * outlier_threshold]
     bad_array = wild_array[wild_array >= raw_mean * outlier_threshold]
     return good_array, bad_array
 
 
-def get_mean_median_dissolving_outliers(wild_array, outlier_threshold=5):
+def get_mean_median_dissolving_outliers(wild_array, outlier_threshold=-1):
     raw_mean = wild_array.mean()
     good_array, _ = separate_array_into_good_and_bad(wild_array, outlier_threshold)
     low_mean = good_array.mean()
@@ -272,7 +274,7 @@ def construct_evaluation(velocity_dom, velocity_hom, target, iter_limit=100):
 
 
 class StatSummary(Summary):
-    OUTLIER_THRESHOLD = 3
+    OUTLIER_THRESHOLD = -1
 
     def __init__(self, a: Aggregation, cutoff: datetime.datetime, samples: int=200):
         super().__init__(a, cutoff)

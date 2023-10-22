@@ -239,10 +239,14 @@ def test_construct_evaluation(quasireal_velocity):
 def test_separate_array():
     testa = np.array([1])
     assert tm.separate_array_into_good_and_bad(testa, 2)[0][0] == 1
-    assert not tm.separate_array_into_good_and_bad(testa, 2)[1]
+    assert tm.separate_array_into_good_and_bad(testa, 2)[1].size == 0
 
     assert tm.separate_array_into_good_and_bad(testa, 1)[1][0] == 1
-    assert not tm.separate_array_into_good_and_bad(testa, 1)[0]
+    assert tm.separate_array_into_good_and_bad(testa, 1)[0].size == 0
+
+    testa = np.array([1, 2, 500])
+    assert tm.separate_array_into_good_and_bad(testa, 2)[1][0] == 500
+    assert tm.separate_array_into_good_and_bad(testa, -1)[1].size == 0
 
 
 def test_mean_median_without_outliers():

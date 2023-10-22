@@ -100,13 +100,13 @@ class MPLVelocityFitPlot:
         hist=dict(alpha=0.75),
         hist_likely=dict(color="b"),
         hist_spiked=dict(color="r"),
-        fit_raw=dict(color="gray", linestyle="--"),
-        fit_likely=dict(color="black"),
+        fit_raw=dict(color="black"),
+        fit_likely=dict(color="gray", linestyle="--"),
     )
 
     def __init__(self, nonzero_velocity_array):
         self.velocity_array = nonzero_velocity_array
-        self.outlier_thresh = 3
+        self.outlier_thresh = -1
         self.orderly_velocity, self.spiked_velocity = statops.separate_array_into_good_and_bad(
             nonzero_velocity_array, self.outlier_thresh)
         self.raw_fit = statops.get_lognorm_given_mean_median(
@@ -120,18 +120,19 @@ class MPLVelocityFitPlot:
         values, bins = np.histogram(self.velocity_array, bins="auto")
         self._y_max = values.max()
         style = self.STYLES["hist"] | self.STYLES["hist_likely"]
-        ax.hist(self.orderly_velocity, bins, ** style, label="likely velocity")
-        style = self.STYLES["hist"] | self.STYLES["hist_spiked"]
-        ax.hist(self.spiked_velocity, bins, ** style, label="outliers")
+        ax.hist(self.orderly_velocity, bins, ** style, label="velocity")
+        if self.spiked_velocity:
+            style = self.STYLES["hist"] | self.STYLES["hist_spiked"]
+            ax.hist(self.spiked_velocity, bins, ** style, label="velocity outliers")
 
     def _plot_fits(self, ax):
         dom = np.linspace(0, self.velocity_array.max() * 1.1, 200)
         hom = self.raw_fit.pdf(dom)
         style = self.STYLES["fit_raw"]
-        ax.plot(dom, hom / hom.max() * self._y_max, ** style, label="fit of raw velocity")
-        hom = self.orderly_fit.pdf(dom)
-        style = self.STYLES["fit_likely"]
-        ax.plot(dom, hom / hom.max() * self._y_max, ** style, label="fit of likely velocity")
+        ax.plot(dom, hom / hom.max() * self._y_max, ** style, label="fit of velocity distribution")
+        # hom = self.orderly_fit.pdf(dom)
+        # style = self.STYLES["fit_likely"]
+        # ax.plot(dom, hom / hom.max() * self._y_max, ** style, label="fit of likely velocity")
 
     def get_figure(self):
         plt = utils.get_standard_pyplot()
