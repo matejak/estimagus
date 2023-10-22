@@ -1,0 +1,32 @@
+{% extends "general_retro.html" %}
+
+{% block content %}
+<div class="container-md">
+    <h2>Velocity</h2>
+    <div class="row">
+    <p>
+        <ul>
+            <li>Velocity fit</li>
+        </ul>
+    </p>
+    <p>
+    <img src="{{ url_for('vis.visualize_velocity_fit') }}" alt="Overall velocity"/>
+    </p>
+    </div>
+
+    <div class="row">
+{% block completion %}
+    <h2>Completion</h2>
+    <p>
+    	Projection of completion
+    </p>
+    <p>
+    Estimated time of delivery - between {{ "%.2g" % summary.completion[0] }} to {{ "%.2g" % (summary.completion[1] / 7.0) }} weeks.
+    </p>
+    <p>
+    <img src="{{ url_for('vis.visualize_completion') }}" alt="Completion projection"/>
+    </p>
+{% endblock completion %}
+    </div>
+</div>
+{% endblock content %}
