@@ -360,11 +360,29 @@ def overview_retro():
     tier0_targets = [t for t in all_targets_by_id.values() if t.tier == 0]
     tier0_targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(tier0_targets)
 
-    summary = executive_summary_of_points_and_velocity(tier0_targets_tree_without_duplicates, statops.StatSummary)
+    summary = executive_summary_of_points_and_velocity(tier0_targets_tree_without_duplicates)
 
     return web_utils.render_template(
         "retrospective_overview.html",
         title="Retrospective view",
+        summary=summary)
+
+
+@bp.route('/completion')
+@flask_login.login_required
+def completion():
+    user = flask_login.current_user
+    user_id = user.get_id()
+
+    all_targets_by_id, model = web_utils.get_all_tasks_by_id_and_user_model("retro", user_id)
+    tier0_targets = [t for t in all_targets_by_id.values() if t.tier == 0]
+    tier0_targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(tier0_targets)
+
+    summary = executive_summary_of_points_and_velocity(tier0_targets_tree_without_duplicates, statops.StatSummary)
+
+    return web_utils.render_template(
+        "completion.html",
+        title="Completion projection",
         summary=summary)
 
 

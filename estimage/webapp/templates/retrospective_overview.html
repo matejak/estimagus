@@ -29,7 +29,6 @@
     <div class="row">
 {% block velocity %}
     <h2>Velocity</h2>
-    <div class="col">
     <p>
         <ul>
             <li>Average weekly across the whole period: {{ "%.02g" % (summary.daily_velocity * 7) }}{# , 𝜎 = "%.02g" % weekly_velocity_stdev #}</li>
@@ -37,31 +36,6 @@
     </p>
     <p>
     <img src="{{ url_for('vis.visualize_velocity', epic_name='.') }}" alt="Overall velocity"/>
-    </p>
-    </div>
-    <div class="col">
-    <p>
-        <ul>
-            <li>Velocity fit</li>
-        </ul>
-    </p>
-    <p>
-    <img src="{{ url_for('vis.visualize_velocity_fit') }}" alt="Overall velocity"/>
-    </p>
-    </div>
-{% endblock %}
-    </div>
-    <div class="row">
-{% block completion %}
-    <h2>Completion</h2>
-    <p>
-    	Projection of completion
-    </p>
-    <p>
-    Estimated time of delivery - between {{ "%.2g" % summary.completion[0] }} to {{ "%.2g" % (summary.completion[1] / 7.0) }} weeks.
-    </p>
-    <p>
-    <img src="{{ url_for('vis.visualize_completion') }}" alt="Completion projection"/>
     </p>
 {% endblock %}
     </div>
