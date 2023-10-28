@@ -17,7 +17,7 @@
     <h3>Subtasks</h3>
     <p>
         <ul>
-        {% for d in epic.dependents | sort(attribute="name") -%}
+        {% for d in epic.children | sort(attribute="name") -%}
         {{ utils.render_whatever(d, model) }} {{ "%.3g" % model.nominal_point_estimate_of(d.name).expected }} pts</li>
         {% endfor -%}
         </ul>

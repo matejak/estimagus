@@ -273,7 +273,7 @@ class Importer:
 
     def _apply_refresh(self, real_target: target.BaseTarget, jira_target):
         fresh_target = self.merge_jira_item_without_children(jira_target)
-        fresh_target.dependents = real_target.dependents
+        fresh_target.children = real_target.children
         return fresh_target
 
     def export_jira_epic_chain_to_targets(self, root_names: typing.Iterable[str]) -> dict[str, target.BaseTarget]:

@@ -101,7 +101,7 @@ class EstiModel:
             self._update_target(t)
 
     def _update_target(self, target: BaseTarget):
-        for dep in target.dependents:
+        for dep in target.children:
             self._update_target(dep)
         if target.name not in self.name_result_map:
             return

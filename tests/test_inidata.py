@@ -59,14 +59,30 @@ def test_load_non_existent(targetio_inifile_cls):
 @pytest.mark.dependency
 def test_save_tree_load_same(targetio_inifile_cls):
     t2 = data.BaseTarget("second")
-    t2.save_metadata(targetio_inifile_cls)
 
     t1 = data.BaseTarget("first")
     t1.add_element(t2)
     t1.save_metadata(targetio_inifile_cls)
 
+    t2.save_metadata(targetio_inifile_cls)
+
     loaded_target = data.BaseTarget.load_metadata("first", targetio_inifile_cls)
-    assert loaded_target.dependents[0].name == "second"
+    assert loaded_target.children[0].name == "second"
+    assert loaded_target.children[0].parent is loaded_target
+    assert loaded_target.parent is None
+
+    loaded_leaf = data.BaseTarget.load_metadata("second", targetio_inifile_cls)
+    assert loaded_leaf.parent.name == "first"
+
+    t3 = data.BaseTarget("third")
+    loaded_leaf.add_element(t3)
+
+    loaded_leaf.save_metadata(targetio_inifile_cls)
+    t3.save_metadata(targetio_inifile_cls)
+
+    loaded_subleaf = data.BaseTarget.load_metadata("third", targetio_inifile_cls)
+    assert loaded_subleaf.parent.name == "second"
+    assert loaded_subleaf.parent.parent.name == "first"
 
 
 @pytest.mark.dependency
@@ -81,7 +97,7 @@ def test_save_something_load_same(targetio_inifile_cls):
     assert target.name == data2.name
     assert target.title == data2.title
     assert target.description == data2.description
-    assert len(data2.dependents) == 0
+    assert len(data2.children) == 0
 
     target.point_cost = 5
     assert target.point_cost != data2.point_cost

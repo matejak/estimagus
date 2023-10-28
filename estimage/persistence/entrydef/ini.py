@@ -27,9 +27,13 @@ class IniTargetSaver(IniTargetSaverBase):
     def save_costs(self, t):
         self._store_our(t, "point_cost", str(t.point_cost))
 
-    def save_dependents(self, t):
-        depnames_str = self._pack_list([dep.name for dep in t.dependents])
+    def save_family_records(self, t):
+        depnames_str = self._pack_list([dep.name for dep in t.children])
         self._store_our(t, "depnames", depnames_str)
+        parent_str = ""
+        if t.parent:
+            parent_str = t.parent.name
+        self._store_our(t, "parent", parent_str)
 
     def save_assignee_and_collab(self, t):
         self._store_our(t, "assignee")
@@ -77,14 +81,21 @@ class IniTargetLoader(IniTargetLoaderBase):
     def load_costs(self, t):
         t.point_cost = float(self._get_our(t, "point_cost"))
 
-    def load_dependents(self, t):
+    def load_family_records(self, t):
         all_deps = self._get_our(t, "depnames", "")
         for n in self._unpack_list(all_deps):
             if not n:
                 continue
             new = data.BaseTarget(n)
+            new.parent = t
             new.load_data_by_loader(self)
-            t.dependents.append(new)
+            t.add_element(new)
+        parent_id = self._get_our(t, "parent", "")
+        parent_known_notyet_fetched = parent_id and t.parent is None
+        if parent_known_notyet_fetched:
+            parent = data.BaseTarget(parent_id)
+            parent.load_data_by_loader(self)
+            t.parent = parent
 
     def load_assignee_and_collab(self, t):
         t.assignee = self._get_our(t, "assignee")
@@ -129,6 +140,12 @@ class IniTargetLoader(IniTargetLoaderBase):
                 target.load_data_by_loader(loader)
                 ret[name] = target
         return ret
+
+    @classmethod
+    def denormalize(cls, t):
+        for child in t.children:
+            child.parent = t
+            cls.denormalize(child)
 
     @classmethod
     def load_all_targets(cls, target_class=data.BaseTarget):

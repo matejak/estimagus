@@ -204,7 +204,7 @@ def view_task(task_name):
         similar_targets = get_similar_targets_with_estimations(user_id, task_name)
 
     breadcrumbs = get_projective_breadcrumbs()
-    append_target_to_breadcrumbs(breadcrumbs, t, all_targets, lambda n: flask.url_for("view_epic", epic_name=n))
+    append_target_to_breadcrumbs(breadcrumbs, t, lambda n: flask.url_for("main.view_epic", epic_name=n))
 
     return web_utils.render_template(
         'issue_view.html', title='Estimate Issue', breadcrumbs=breadcrumbs,
@@ -217,15 +217,14 @@ def get_projective_breadcrumbs():
     return breadcrumbs
 
 
-def append_parent_to_breadcrumbs(breadcrumbs, target, all_targets_by_id, name_to_url):
-    for parent_name in target.parent:
-        parent = all_targets_by_id[parent_name]
-        append_parent_to_breadcrumbs(breadcrumbs, parent, all_targets_by_id, name_to_url)
+def append_parent_to_breadcrumbs(breadcrumbs, target, name_to_url):
+    if target.parent:
+        append_parent_to_breadcrumbs(breadcrumbs, target.parent, name_to_url)
     breadcrumbs[target.name] = name_to_url(target.name)
 
 
-def append_target_to_breadcrumbs(breadcrumbs, target, all_targets_by_id, name_to_url):
-    append_parent_to_breadcrumbs(breadcrumbs, target, all_targets_by_id, name_to_url)
+def append_target_to_breadcrumbs(breadcrumbs, target, name_to_url):
+    append_parent_to_breadcrumbs(breadcrumbs, target, name_to_url)
     breadcrumbs[target.name] = None
 
 
@@ -245,7 +244,7 @@ def view_epic(epic_name):
     t = projective_retrieve_task(epic_name)
 
     refresh_form = redhat_compliance.forms.RedhatComplianceRefreshForm()
-    refresh_form.request_refresh_of([epic_name] + [e.name for e in t.dependents])
+    refresh_form.request_refresh_of([epic_name] + [e.name for e in t.children])
     refresh_form.mode.data = "projective"
     refresh_form.next.data = flask.request.path
 
@@ -411,7 +410,7 @@ def view_epic_retro(epic_name):
     all_targets_by_id, model = web_utils.get_all_tasks_by_id_and_user_model("retro", user_id)
     t = all_targets_by_id[epic_name]
 
-    executive_summary = executive_summary_of_points_and_velocity(t.dependents)
+    executive_summary = executive_summary_of_points_and_velocity(t.children)
 
     return web_utils.render_template(
         'epic_view_retrospective.html', title='View epic',

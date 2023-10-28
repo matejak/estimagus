@@ -49,7 +49,7 @@
     <h3>Subtasks</h3>
     <p>
         <ul>
-        {% for d in epic.dependents | sort(attribute="name") %}
+        {% for d in epic.children | sort(attribute="name") %}
 	{{ utils.render_whatever_retro(d, model, today) }}
         {% endfor %}
         </ul>

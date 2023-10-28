@@ -66,8 +66,11 @@ def test_finished_target_is_masked(leaf_target):
 def test_subtree_properties(leaf_target, subtree_target, tree_target):
     assert subtree_target in subtree_target
     assert leaf_target in subtree_target
+    assert leaf_target.parent is subtree_target
     assert subtree_target not in leaf_target
     assert leaf_target in tree_target
+    assert subtree_target.parent is tree_target
+    assert not tree_target.parent
 
     composition = subtree_target.get_tree()
     assert subtree_target.name == composition.name
@@ -206,10 +209,3 @@ def test_target_forget(target_io):
     one.save_metadata(target_io)
     target_io.forget_all()
     assert not target_io.load_all_targets()
-
-
-def test_target_denormalize(tree_target):
-    tree_target.denormalize()
-    assert tree_target.parent is None
-    leaf = tree_target.dependents[0]
-    assert tree_target == leaf.parent

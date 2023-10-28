@@ -2,7 +2,7 @@
 {% from 'bootstrap5/form.html' import render_form %}
 
 {% macro render_whatever_retro(target, model, today, recursive=true) %}
-{% if target.dependents %}
+{% if target.children %}
 {{ render_epic_retro(target, model, today, recursive) }}
 {% else %}
 {{ render_task(target, model) }}
@@ -37,7 +37,7 @@
 	: {{ epic.status_summary | safe }}</p>
         {%- endif %}
         {% if recursive -%}
-        {% for target in (epic.dependents | sort(attribute="name")) %}
+        {% for target in (epic.children | sort(attribute="name")) %}
         <ul>
             {{- render_whatever_retro(target, model, today, recursive=recursive) -}}
         </ul>
@@ -57,7 +57,7 @@
 {% endmacro %}
 
 {% macro render_whatever(target, model, recursive=true) %}
-{% if target.dependents %}
+{% if target.children %}
 {{ render_epic(target, model, recursive=recursive) }}
 {% else %}
 {{ render_task(target, model) }}
@@ -118,7 +118,7 @@
         </p>
         {% if recursive -%}
         <ul>
-            {% for target in (epic.dependents | sort(attribute="name")) %}
+            {% for target in (epic.children | sort(attribute="name")) %}
             {{- render_whatever(target, model, recursive=recursive) -}}
             {% endfor %}
         </ul>
