@@ -217,6 +217,12 @@ def get_projective_breadcrumbs():
     return breadcrumbs
 
 
+def get_retro_breadcrumbs():
+    breadcrumbs = collections.OrderedDict()
+    breadcrumbs["retrospectie"] = flask.url_for("main.tree_view_retro")
+    return breadcrumbs
+
+
 def append_parent_to_breadcrumbs(breadcrumbs, target, name_to_url):
     if target.parent:
         append_parent_to_breadcrumbs(breadcrumbs, target.parent, name_to_url)
@@ -249,7 +255,7 @@ def view_epic(epic_name):
     refresh_form.next.data = flask.request.path
 
     breadcrumbs = get_projective_breadcrumbs()
-    append_target_to_breadcrumbs(breadcrumbs, t, all_targets, lambda n: flask.url_for("view_epic", epic_name=n))
+    append_target_to_breadcrumbs(breadcrumbs, t, lambda n: flask.url_for("main.view_epic", epic_name=n))
 
     return web_utils.render_template(
         'epic_view.html', title='View epic', epic=t, estimate=estimate, model=model, breadcrumbs=breadcrumbs,
@@ -412,6 +418,9 @@ def view_epic_retro(epic_name):
 
     executive_summary = executive_summary_of_points_and_velocity(t.children)
 
+    breadcrumbs = get_retro_breadcrumbs()
+    append_target_to_breadcrumbs(breadcrumbs, t, lambda n: flask.url_for("main.view_epic_retro", epic_name=n))
+
     return web_utils.render_template(
-        'epic_view_retrospective.html', title='View epic',
+        'epic_view_retrospective.html', title='View epic', breadcrumbs=breadcrumbs,
         today=datetime.datetime.today(), epic=t, model=model, ** executive_summary)

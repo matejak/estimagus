@@ -113,9 +113,11 @@
         <li>
         <div id={{ epic.name }}">
         {{ render_epic_basic(epic) }}
+        {% if model.remaining_point_estimate.expected > 0 %}
         <p>
         Left to do: {{ "%.3g" % model.remaining_point_estimate_of(epic.name).expected }}, i.e. {{ "%i %%" % (model.remaining_point_estimate_of(epic.name).expected / model.remaining_point_estimate.expected * 100) }} of the whole
         </p>
+        {% endif %}
         {% if recursive -%}
         <ul>
             {% for target in (epic.children | sort(attribute="name")) %}
