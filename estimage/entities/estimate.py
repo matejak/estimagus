@@ -6,6 +6,7 @@ import scipy as sp
 import scipy.stats
 
 from .. import utilities
+from ..statops import dist
 
 
 # Don't set to 0, as the variance calculation tends to lose information
@@ -305,6 +306,9 @@ class Estimate:
         return pert
 
     def _divide_by_general_gauss_general_estimate(self, dom, mean, stdev):
+        gauss_dom = np.linspace(mean - stdev * 3.2, mean + stdev * 3.2, len(dom))
+        gauss_dist = dist.Dist(gauss_dom, sp.stats.norm.pdf(gauss_dom, loc=mean, scale=stdev))
+        inverse_gauss = gauss_dist.get_inverse()
         values = np.zeros_like(dom)
         inner_resolution = len(dom) * 2
         inner_domain, pert = self.get_pert(inner_resolution)

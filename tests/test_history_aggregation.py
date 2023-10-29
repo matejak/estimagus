@@ -359,7 +359,7 @@ def test_aggregation_velocity_summary(simple_target, mgr):
     summary = tm.Summary(a, LONG_PERIOD_END)
     assert summary.total_days_with_velocity == 1
     assert summary.nonzero_velocity == simple_target.point_cost
-    mean_velocity = summary.weekly_velocity
+    mean_velocity = summary.daily_velocity
     assert 0 < mean_velocity < summary.nonzero_velocity
 
     mgr.erase()
@@ -367,4 +367,4 @@ def test_aggregation_velocity_summary(simple_target, mgr):
     summary = tm.Summary(a, LONG_PERIOD_END)
     assert summary.total_days_with_velocity == 2
     assert summary.nonzero_velocity == simple_target.point_cost / 2.0
-    assert mean_velocity == summary.weekly_velocity
+    assert mean_velocity == summary.daily_velocity

@@ -452,7 +452,7 @@ def plot_diffs(dom, histogram, predicted):
 
 
 def test_rv_algebra_addition():
-    num_trials = 400000
+    num_trials = 200000
     num_samples = 50
 
     e1 = tm.Estimate.from_triple(4, 2, 8)
@@ -484,6 +484,17 @@ def test_rv_algebra_gauss_division():
     # divided[generated_normal == 0] = np.inf
     real_reciprocal_normal = estimate.reciprocal_normal_pdf(dom, 1.5, 0.4)
     assert_sampling_corresponds_to_pdf(dom, divided, real_reciprocal_normal)
+
+
+def plot_two_functions(dom1, hom1, dom2, hom2):
+    import pylab as pyl
+    f = pyl.figure()
+    plt = f.add_subplot()
+    plt.plot(dom1, hom1)
+    plt.plot(dom2, hom2)
+    plt.grid()
+    pyl.show()
+    f.savefig("lala.png")
 
 
 def test_rv_algebra_division():

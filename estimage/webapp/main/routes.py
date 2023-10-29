@@ -1,16 +1,15 @@
 import datetime
-import types
 import collections
 
 import flask
 import flask_login
-import numpy as np
 
 from . import bp
 from . import forms
 from .. import web_utils
 from ... import data
 from ... import utilities, statops
+from ...statops import summary
 from ... import simpledata as webdata
 from ... import history
 from ...plugins import redhat_compliance
@@ -230,7 +229,6 @@ def view_task(task, breadcrumbs, request_forms=None):
         user=user, forms=request_forms, task=task, context=context, similar_sized_targets=similar_targets)
 
 
-
 def get_projective_breadcrumbs():
     breadcrumbs = collections.OrderedDict()
     breadcrumbs["Planning"] = flask.url_for("main.tree_view")
@@ -378,7 +376,7 @@ def completion():
     tier0_targets = [t for t in all_targets_by_id.values() if t.tier == 0]
     tier0_targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(tier0_targets)
 
-    summary = executive_summary_of_points_and_velocity(tier0_targets_tree_without_duplicates, statops.StatSummary)
+    summary = executive_summary_of_points_and_velocity(tier0_targets_tree_without_duplicates, statops.summary.StatSummary)
 
     return web_utils.render_template(
         "completion.html",

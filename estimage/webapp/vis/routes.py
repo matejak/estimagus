@@ -10,7 +10,8 @@ import matplotlib
 
 from . import bp
 from .. import web_utils
-from ... import utilities, statops
+from ... import utilities
+from ...statops import func, dist
 from ... import simpledata as webdata
 from ... import history
 from ...visualize import utils, velocity, burndown, pert, completion
@@ -73,16 +74,16 @@ def visualize_completion():
     aggregation.process_event_manager(all_events)
 
     velocity_array = aggregation.get_velocity_array()
-    sl = statops.get_pdf_bounds_slice(velocity_array)
+    sl = func.get_pdf_bounds_slice(velocity_array)
     nonzero_daily_velocity = velocity_array[sl]
 
-    v_mean, v_median = statops.get_mean_median_dissolving_outliers(nonzero_daily_velocity, -1)
+    v_mean, v_median = func.get_mean_median_dissolving_outliers(nonzero_daily_velocity, -1)
 
     samples = 300
-    dist = statops.get_lognorm_given_mean_median(v_mean, v_median, samples)
+    distro = dist.get_lognorm_given_mean_median(v_mean, v_median, samples)
     dom = np.linspace(0, v_mean * 10, samples)
-    velocity_pdf = dist.pdf(dom)
-    completion_projection = statops.construct_evaluation(dom, velocity_pdf, todo.expected, 200)
+    velocity_pdf = distro.pdf(dom)
+    completion_projection = func.construct_evaluation(dom, velocity_pdf, todo.expected, 200)
 
     matplotlib.use("svg")
 
@@ -110,7 +111,7 @@ def visualize_velocity_fit():
     aggregation.process_event_manager(all_events)
 
     velocity_array = aggregation.get_velocity_array()
-    sl = statops.get_pdf_bounds_slice(velocity_array)
+    sl = func.get_pdf_bounds_slice(velocity_array)
     nonzero_weekly_velocity = velocity_array[sl] * 7
 
     matplotlib.use("svg")

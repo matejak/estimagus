@@ -4,7 +4,8 @@ import datetime
 import numpy as np
 
 from . import utils
-from .. import history, PluginResolver, statops
+from .. import history, PluginResolver
+from ..statops import func, dist
 
 
 DAYS_IN_WEEK = 7
@@ -107,13 +108,13 @@ class MPLVelocityFitPlot:
     def __init__(self, nonzero_velocity_array):
         self.velocity_array = nonzero_velocity_array
         self.outlier_thresh = -1
-        self.orderly_velocity, self.spiked_velocity = statops.separate_array_into_good_and_bad(
+        self.orderly_velocity, self.spiked_velocity = func.separate_array_into_good_and_bad(
             nonzero_velocity_array, self.outlier_thresh)
-        self.raw_fit = statops.get_lognorm_given_mean_median(
+        self.raw_fit = dist.get_lognorm_given_mean_median(
             nonzero_velocity_array.mean(), np.median(nonzero_velocity_array))
-        mean, median = statops.get_mean_median_dissolving_outliers(
+        mean, median = func.get_mean_median_dissolving_outliers(
             self.velocity_array, self.outlier_thresh)
-        self.orderly_fit = statops.get_lognorm_given_mean_median(mean, median)
+        self.orderly_fit = dist.get_lognorm_given_mean_median(mean, median)
         self._y_max = 0
 
     def _plot_histogram(self, ax):
