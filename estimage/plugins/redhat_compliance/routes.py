@@ -30,6 +30,8 @@ def sync():
                 error_msg = f"Error {exc.status_code} when interacting with Jira, accessing URL {exc.url}"
             else:
                 error_msg = f"Error {exc.status_code} when interacting with Jira: {exc.text}"
+        except RuntimeError as exc:
+            error_msg = str(exc)
 
         if error_msg:
             flask.flash(error_msg)
