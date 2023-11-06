@@ -103,7 +103,11 @@ def visualize_task(task_name, nominal_or_remaining):
     user = flask_login.current_user
     user_id = user.get_id()
 
-    _, model = web_utils.get_all_tasks_by_id_and_user_model("proj", user_id)
+    tasks, model = web_utils.get_all_tasks_by_id_and_user_model("proj", user_id)
+    if task_name not in tasks:
+        tasks, model = web_utils.get_all_tasks_by_id_and_user_model("retro", user_id)
+    if task_name not in tasks:
+        return (f"Unable to find task {task_name}", 500)
 
     if task_name == ".":
         if nominal_or_remaining == "nominal":

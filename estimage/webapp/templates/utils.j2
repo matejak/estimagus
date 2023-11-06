@@ -5,7 +5,7 @@
 {% if target.children %}
 {{ render_epic_retro(target, model, today, recursive) }}
 {% else %}
-{{ render_task(target, model) }}
+{{ render_task(target, "retrospective", model) }}
 {% endif %}
 {% endmacro %}
 
@@ -60,7 +60,7 @@
 {% if target.children %}
 {{ render_epic(target, model, recursive=recursive) }}
 {% else %}
-{{ render_task(target, model) }}
+{{ render_task(target, "projective", model) }}
 {% endif %}
 {% endmacro %}
 
@@ -68,8 +68,13 @@
         <a href="{{ url_for("main.refresh_single", name=target.name, mode=mode, next=next) }}">{{ render_icon("arrow-clockwise") }}</a>
 {%- endmacro %}
 
-{% macro task_link(task) -%}
-        <a href="{{ url_for("main.view_task", task_name=task.name) }}">{{ task.name }}</a>&nbsp;<a href="{{ task.uri }}" rel="external">{{ render_icon("box-arrow-up-right") }}</a>
+{% set task_type_to_function = {
+	"projective": "main.view_projective_task",
+	"retrospective": "main.view_retro_task",
+} %}
+
+{% macro task_link(task, type) -%}
+        <a href="{{ url_for(task_type_to_function[type], task_name=task.name) }}">{{ task.name }}</a>&nbsp;<a href="{{ task.uri }}" rel="external">{{ render_icon("box-arrow-up-right") }}</a>
 {%- endmacro %}
 
 {% macro epic_external_link(epic) -%}
@@ -88,8 +93,8 @@
         <span class="state.style_class">state.name</span>
 {%- endmacro %}
 
-{% macro render_task_basic(task, model) -%}
-        {{ task_link(task) }} &mdash; <span class="task-state">{{ state_to_string(task.state) }}</span><span class="task-points {{- " uncounted_points" if model and model.get_element(task.name).masked }}">{{ "%.2g" % task.point_cost }}</span>
+{% macro render_task_basic(task, task_type, model) -%}
+        {{ task_link(task, task_type) }} &mdash; <span class="task-state">{{ state_to_string(task.state) }}</span><span class="task-points {{- " uncounted_points" if model and model.get_element(task.name).masked }}">{{ "%.2g" % task.point_cost }}</span>
 	{{ truncate_text_to(task.title, "350pt") }}
 {%- endmacro %}
 
@@ -97,10 +102,10 @@
 <span class="d-inline-block text-truncate align-top" style="max-width: {{ width }};">{{ text }}</span>
 {%- endmacro %}
 
-{% macro render_task(task, model) %}
+{% macro render_task(task, task_type, model) %}
         <li>
         <div id={{ task.name }}">
-        {{- render_task_basic(task, model) -}}
+        {{- render_task_basic(task, task_type, model) -}}
         </div>
         </li>
 {% endmacro %}

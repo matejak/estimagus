@@ -67,6 +67,7 @@
         <img src="{{ url_for('vis.visualize_task', task_name=task.name, nominal_or_remaining='nominal') }}" alt="PERT prob density function for {{ task.name }}"/>
         </div>
     </div>
+    {% if forms %}
     <div class="row">
     <div class="col">
     <h3>Tracker values</h3>
@@ -93,6 +94,7 @@
     </div>
     {%- if similar_sized_targets %}
         {{ utils.render_similar_sized_tasks(similar_sized_targets[:8]) }}
+    {%- endif %}
     {%- endif %}
 </div>
 {% endblock %}

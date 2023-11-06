@@ -80,7 +80,7 @@ def move_issue_estimate_to_consensus(task_name):
             flask.flash("Consensus not updated, request was not serious")
 
     return flask.redirect(
-        flask.url_for("main.view_task", task_name=task_name))
+        flask.url_for("main.view_projective_task", task_name=task_name))
 
 
 @bp.route('/authoritative/<task_name>', methods=['POST'])
@@ -103,7 +103,7 @@ def move_consensus_estimate_to_authoritative(task_name):
             flask.flash("Authoritative estimate not updated, request was not serious")
 
     return flask.redirect(
-        flask.url_for("main.view_task", task_name=task_name))
+        flask.url_for("main.view_projective_task", task_name=task_name))
 
 
 @bp.route('/estimate/<task_name>', methods=['POST'])
@@ -129,7 +129,7 @@ def estimate(task_name):
         msg += ", ".join(form.get_all_errors())
         flask.flash(msg)
     return flask.redirect(
-        flask.url_for("main.view_task", task_name=task_name))
+        flask.url_for("main.view_projective_task", task_name=task_name))
 
 
 def tell_of_bad_estimation_input(task_name, task_category, message):
@@ -168,58 +168,72 @@ def get_similar_targets_with_estimations(user_id, task_name):
 
 @bp.route('/projective/task/<task_name>')
 @flask_login.login_required
-def view_task(task_name):
-    user = flask_login.current_user
+def view_projective_task(task_name):
+    t = projective_retrieve_task(task_name)
 
-    user_id = user.get_id()
-    pollster = webdata.UserPollster(user_id)
     request_forms = dict(
         estimation=forms.NumberEstimationForm(),
         consensus=forms.ConsensusForm(),
         authoritative=flask.current_app.config["classes"]["AuthoritativeForm"](),
     )
-
-    t = projective_retrieve_task(task_name)
-
-    c_pollster = webdata.AuthoritativePollster()
-    context = webdata.Context(t)
-    give_data_to_context(context, pollster, c_pollster)
-
-    if context.own_estimation_exists:
-        request_forms["estimation"].enable_delete_button()
-        request_forms["consensus"].enable_submit_button()
-    if context.global_estimation_exists:
-        request_forms["consensus"].enable_delete_button()
-        request_forms["authoritative"].clear_to_go()
-        request_forms["authoritative"].task_name.data = task_name
-        request_forms["authoritative"].point_cost.data = ""
-
-    similar_targets = []
-    if context.estimation_source == "none":
-        fallback_estimation = data.Estimate.from_input(data.EstimInput(t.point_cost))
-        feed_estimation_to_form(fallback_estimation, request_forms["estimation"])
-    else:
-        feed_estimation_to_form(context.estimation, request_forms["estimation"])
-
-        similar_targets = get_similar_targets_with_estimations(user_id, task_name)
-
     breadcrumbs = get_projective_breadcrumbs()
     append_target_to_breadcrumbs(breadcrumbs, t, lambda n: flask.url_for("main.view_epic", epic_name=n))
+    return view_task(t, breadcrumbs, request_forms)
+
+
+@bp.route('/retrospective/task/<task_name>')
+@flask_login.login_required
+def view_retro_task(task_name):
+    t = retro_retrieve_task(task_name)
+
+    breadcrumbs = get_retro_breadcrumbs()
+    append_target_to_breadcrumbs(breadcrumbs, t, lambda n: flask.url_for("main.view_epic_retro", epic_name=n))
+    return view_task(t, breadcrumbs)
+
+
+def view_task(task, breadcrumbs, request_forms=None):
+    user = flask_login.current_user
+    user_id = user.get_id()
+    pollster = webdata.UserPollster(user_id)
+
+    c_pollster = webdata.AuthoritativePollster()
+    context = webdata.Context(task)
+    give_data_to_context(context, pollster, c_pollster)
+
+    similar_targets = []
+    if request_forms:
+        if context.own_estimation_exists:
+            request_forms["estimation"].enable_delete_button()
+            request_forms["consensus"].enable_submit_button()
+        if context.global_estimation_exists:
+            request_forms["consensus"].enable_delete_button()
+            request_forms["authoritative"].clear_to_go()
+            request_forms["authoritative"].task_name.data = task.name
+            request_forms["authoritative"].point_cost.data = ""
+
+        if context.estimation_source == "none":
+            fallback_estimation = data.Estimate.from_input(data.EstimInput(task.point_cost))
+            feed_estimation_to_form(fallback_estimation, request_forms["estimation"])
+        else:
+            feed_estimation_to_form(context.estimation, request_forms["estimation"])
+
+            similar_targets = get_similar_targets_with_estimations(user_id, task.name)
 
     return web_utils.render_template(
         'issue_view.html', title='Estimate Issue', breadcrumbs=breadcrumbs,
-        user=user, forms=request_forms, task=t, context=context, similar_sized_targets=similar_targets)
+        user=user, forms=request_forms, task=task, context=context, similar_sized_targets=similar_targets)
+
 
 
 def get_projective_breadcrumbs():
     breadcrumbs = collections.OrderedDict()
-    breadcrumbs["projective"] = flask.url_for("main.tree_view")
+    breadcrumbs["Planning"] = flask.url_for("main.tree_view")
     return breadcrumbs
 
 
 def get_retro_breadcrumbs():
     breadcrumbs = collections.OrderedDict()
-    breadcrumbs["retrospectie"] = flask.url_for("main.tree_view_retro")
+    breadcrumbs["Retrospective"] = flask.url_for("main.tree_view_retro")
     return breadcrumbs
 
 
