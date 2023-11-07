@@ -27,7 +27,10 @@ class BaseTarget:
     name: str
     title: str
     description: str
-    dependents: typing.List["BaseTarget"]
+    children: typing.List["BaseTarget"]
+    parent: "BaseTarget"
+    depends_on: typing.List["BaseTarget"]
+    prerequisite_of: typing.List["BaseTarget"]
     state: State
     collaborators: typing.List[str]
     assignee: str
@@ -45,7 +48,10 @@ class BaseTarget:
         self.name = name
         self.title = ""
         self.description = ""
-        self.dependents = []
+        self.children = []
+        self.parent = None
+        self.depends_on = []
+        self.prerequisite_of = []
         self.state = State.unknown
         self.collaborators = []
         self.assignee = ""
@@ -58,8 +64,8 @@ class BaseTarget:
 
     def _convert_into_composition(self):
         ret = Composition(self.name)
-        for d in self.dependents:
-            if d.dependents:
+        for d in self.children:
+            if d.children:
                 ret.add_composition(d._convert_into_composition())
             else:
                 ret.add_element(d._convert_into_single_result())
@@ -74,7 +80,8 @@ class BaseTarget:
         return ret
 
     def add_element(self, what: "BaseTarget"):
-        self.dependents.append(what)
+        self.children.append(what)
+        what.parent = self
 
     def save_metadata(self, saver_cls):
         with saver_cls.get_saver() as saver:
@@ -83,7 +90,7 @@ class BaseTarget:
     def pass_data_to_saver(self, saver):
         saver.save_title_and_desc(self)
         saver.save_costs(self)
-        saver.save_dependents(self)
+        saver.save_family_records(self)
         saver.save_assignee_and_collab(self)
         saver.save_priority_and_state(self)
         saver.save_tier(self)
@@ -94,7 +101,7 @@ class BaseTarget:
     def load_data_by_loader(self, loader):
         loader.load_title_and_desc(self)
         loader.load_costs(self)
-        loader.load_dependents(self)
+        loader.load_family_records(self)
         loader.load_assignee_and_collab(self)
         loader.load_priority_and_state(self)
         loader.load_tier(self)
@@ -108,7 +115,7 @@ class BaseTarget:
         if self.name == lhs.name:
             return True
 
-        for rhs in self.dependents:
+        for rhs in self.children:
             if rhs.name == lhs_name:
                 return True
             elif lhs in rhs:
@@ -128,11 +135,11 @@ class BaseTarget:
             return Composition("")
         targets = utilities.reduce_subsets_from_sets(targets)
         result = Composition("")
-        if len(targets) == 1 and (target := targets[0]).dependents:
+        if len(targets) == 1 and (target := targets[0]).children:
             result = target._convert_into_composition()
             return result
         for t in targets:
-            if t.dependents:
+            if t.children:
                 result.add_composition(t._convert_into_composition())
             else:
                 result.add_element(t._convert_into_single_result())

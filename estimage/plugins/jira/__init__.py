@@ -39,6 +39,9 @@ JIRA_PRIORITY_TO_VALUE = {
 }
 
 
+Collected = collections.namedtuple("Collected", ("Retrospective", "Projective", "Events"))
+
+
 @dataclasses.dataclass(init=False)
 class InputSpec:
     token: str
@@ -205,11 +208,15 @@ class Importer:
             raise RuntimeError(msg) from exc
         self.item_class = spec.item_class
 
+    def report(self, msg):
+        print(msg)
+
     def import_data(self, spec):
         issue_names_requiring_events = set()
 
         retro_epic_names = set()
         if spec.retrospective_query:
+            self.report("Gathering retro stuff")
             retro_epic_names = get_epics_and_their_tasks_by_id(
                 self.jira, spec.retrospective_query, self._all_issues_by_name,
                 self._parents_child_keymap)
@@ -217,12 +224,10 @@ class Importer:
             self._retro_targets.update(new_targets.keys())
             issue_names_requiring_events.update(new_targets.keys())
             self._targets_by_id.update(new_targets)
-            print("Gathering retro stuff")
-            print(f"{len(self._retro_targets)} issues so far")
 
         proj_epic_names = set()
         if spec.projective_query:
-            print("Gathering proj stuff")
+            self.report("Gathering proj stuff")
             proj_epic_names = get_epics_and_their_tasks_by_id(
                 self.jira, spec.projective_query, self._all_issues_by_name,
                 self._parents_child_keymap)
@@ -233,15 +238,12 @@ class Importer:
             self._targets_by_id.update(new_targets)
             self._projective_targets.update(new_targets.keys())
             self._projective_targets.update(known_targets.keys())
-            print("Gathering projective stuff")
-            print(f"{len(self._projective_targets)} issues so far")
 
         self.resolve_inheritance(proj_epic_names.union(retro_epic_names))
 
         for name in issue_names_requiring_events:
             new_events = get_task_events(self._all_issues_by_name[name], spec.cutoff_date)
             self._all_events.extend(new_events)
-        print(f"Collected {len(self._all_events)} events")
 
     def find_targets(self, target_names: typing.Iterable[str]):
         target_ids_sequence = ", ".join(target_names)
@@ -273,7 +275,7 @@ class Importer:
 
     def _apply_refresh(self, real_target: target.BaseTarget, jira_target):
         fresh_target = self.merge_jira_item_without_children(jira_target)
-        fresh_target.dependents = real_target.dependents
+        fresh_target.children = real_target.children
         return fresh_target
 
     def export_jira_epic_chain_to_targets(self, root_names: typing.Iterable[str]) -> dict[str, target.BaseTarget]:
@@ -343,7 +345,41 @@ class Importer:
         for e in self._all_events:
             storer.add_event(e)
         storer.save()
-        print(f"Got about {len(self._all_events)} events")
+
+    def get_collected_stats(self):
+        ret = Collected(
+            Retrospective=len(self._retro_targets),
+            Projective=len(self._projective_targets),
+            Events=len(self._all_events),
+        )
+        return ret
+
+
+def _convert_stats_to_strings(stats):
+    pieces = []
+    if r := stats.Retrospective:
+        pieces.append(f"{r} retrospective items")
+    if p := stats.Projective:
+        pieces.append(f"{p} planning items")
+    if e := stats.Events:
+        pieces.append(f"{e} events")
+    return pieces
+
+
+def _format_string_stats_into_sentence(pieces):
+    if not pieces:
+        return "Collected nothing."
+    fusion = ", ".join(pieces[:-1])
+    if fusion:
+        fusion = f"{fusion} and {pieces[-1]}"
+    else:
+        fusion = pieces[-1]
+    return f"Collected {fusion}."
+
+
+def stats_to_summary(stats):
+    pieces = _convert_stats_to_strings(stats)
+    return _format_string_stats_into_sentence(pieces)
 
 
 def do_stuff(spec, retro_io, proj_io):

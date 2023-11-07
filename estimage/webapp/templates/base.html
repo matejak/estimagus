@@ -23,6 +23,9 @@
 		{{ render_nav_item('main.tree_view', 'Planning') }}
 		{% endblock %}
 		{% block navbar_custom %}
+		{% for name, entrypoint in custom_items.items() %}
+		{{ render_nav_item(entrypoint, name) }}
+		{% endfor %}
 		{% endblock %}
 		{% block navbar_user %}
 		  {% if authenticated_user %}
@@ -44,6 +47,19 @@
 		{% endblock %}
 	    </div>
 	</nav>
+        {%- if breadcrumbs %}
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                {%- for name, link in breadcrumbs.items() %}
+                {%- if link %}
+		<li class="breadcrumb-item"><a href="{{ link }}">{{ name }}</a></li>
+                {%- else %}
+		<li class="breadcrumb-item active" aria-current="page">{{ name }}</li>
+                {%- endif %}
+                {% endfor -%}
+            </ol>
+        </nav>
+        {%- endif %}
 	{{ render_messages() }}
         {% block content %}{% endblock %}
 	{{ bootstrap.load_js() }}

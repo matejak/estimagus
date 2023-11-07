@@ -102,8 +102,8 @@ def convert_target_to_representations_of_leaves(
         start: datetime.datetime, end: datetime.datetime) -> typing.List[progress.Progress]:
     ret = []
 
-    if source.dependents:
-        for d in source.dependents:
+    if source.children:
+        for d in source.children:
             propagate_span_to_children(source.work_span, d, start, end)
             ret.extend(convert_target_to_representations_of_leaves(d, start, end))
     else:

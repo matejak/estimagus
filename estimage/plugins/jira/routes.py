@@ -19,7 +19,14 @@ def jira_plugin():
         retro_io = web_utils.get_retro_loader()[1]
         proj_io = web_utils.get_proj_loader()[1]
 
-        jira.do_stuff(task_spec, retro_io, proj_io)
+        try:
+            stats = jira.do_stuff(task_spec, retro_io, proj_io)
+            flask.flash(jira.stats_to_summary(stats))
+        except RuntimeError as exc:
+            error_msg = str(exc)
+
+        if error_msg:
+            flask.flash(error_msg)
 
     return web_utils.render_template(
         'jira.html', title='Jira Plugin', plugin_form=form, )

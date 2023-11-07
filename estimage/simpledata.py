@@ -71,6 +71,7 @@ class Context:
 
     def __init__(self, of_task: data.BaseTarget):
         self.task_name = of_task.name
+        self.task_point_cost = of_task.point_cost
         self._own_estimate = None
         self._global_estimate = None
         self._authoritative_estimate = of_task.point_cost

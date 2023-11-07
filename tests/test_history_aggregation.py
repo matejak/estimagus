@@ -105,7 +105,7 @@ def test_supertask_to_aggregation_long(supertask_target):
     assert len(aggregation.repres) == 1
     repre = aggregation.repres[0]
 
-    check_repre_against_target(supertask_target.dependents[0], repre, start, end)
+    check_repre_against_target(supertask_target.children[0], repre, start, end)
 
 
 def test_supertask_with_more_subtasks_to_aggregation_long(supertask_target):
@@ -118,8 +118,8 @@ def test_supertask_with_more_subtasks_to_aggregation_long(supertask_target):
     aggregation = tm.Aggregation.from_target(supertask_target, start, end)
     assert len(aggregation.repres) == 2
 
-    check_repre_against_target(supertask_target.dependents[0], aggregation.repres[0], start, end)
-    check_repre_against_target(supertask_target.dependents[1], aggregation.repres[1], start, end)
+    check_repre_against_target(supertask_target.children[0], aggregation.repres[0], start, end)
+    check_repre_against_target(supertask_target.children[1], aggregation.repres[1], start, end)
 
 
 def test_supertasks_to_aggregation_long(supertask_target, another_supertask_target):
@@ -130,8 +130,8 @@ def test_supertasks_to_aggregation_long(supertask_target, another_supertask_targ
         [supertask_target, another_supertask_target], start, end)
     assert len(aggregation.repres) == 2
 
-    check_repre_against_target(supertask_target.dependents[0], aggregation.repres[0], start, end)
-    check_repre_against_target(another_supertask_target.dependents[0], aggregation.repres[1], start, end)
+    check_repre_against_target(supertask_target.children[0], aggregation.repres[0], start, end)
+    check_repre_against_target(another_supertask_target.children[0], aggregation.repres[1], start, end)
 
 
 def test_aggregation_point_velocity_array(twoday_repre_done_in_day):

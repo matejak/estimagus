@@ -372,7 +372,7 @@ def test_model_updates_nested_targets():
 
     target_two = tm.BaseTarget("two")
     target_two.point_cost = 1
-    target_two.dependents.append(target_one)
+    target_two.children.append(target_one)
 
     model = tm.EstiModel()
     targets = [target_two]
