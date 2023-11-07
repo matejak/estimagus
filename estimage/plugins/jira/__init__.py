@@ -355,7 +355,7 @@ class Importer:
         return ret
 
 
-def stats_to_summary(stats):
+def _convert_stats_to_strings(stats):
     pieces = []
     if r := stats.Retrospective:
         pieces.append(f"{r} retrospective items")
@@ -363,14 +363,23 @@ def stats_to_summary(stats):
         pieces.append(f"{p} planning items")
     if e := stats.Events:
         pieces.append(f"{e} events")
+    return pieces
+
+
+def _format_string_stats_into_sentence(pieces):
     if not pieces:
-        return ""
+        return "Collected nothing."
     fusion = ", ".join(pieces[:-1])
     if fusion:
         fusion = f"{fusion} and {pieces[-1]}"
     else:
         fusion = pieces[-1]
     return f"Collected {fusion}."
+
+
+def stats_to_summary(stats):
+    pieces = _convert_stats_to_strings(stats)
+    return _format_string_stats_into_sentence(pieces)
 
 
 def do_stuff(spec, retro_io, proj_io):

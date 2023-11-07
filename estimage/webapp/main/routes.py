@@ -191,6 +191,23 @@ def view_retro_task(task_name):
     return view_task(t, breadcrumbs)
 
 
+def _setup_forms_according_to_context(request_forms, context):
+    if context.own_estimation_exists:
+        request_forms["estimation"].enable_delete_button()
+        request_forms["consensus"].enable_submit_button()
+    if context.global_estimation_exists:
+        request_forms["consensus"].enable_delete_button()
+        request_forms["authoritative"].clear_to_go()
+        request_forms["authoritative"].task_name.data = context.task_name
+        request_forms["authoritative"].point_cost.data = ""
+
+    if context.estimation_source == "none":
+        fallback_estimation = data.Estimate.from_input(data.EstimInput(context.task_point_cost))
+        feed_estimation_to_form(fallback_estimation, request_forms["estimation"])
+    else:
+        feed_estimation_to_form(context.estimation, request_forms["estimation"])
+
+
 def view_task(task, breadcrumbs, request_forms=None):
     user = flask_login.current_user
     user_id = user.get_id()
@@ -200,24 +217,12 @@ def view_task(task, breadcrumbs, request_forms=None):
     context = webdata.Context(task)
     give_data_to_context(context, pollster, c_pollster)
 
-    similar_targets = []
     if request_forms:
-        if context.own_estimation_exists:
-            request_forms["estimation"].enable_delete_button()
-            request_forms["consensus"].enable_submit_button()
-        if context.global_estimation_exists:
-            request_forms["consensus"].enable_delete_button()
-            request_forms["authoritative"].clear_to_go()
-            request_forms["authoritative"].task_name.data = task.name
-            request_forms["authoritative"].point_cost.data = ""
+        _setup_forms_according_to_context(request_forms, context)
 
-        if context.estimation_source == "none":
-            fallback_estimation = data.Estimate.from_input(data.EstimInput(task.point_cost))
-            feed_estimation_to_form(fallback_estimation, request_forms["estimation"])
-        else:
-            feed_estimation_to_form(context.estimation, request_forms["estimation"])
-
-            similar_targets = get_similar_targets_with_estimations(user_id, task.name)
+    similar_targets = []
+    if context.estimation_source != "none":
+        similar_targets = get_similar_targets_with_estimations(user_id, task.name)
 
     return web_utils.render_template(
         'issue_view.html', title='Estimate Issue', breadcrumbs=breadcrumbs,

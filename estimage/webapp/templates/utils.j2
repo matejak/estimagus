@@ -186,7 +186,7 @@
     <p>
     <ul>
     {%- for target in similar_sized_targets %}
-    <li>{{ render_task_basic(target, None) }}: {{ render_estimate(target.point_estimate) }}</li>
+    <li>{{ render_task_basic(target, "projective", None) }}: {{ render_estimate(target.point_estimate) }}</li>
     {%- endfor %}
     </ul>
     </p>
