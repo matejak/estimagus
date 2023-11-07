@@ -10,6 +10,7 @@ from . import forms
 bp = flask.Blueprint("rhcompliance", __name__, template_folder="templates")
 
 
+@web_utils.is_primary_menu_of(bp, "Red Hat Compliance")
 @bp.route('/rhcompliance', methods=("GET", "POST"))
 @flask_login.login_required
 def sync():

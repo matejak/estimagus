@@ -71,10 +71,20 @@ def render_template(path, title, **kwargs):
     maybe_overriden_path = flask.current_app.config["plugins_templates_overrides"](path)
     return flask.render_template(
         maybe_overriden_path, title=title, authenticated_user=authenticated_user,
-        ** kwargs)
+        custom_items=CUSTOM_MENU_ITEMS, ** kwargs)
 
 
 def safe_url_to_redirect(candidate):
     if not candidate or werkzeug.urls.url_parse(candidate).netloc != '':
         candidate = flask.url_for('main.tree_view')
     return candidate
+
+
+CUSTOM_MENU_ITEMS = dict()
+
+def is_primary_menu_of(blueprint, title):
+    def wrapper(fun):
+        endpoint = f"{blueprint.name}.{fun.__name__}"
+        CUSTOM_MENU_ITEMS[title] = endpoint
+        return fun
+    return wrapper

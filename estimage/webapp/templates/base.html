@@ -23,6 +23,9 @@
 		{{ render_nav_item('main.tree_view', 'Planning') }}
 		{% endblock %}
 		{% block navbar_custom %}
+		{% for name, entrypoint in custom_items.items() %}
+		{{ render_nav_item(entrypoint, name) }}
+		{% endfor %}
 		{% endblock %}
 		{% block navbar_user %}
 		  {% if authenticated_user %}
