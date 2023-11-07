@@ -4,7 +4,7 @@ import flask
 import flask_login
 
 from ...webapp import web_utils
-from ...plugins import redhat_compliance
+from ...plugins import jira, redhat_compliance
 from . import forms
 
 bp = flask.Blueprint("rhcompliance", __name__, template_folder="templates")
@@ -14,7 +14,6 @@ bp = flask.Blueprint("rhcompliance", __name__, template_folder="templates")
 @bp.route('/rhcompliance', methods=("GET", "POST"))
 @flask_login.login_required
 def sync():
-
     form = forms.RedhatComplianceForm()
     if form.validate_on_submit():
 
@@ -25,7 +24,8 @@ def sync():
 
         error_msg = ""
         try:
-            redhat_compliance.do_stuff(task_spec, retro_loader, proj_loader)
+            stats = redhat_compliance.do_stuff(task_spec, retro_loader, proj_loader)
+            flask.flash(jira.stats_to_summary(stats))
         except redhat_compliance.jira.exceptions.JIRAError as exc:
             if 500 <= exc.status_code < 600:
                 error_msg = f"Error {exc.status_code} when interacting with Jira, accessing URL {exc.url}"
@@ -33,6 +33,9 @@ def sync():
                 error_msg = f"Error {exc.status_code} when interacting with Jira: {exc.text}"
         except RuntimeError as exc:
             error_msg = str(exc)
+
+        if "auth" in error_msg:
+            error_msg += " Perhaps there is a typo in the token, or the token expired?"
 
         if error_msg:
             flask.flash(error_msg)

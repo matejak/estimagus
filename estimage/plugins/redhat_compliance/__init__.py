@@ -246,6 +246,7 @@ def do_stuff(spec, retro_loader, proj_loader):
     importer = Importer(spec)
     importer.import_data(spec)
     importer.save(retro_loader, proj_loader, simpledata.EventManager)
+    return importer.get_collected_stats()
 
 
 class BaseTarget:

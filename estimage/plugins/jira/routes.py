@@ -20,7 +20,8 @@ def jira_plugin():
         proj_io = web_utils.get_proj_loader()[1]
 
         try:
-            jira.do_stuff(task_spec, retro_io, proj_io)
+            stats = jira.do_stuff(task_spec, retro_io, proj_io)
+            flask.flash(jira.stats_to_summary(stats))
         except RuntimeError as exc:
             error_msg = str(exc)
 
