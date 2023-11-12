@@ -9,14 +9,6 @@ from ..users import User
 from .. import web_utils
 
 
-def render_template(template_basename, title, **kwargs):
-    authenticated_user = ""
-    if flask_login.current_user.is_authenticated:
-        authenticated_user = flask_login.current_user
-    return flask.render_template(
-        template_basename, title=title, authenticated_user=authenticated_user, ** kwargs)
-
-
 @bp.route('/logout', methods=['GET'])
 def logout():
     flask_login.logout_user()
@@ -30,7 +22,7 @@ def autologin(safe_next_page):
         flask_login.login_user(user, remember=form.remember_me.data)
         return flask.redirect(safe_next_page)
     login_provider = flask.current_app.config["LOGIN_PROVIDER_NAME"]
-    return render_template(
+    return web_utils.render_template(
         'login.html', title='Sign In', login_form=form,
         next=safe_next_page, login_provider=login_provider)
 
