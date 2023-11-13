@@ -1,9 +1,9 @@
 import io
 import datetime
-import collections
 
 import flask
 import flask_login
+import markupsafe
 
 from . import bp
 from .. import web_utils
@@ -107,7 +107,7 @@ def visualize_task(task_name, nominal_or_remaining):
     if task_name not in tasks:
         tasks, model = web_utils.get_all_tasks_by_id_and_user_model("retro", user_id)
     if task_name not in tasks:
-        return (f"Unable to find task {flask.escape(task_name)}", 500)
+        return (f"Unable to find task '{markupsafe.escape(task_name)}'", 500)
 
     if task_name == ".":
         if nominal_or_remaining == "nominal":

@@ -1,6 +1,6 @@
 import flask
 import flask_login
-import werkzeug
+import urllib
 
 from .. import simpledata as webdata
 from .. import utilities, persistence
@@ -75,7 +75,7 @@ def render_template(path, title, **kwargs):
 
 
 def safe_url_to_redirect(candidate):
-    if not candidate or werkzeug.urls.url_parse(candidate).netloc != '':
+    if not candidate or urllib.parse.urlparse(candidate).netloc != '':
         candidate = flask.url_for('main.tree_view')
     return candidate
 
