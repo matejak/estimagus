@@ -55,23 +55,31 @@ def get_pert_in_figure(estimation, task_name):
     return fig
 
 
-@bp.route('/completion.svg')
-@flask_login.login_required
-def visualize_completion():
-    user = flask_login.current_user
-    user_id = user.get_id()
+def get_aggregation(targets_tree_without_duplicates):
+
     all_events = webdata.EventManager()
     all_events.load()
+    start, end = flask.current_app.config["RETROSPECTIVE_PERIOD"]
+    aggregation = history.Aggregation.from_targets(targets_tree_without_duplicates, start, end)
+    aggregation.process_event_manager(all_events)
+
+    return aggregation
+
+
+@bp.route('/completion.svg')
+@flask_login.login_required
+def visualize_completion(user_id):
+    user = flask_login.current_user
+    user_id = user.get_id()
 
     all_targets_by_id, model = web_utils.get_all_tasks_by_id_and_user_model("retro", user_id)
     all_targets = list(all_targets_by_id.values())
     targets_tree_without_duplicates = utilities.reduce_subsets_from_sets([t for t in all_targets if t.tier == 0])
+
+    aggregation = get_aggregation(targets_tree_without_duplicates)
+
     model = web_utils.get_user_model(user_id, targets_tree_without_duplicates)
     todo = model.remaining_point_estimate
-
-    start, end = flask.current_app.config["RETROSPECTIVE_PERIOD"]
-    aggregation = history.Aggregation.from_targets(targets_tree_without_duplicates, start, end)
-    aggregation.process_event_manager(all_events)
 
     velocity_array = aggregation.get_velocity_array()
     sl = func.get_pdf_bounds_slice(velocity_array)
@@ -89,7 +97,7 @@ def visualize_completion():
 
     completion_class = flask.current_app.config["classes"]["MPLCompletionPlot"]
 
-    fig = completion_class(start, completion_projection).get_figure()
+    fig = completion_class(aggregation.start, completion_projection).get_figure()
     fig.set_size_inches(* NORMAL_FIGURE_SIZE)
     return send_figure_as_svg(fig, "completion.svg")
 

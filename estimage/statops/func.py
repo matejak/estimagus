@@ -52,19 +52,9 @@ def construct_evaluation(velocity_dom, velocity_hom, target, iter_limit=100):
     return np.array(results)
 
 
-def chunked_quad(num_chunks, fun, start, end, ** kwargs):
-    result = 0
-    dom = np.linspace(start, end, num_chunks + 1)
-    for i in range(num_chunks):
-        result += sp.integrate.quad(fun, dom[i], dom[i + 1], ** kwargs)[0]
-    return result
-
-
 def lognorm_pdf(dom, mu, sigma):
-    res = np.exp(- (np.log(dom) - mu) ** 2 / 2.0 / sigma ** 2)
-    res /= dom * sigma * np.sqrt(2 * np.pi)
-    res[dom == 0] = 0
-    return res
+    dist = sp.stats.lognorm(s=sigma, scale=np.exp(mu))
+    return dist.pdf(dom)
 
 
 def get_lognorm_mu_sigma(mean, median):
@@ -98,47 +88,57 @@ def _minimize_pdf_dom_hom(dom, hom):
     return dom[larger_bounds], hom[larger_bounds]
 
 
-# see also https://en.wikipedia.org/wiki/Distribution_of_the_product_of_two_random_variables
-# Integral over support of the first pdf
-# product(x) = Int pdf1(t) pdf2(x / t) / abs(t) dt
-def multiply_two_pdfs(dom1, hom1, dom2, hom2):
-    dom1, hom1 = _minimize_pdf_dom_hom(dom1, hom1)
-    dom2, hom2 = _minimize_pdf_dom_hom(dom2, hom2)
+class PdfMultiplicator:
+    def __init__(self, dom1, hom1, dom2, hom2):
+        dom1, hom1 = _minimize_pdf_dom_hom(dom1, hom1)
+        dom2, hom2 = _minimize_pdf_dom_hom(dom2, hom2)
 
-    result_bounds = (dom1[0] * dom2[0], dom1[-1] * dom2[-1])
-    dom = np.linspace(result_bounds[0], result_bounds[1], len(hom1) + len(hom2))
+        result_bounds = (dom1[0] * dom2[0], dom1[-1] * dom2[-1])
 
-    values = np.zeros_like(dom, float)
-    interp_1 = sp.interpolate.interp1d(dom1, hom1, fill_value=0, bounds_error=False)
-    interp_2 = sp.interpolate.interp1d(dom2, hom2, fill_value=0, bounds_error=False)
+        self.dom = np.linspace(result_bounds[0], result_bounds[1], len(hom1) + len(hom2))
 
-    def integrand(t, x):
-        body = interp_1(t)
+        self.values = np.zeros_like(self.dom, float)
+        self.interp_1 = sp.interpolate.interp1d(dom1, hom1, fill_value=0, bounds_error=False)
+        self.interp_2 = sp.interpolate.interp1d(dom2, hom2, fill_value=0, bounds_error=False)
+
+        self.dom1 = dom1
+
+    def integrand(self, t, x):
+        body = self.interp_1(t)
         if body == 0:
             return 0
-        body *= interp_2(x / t)
+        body *= self.interp_2(x / t)
         if body == 0:
             return 0
         ret = body / abs(t)
         return ret
 
-    def vector_integrand(t, x):
-        body = interp_1(t)
+    def vector_integrand(self, t, x):
+        body = self.interp_1(t)
         mask = body == 0
-        body *= interp_2(x / t)
+        body *= self.interp_2(x / t)
         body[mask] = 0
         mask = body == 0
         ret = body / np.abs(t)
         body[mask] = 0
         return ret
 
-    for i, x in enumerate(dom):
-        a = dom1[0]
-        b = dom1[-1]
-        if a == b:
-            val = integrand(a, x)
-        else:
-            val = chunked_quad(1, integrand, a, b, args=(x,), limit=50)
-        values[i] = val
+    def __call__(self):
+        for i, x in enumerate(self.dom):
+            a = self.dom1[0]
+            b = self.dom1[-1]
+            if a == b:
+                val = self.integrand(a, x)
+            else:
+                val = sp.integrate.quad(self.integrand, a, b, args=(x,), limit=50)[0]
+            self.values[i] = val
 
-    return dom, values
+        return self.dom, self.values
+
+
+# see also https://en.wikipedia.org/wiki/Distribution_of_the_product_of_two_random_variables
+# Integral over support of the first pdf
+# product(x) = Int pdf1(t) pdf2(x / t) / abs(t) dt
+def multiply_two_pdfs(dom1, hom1, dom2, hom2):
+    multiplicator = PdfMultiplicator(dom1, hom1, dom2, hom2)
+    return multiplicator()

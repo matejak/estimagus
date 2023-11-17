@@ -142,12 +142,6 @@ def test_multiplication_of_disproportionate_pdfs():
     assert sp.stats.kstest(values, rvs1 * rvs2).pvalue > 0.10
 
 
-def test_integration_decomposition():
-    assert tm.func.chunked_quad(1, lambda x: x, 0, 2) == 2
-    assert tm.func.chunked_quad(2, lambda x: x, 0, 2) == 2
-    assert tm.func.chunked_quad(2, lambda x, y: y * x, 0, 2, args=(2, )) == 4
-
-
 def test_lognorm_fit():
     mean = 2.6
     median = 2

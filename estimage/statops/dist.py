@@ -33,21 +33,22 @@ class Dist:
         cdf_bounds = self._get_cdf_bounds(pdf_bounds)
         ppf_fun = sp.interpolate.interp1d(
             self.cached_cdf[cdf_bounds], self.dom[cdf_bounds])
+        return self._get_randvar(pdf_fun, cdf_fun, ppf_fun)(a=self.a, b=self.b)
 
+    def _get_randvar(self, pdf_fun, cdf_fun, ppf_fun):
         class randvar(sp.stats.rv_continuous):
 
-            def _pdf(self, x):
+            def _pdf(s, x):
                 return pdf_fun(x)
 
-            def _cdf(self, x):
+            def _cdf(sf, x):
                 return cdf_fun(x)
 
-            def _ppf(self, x):
+            def _ppf(s, x):
                 return ppf_fun(x)
-        return randvar(a=self.a, b=self.b)
+        return randvar
 
     def get_inverse(self):
-        # TODO: problem with nonzero bounds of a pdf sample
         pdf_bounds = func.get_pdf_bounds_slice(self.cached_pdf)
         cdf_bounds = self._get_cdf_bounds(pdf_bounds)
         inverse_cached_cdf = 1 - self.cached_cdf[cdf_bounds]
@@ -70,45 +71,7 @@ class Dist:
         ppf_fun = sp.interpolate.interp1d(
             computed_cdf, new_dom)
 
-        class randvar(sp.stats.rv_continuous):
-
-            def _pdf(self, x):
-                return pdf_fun(x)
-
-            def _cdf(self, x):
-                return cdf_fun(x)
-
-            def _ppf(self, x):
-                return ppf_fun(x)
-        return randvar(a=new_a, b=new_b)
-
-
-def get_random_var(dom, hom):
-    oversampled_dom = np.linspace(dom[0], dom[-1], len(dom) * 4)
-
-    pdf_obj = sp.interpolate.interp1d(dom, hom, fill_value=0, bounds_error=False)
-    oversampled_hom = pdf_obj(oversampled_dom)
-    pdf_scale = oversampled_hom.sum() * (dom[1] - dom[0])
-    pdf_obj = sp.interpolate.interp1d(dom, hom / pdf_scale, fill_value=0, bounds_error=False)
-
-    cached_cdf = np.ones_like(oversampled_dom)
-    cached_cdf = np.cumsum(oversampled_hom)
-    cached_cdf /= cached_cdf[-1]
-
-    cdf_obj = sp.interpolate.interp1d(oversampled_dom, cached_cdf, fill_value=(0, 1), bounds_error=False)
-    ppf_obj = sp.interpolate.interp1d(cached_cdf, oversampled_dom)
-
-    class randvar(sp.stats.rv_continuous):
-
-        def _pdf(self, x):
-            return pdf_obj(x)
-
-        def _cdf(self, x):
-            return cdf_obj(x)
-
-        def _ppf(self, x):
-            return ppf_obj(x)
-    return randvar(a=dom[0], b=dom[-1])
+        return self._get_randvar(pdf_fun, cdf_fun, ppf_fun)(a=new_a, b=new_b)
 
 
 def get_lognorm_given_mean_median(mean, median, samples=200):
