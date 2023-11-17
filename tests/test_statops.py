@@ -30,6 +30,7 @@ def test_calculation_of_trivial_distribution():
 
 
 def test_rvs_of_trivial_pdf():
+    np.random.seed(813456)
     value = 4
     dom = np.arange(11)
     hom = np.zeros_like(dom, float)
@@ -41,7 +42,46 @@ def test_rvs_of_trivial_pdf():
     assert values.mean() == pytest.approx(value, abs=0.05)
 
 
+def test_rvs_of_inverse_unpadded_pdf():
+    np.random.seed(213457)
+    dom = np.linspace(5, 10, 20)
+    hom = np.ones_like(dom, float)
+    sample_size = 50
+
+    distmaker = tm.dist.Dist(dom, hom)
+    distro = distmaker.get_dist()
+    points = distro.rvs(size=sample_size)
+    inverted_points = 1.0 / points
+
+    inverse_dist = distmaker.get_inverse()
+    inverse_points = inverse_dist.rvs(size=sample_size)
+
+    assert sp.stats.kstest(inverse_points, inverted_points).pvalue > 0.10
+
+
+def test_rvs_of_inverse_gauss_pdf():
+    np.random.seed(213457)
+    gauss_mean = 1.35
+    gauss_std = 0.4
+    dom_len = 80
+
+    gauss_dom = np.linspace(gauss_mean - gauss_std * 3.2, gauss_mean + gauss_std * 3.2, dom_len)
+    distmaker = dist.Dist(gauss_dom, sp.stats.norm.pdf(gauss_dom, loc=gauss_mean, scale=gauss_std))
+    distro = distmaker.get_dist()
+
+    sample_size = 50
+
+    points = distro.rvs(size=sample_size)
+    inverted_points = 1.0 / points
+
+    inverse_dist = distmaker.get_inverse()
+    inverse_points = inverse_dist.rvs(size=sample_size)
+
+    assert sp.stats.kstest(inverse_points, inverted_points).pvalue > 0.10
+
+
 def test_rvs_of_inverse_pdf():
+    np.random.seed(213457)
     dom = np.arange(11)
     hom = np.zeros_like(dom, float)
     hom[4:6] = 1

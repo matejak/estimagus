@@ -18,13 +18,19 @@ class Dist:
             self.cached_cdf[i + 1] += sp.integrate.quad(pdf_obj, start, end, limit=20)[0]
         self.cached_cdf /= self.cached_cdf[-1]
 
+    def _get_cdf_bounds(self, pdf_bounds):
+        start = max(0, pdf_bounds.start - 1)
+        stop = min(self.dom.size, pdf_bounds.stop + 1)
+        cdf_bounds = slice(start, stop)
+        return cdf_bounds
+
     def get_dist(self):
         pdf_fun = sp.interpolate.interp1d(
             self.dom, self.cached_pdf, fill_value=0, bounds_error=False)
         cdf_fun = sp.interpolate.interp1d(
             self.dom, self.cached_cdf, fill_value=(0, 1), bounds_error=False)
         pdf_bounds = func.get_pdf_bounds_slice(self.cached_pdf)
-        cdf_bounds = slice(pdf_bounds.start - 1, pdf_bounds.stop + 1)
+        cdf_bounds = self._get_cdf_bounds(pdf_bounds)
         ppf_fun = sp.interpolate.interp1d(
             self.cached_cdf[cdf_bounds], self.dom[cdf_bounds])
 
@@ -41,8 +47,9 @@ class Dist:
         return randvar(a=self.a, b=self.b)
 
     def get_inverse(self):
+        # TODO: problem with nonzero bounds of a pdf sample
         pdf_bounds = func.get_pdf_bounds_slice(self.cached_pdf)
-        cdf_bounds = slice(pdf_bounds.start - 1, pdf_bounds.stop + 1)
+        cdf_bounds = self._get_cdf_bounds(pdf_bounds)
         inverse_cached_cdf = 1 - self.cached_cdf[cdf_bounds]
         inverse_dom = 1.0 / self.dom[cdf_bounds]
 
@@ -131,12 +138,13 @@ def divide_estimate_by_mean_median_fit(estimate, mean, median, samples):
     dom0, hom0 = get_defining_pdf_chunk(velocity_fit, samples)
     inverse_dist = Dist(dom0, hom0).get_inverse()
     if estimate.variance == 0:
-        completion_dist = Dist(dom0 / estimate.expected, hom0).get_inverse()
+        if estimate.expected == 0:
+            completion_dist = sp.stats.norm(loc=0, scale=0)
+        else:
+            completion_dist = Dist(dom0 / estimate.expected, hom0).get_inverse()
     else:
         dom_e, hom_e = estimate.get_pert(samples)
         dom_v, hom_v = get_defining_pdf_chunk(inverse_dist, samples)
         dom, hom = func.multiply_two_pdfs(dom_v, hom_v, dom_e, hom_e)
         completion_dist = Dist(dom, hom).get_dist()
     return completion_dist
-
-

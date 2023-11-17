@@ -6,7 +6,7 @@ import scipy as sp
 import scipy.stats
 
 from .. import utilities
-from ..statops import dist
+from ..statops import dist, func
 
 
 # Don't set to 0, as the variance calculation tends to lose information
@@ -292,8 +292,13 @@ class Estimate:
             num_samples)
         if self.width == 0:
             ret[1, :] = self._divide_by_gauss_point_estimate(ret[0], mean, stdev)
-        else:
+        elif stdev == 0:
             ret[1, :] = self._divide_by_gauss_general_estimate(ret[0], mean, stdev)
+        else:
+            dom, values = self._divide_by_gauss_general_estimate(ret[0], mean, stdev)
+            dom, values = utilities.interpolate_to_length(dom, values, ret[0].shape[0])
+            ret[0, :] = dom
+            ret[1, :] = values
         return ret
 
     def _divide_by_gauss_general_estimate(self, dom, mean, stdev):
@@ -309,14 +314,12 @@ class Estimate:
         gauss_dom = np.linspace(mean - stdev * 3.2, mean + stdev * 3.2, len(dom))
         gauss_dist = dist.Dist(gauss_dom, sp.stats.norm.pdf(gauss_dom, loc=mean, scale=stdev))
         inverse_gauss = gauss_dist.get_inverse()
+        inverse_gauss_dom = np.linspace(inverse_gauss.a, inverse_gauss.b, len(dom))
+        inverse_hom = inverse_gauss.pdf(inverse_gauss_dom)
         values = np.zeros_like(dom)
-        inner_resolution = len(dom) * 2
-        inner_domain, pert = self.get_pert(inner_resolution)
-        inner_constant = pert / np.abs(inner_domain)
-        for i, z in enumerate(dom):
-            val = np.sum(inner_constant * reciprocal_normal_pdf(z / inner_domain, mean, stdev))
-            values[i] = val
-        return values
+        dom0, pert = self.get_pert(len(dom))
+        dom, values = func.multiply_two_pdfs(inverse_gauss_dom, inverse_hom, dom0, pert)
+        return dom, values
 
     def _divide_by_gauss_point_estimate(self, dom, mean, stdev):
         if self.expected > 0:

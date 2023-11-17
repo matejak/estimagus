@@ -92,7 +92,9 @@ def get_mean_median_dissolving_outliers(wild_array, outlier_threshold=-1):
 
 def _minimize_pdf_dom_hom(dom, hom):
     bounds = get_pdf_bounds_slice(hom)
-    larger_bounds = slice(bounds.start - 1, bounds.stop + 1)
+    start = max(0, bounds.start - 1)
+    stop = min(dom.size, bounds.stop + 1)
+    larger_bounds = slice(start, stop)
     return dom[larger_bounds], hom[larger_bounds]
 
 
@@ -136,7 +138,7 @@ def multiply_two_pdfs(dom1, hom1, dom2, hom2):
         if a == b:
             val = integrand(a, x)
         else:
-            val = chunked_quad(20, integrand, a, b, args=(x,), limit=50)
+            val = chunked_quad(1, integrand, a, b, args=(x,), limit=50)
         values[i] = val
 
     return dom, values

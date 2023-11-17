@@ -95,3 +95,10 @@ def eco_convolve(dom1, hom1, dom2, hom2):
         len(hom)
     )
     return dom, hom
+
+
+def interpolate_to_length(dom, hom, length):
+    interp = sp.interpolate.interp1d(dom, hom)
+    dom = np.linspace(dom[0], dom[-1], length)
+    hom = interp(dom)
+    return dom, hom

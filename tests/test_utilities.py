@@ -74,3 +74,14 @@ def test_smart_convolution():
     assert len(hom) == 1
     assert dom[0] == 4
     assert hom[0] == 1
+
+
+def test_interpolate_to_length():
+    dom = np.linspace(1, 10, 50)
+    hom = np.linspace(2, 20, 50)
+
+    dom, hom = tm.interpolate_to_length(dom, hom, 10)
+    assert len(dom) == 10
+
+    assert (dom / hom).mean() == pytest.approx(0.5)
+    assert dom[-1] == 10
