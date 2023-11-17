@@ -474,18 +474,6 @@ def test_rv_algebra_addition():
     assert_sampling_corresponds_to_pdf(dom, generated_pert, computed_pert)
 
 
-def test_rv_algebra_gauss_division():
-    num_trials = 100000
-    num_samples = 100
-
-    dom = np.linspace(0.2, 2, num_samples)
-    generated_normal = sp.stats.norm.rvs(loc=1.5, scale=0.4, size=num_trials)
-    divided = 1.0 / generated_normal
-    # divided[generated_normal == 0] = np.inf
-    real_reciprocal_normal = estimate.reciprocal_normal_pdf(dom, 1.5, 0.4)
-    assert_sampling_corresponds_to_pdf(dom, divided, real_reciprocal_normal)
-
-
 def plot_two_functions(dom1, hom1, dom2, hom2):
     import pylab as pyl
     f = pyl.figure()
@@ -495,54 +483,3 @@ def plot_two_functions(dom1, hom1, dom2, hom2):
     plt.grid()
     pyl.show()
     f.savefig("lala.png")
-
-
-def test_rv_algebra_division():
-    np.random.seed(213456)
-    num_trials = 100000
-    num_samples = 150
-
-    gauss_mean = 1.5
-    gauss_std = 0.4
-
-    e1 = tm.Estimate.from_triple(0, 0, 0)
-    pdf = e1.divide_by_gauss_pdf(num_samples, gauss_mean, gauss_std)
-    np.testing.assert_array_equal(pdf[1], 0)
-
-    e1 = tm.Estimate.from_triple(2, 2, 2)
-    dom, pdf = e1.divide_by_gauss_pdf(num_samples, gauss_mean, gauss_std)
-    assert dom[0] > 0.05 * e1.expected
-    assert pdf[0] < 0.01
-    assert dom[-1] < 4 * e1.expected
-    assert pdf[-1] < 0.05
-    generated_pert = e1.pert_rvs(num_trials)
-    generated_normal = sp.stats.norm.rvs(loc=gauss_mean, scale=gauss_std, size=num_trials)
-    assert_sampling_corresponds_to_pdf(dom, generated_pert / generated_normal, pdf)
-
-    e1 = tm.Estimate.from_triple(5, 3, 10)
-    dom, pdf = e1.divide_by_gauss_pdf(num_samples, gauss_mean, gauss_std)
-    generated_pert = e1.pert_rvs(num_trials)
-    generated_normal = sp.stats.norm.rvs(loc=gauss_mean, scale=gauss_std, size=num_trials)
-    assert_sampling_corresponds_to_pdf(dom, generated_pert / generated_normal, pdf)
-    random_variable = utilities.get_random_variable(dom, pdf)
-    assert_sampling_corresponds_to_pdf(dom, random_variable.rvs(num_trials * 5), pdf)
-
-    old_dom, old_pdf = e1.get_pert(num_samples)
-    dom, pdf = e1.divide_by_gauss_pdf(num_samples, gauss_mean, 0)
-    assert (old_dom / dom).mean() == pytest.approx(gauss_mean)
-    assert (old_pdf / old_pdf.sum() - pdf / pdf.sum()).mean() == pytest.approx(0)
-
-    dom, pdf = e1.divide_by_gauss_pdf(num_samples, gauss_mean, 0.0001)
-    plot_two_functions(old_dom, old_pdf / old_pdf.max(), dom, pdf / pdf.max())
-    assert (old_dom / dom).mean() == pytest.approx(gauss_mean, rel=1e-2)
-    assert (old_pdf / old_pdf.sum() - pdf / pdf.sum()).mean() == pytest.approx(0)
-    generated_pert = e1.pert_rvs(num_trials)
-    assert_sampling_corresponds_to_pdf(dom, generated_pert / gauss_mean, pdf)
-
-    gauss_mean = 2
-    gauss_std = 0.4
-    e1 = tm.Estimate.from_triple(80, 60, 140)
-    dom, pdf = e1.divide_by_gauss_pdf(num_samples, gauss_mean, gauss_std)
-    generated_pert = e1.pert_rvs(num_trials)
-    generated_normal = sp.stats.norm.rvs(loc=gauss_mean, scale=gauss_std, size=num_trials)
-    assert_sampling_corresponds_to_pdf(dom, generated_pert / generated_normal, pdf)

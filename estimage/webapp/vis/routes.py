@@ -68,7 +68,7 @@ def get_aggregation(targets_tree_without_duplicates):
 
 @bp.route('/completion.svg')
 @flask_login.login_required
-def visualize_completion(user_id):
+def visualize_completion():
     user = flask_login.current_user
     user_id = user.get_id()
 

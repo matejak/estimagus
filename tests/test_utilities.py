@@ -85,3 +85,15 @@ def test_interpolate_to_length():
 
     assert (dom / hom).mean() == pytest.approx(0.5)
     assert dom[-1] == 10
+
+
+def test_find_extent_index():
+    arr = np.arange(10)
+    assert tm.extent_index(arr, 0) == 0
+    assert tm.extent_index(arr, 100) == len(arr) - 1
+    assert tm.extent_index(arr, 28) == 3
+
+    arr = np.zeros(10)
+    arr[5:] = np.arange(5)
+    assert tm.extent_index(arr, 100) == len(arr) - 1
+    assert tm.extent_index(arr, 25) == 6

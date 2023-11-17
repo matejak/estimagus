@@ -103,6 +103,8 @@ class PdfMultiplicator:
 
         self.dom1 = dom1
 
+    # see also https://en.wikipedia.org/wiki/Distribution_of_the_product_of_two_random_variables
+    # Int pdf1(t) pdf2(x / t) / abs(t) dt
     def integrand(self, t, x):
         body = self.interp_1(t)
         if body == 0:
@@ -113,16 +115,6 @@ class PdfMultiplicator:
         ret = body / abs(t)
         return ret
 
-    def vector_integrand(self, t, x):
-        body = self.interp_1(t)
-        mask = body == 0
-        body *= self.interp_2(x / t)
-        body[mask] = 0
-        mask = body == 0
-        ret = body / np.abs(t)
-        body[mask] = 0
-        return ret
-
     def __call__(self):
         for i, x in enumerate(self.dom):
             a = self.dom1[0]
@@ -130,7 +122,7 @@ class PdfMultiplicator:
             if a == b:
                 val = self.integrand(a, x)
             else:
-                val = sp.integrate.quad(self.integrand, a, b, args=(x,), limit=50)[0]
+                val = sp.integrate.quad(self.integrand, a, b, args=(x,), limit=20)[0]
             self.values[i] = val
 
         return self.dom, self.values

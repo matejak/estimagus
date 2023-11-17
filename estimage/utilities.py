@@ -64,20 +64,6 @@ def norm_pdf(values, dx):
         values[:] /= norming_factor
 
 
-def get_random_variable(dom, values):
-    class Rv(sp.stats.rv_continuous):
-        def __init__(self, * args, ** kwargs):
-            super().__init__(* args, ** kwargs)
-            self.a = dom[0]
-            self.b = dom[-1]
-
-            self._pdf = sp.interpolate.interp1d(dom, values, kind="linear", bounds_error=False, fill_value=0)
-            self._cdf = sp.interpolate.interp1d(dom, np.cumsum(values) / sum(values), kind="linear")
-            self._ppf = sp.interpolate.interp1d(np.cumsum(values) / sum(values), dom, kind="linear")
-
-    return Rv()(loc=0, scale=1)
-
-
 def _trim_dom_hom(dom, hom):
     starting_index = first_nonzero_index_of(hom)
     ending_index = last_nonzero_index_of(hom)
@@ -102,3 +88,10 @@ def interpolate_to_length(dom, hom, length):
     dom = np.linspace(dom[0], dom[-1], length)
     hom = interp(dom)
     return dom, hom
+
+
+def extent_index(array, ratio):
+    extent = array.max() - array.min()
+    actual_ratio = array.min() + extent * ratio / 100.0
+    search_array = np.abs(array - actual_ratio)
+    return np.argmin(search_array)

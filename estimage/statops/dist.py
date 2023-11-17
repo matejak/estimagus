@@ -41,7 +41,7 @@ class Dist:
             def _pdf(s, x):
                 return pdf_fun(x)
 
-            def _cdf(sf, x):
+            def _cdf(s, x):
                 return cdf_fun(x)
 
             def _ppf(s, x):

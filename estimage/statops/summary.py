@@ -3,6 +3,7 @@ import datetime
 import numpy as np
 
 from ..history import Summary, Aggregation
+from .. import utilities
 from . import func, dist
 
 
@@ -30,4 +31,7 @@ class StatSummary(Summary):
             velocity_pdf = distro.pdf(dom)
 
             completion_projection = func.construct_evaluation(dom, velocity_pdf, todo, 200)
-            self.completion = (0, len(completion_projection))
+            self.completion = (
+                utilities.extent_index(completion_projection, 5),
+                utilities.extent_index(completion_projection, 95),
+            )
