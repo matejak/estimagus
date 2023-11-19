@@ -9,35 +9,17 @@ from .. import utilities
 from ..statops import dist, func
 
 
-# Don't set to 0, as the variance calculation tends to lose information
-# when only the corresponding algorithm calculates the variance from the triple
-SIGMA_LAMBDA = 0.2
-
-
-def calculate_o_p(m, E, V, lam):
+def calculate_o_p(m, E, V):
     """Given data, calculate optimistic and pessimistic numbers
     Args:
         m: Most likely
         E: Expected
         V: Variance
-        lam: Lambda - between 0 and 1
     """
-    double_a = 2 * lam - 9
-    B = 6 * E * lam - 27 * E - 4 * lam * m + 18 * m
-    B /= double_a
-    D = 3 * math.sqrt(
-        (
-            2 * lam - 9)
-        * (
-            9 * E ** 2 * lam
-            - 9 * E ** 2
-            - 18 * E * lam * m
-            + 18 * E * m
-            + 9 * lam * m**2
-            - 9 * m**2
-            - 7 * V))
-    D /= double_a
-    return (B + D, B - D)
+    dis = math.sqrt(4 * E ** 2 - 8 * E * m + 4 * m ** 2 + 7 * V)
+    o = 3 * E - 2 * m - dis
+    p = 3 * E - 2 * m + dis
+    return o, p
 
 
 def find_optimistic_from_pert(dom, values):
@@ -89,7 +71,7 @@ class EstimInput:
             return cls(expected)
         ballpark_input = cls.from_pert_only(dom, values)
         m = ballpark_input.most_likely
-        o, p = calculate_o_p(m, expected, sigma ** 2, SIGMA_LAMBDA)
+        o, p = calculate_o_p(m, expected, sigma ** 2)
 
         ret = cls(m)
         ret.optimistic = min(o, m)
@@ -146,11 +128,8 @@ class Estimate:
             )
             raise ValueError(msg)
         expected = (optimistic + pessimistic + 4 * most_likely) / 6
-        sigma1 = math.sqrt((most_likely - optimistic) * (pessimistic - most_likely) / 7.0)
-        var1 = sigma1**2
-        sigma2 = (pessimistic - optimistic) / 6.0
-        var2 = sigma2**2
-        ret = cls(expected, math.sqrt(var1 * (1 - SIGMA_LAMBDA) + var2 * SIGMA_LAMBDA))
+        sigma = math.sqrt((expected - optimistic) * (pessimistic - expected) / 7.0)
+        ret = cls(expected, sigma)
         ret.source = EstimInput(most_likely)
         ret.source.optimistic = optimistic
         ret.source.pessimistic = pessimistic
@@ -238,6 +217,9 @@ class Estimate:
     def width(self):
         return self.source.pessimistic - self.source.optimistic
 
+    # Those are respective shape parameters of the Beta distribution.
+    # It is magic that works, sourced from
+    # see https://en.wikipedia.org/wiki/PERT_distribution
     @property
     def pert_beta_a(self):
         return 1 + 4 * (self.source.most_likely - self.source.optimistic) / self.width
@@ -246,23 +228,23 @@ class Estimate:
     def pert_beta_b(self):
         return 1 + 4 * (self.source.pessimistic - self.source.most_likely) / self.width
 
+    def _get_rv(self):
+        return sp.stats.beta(
+            self.pert_beta_a, self.pert_beta_b,
+            scale=self.width, loc=self.source.optimistic)
+
     def _get_pert(self, domain):
         if self.width == 0:
             right_spot = np.argmin(np.abs(domain - self.source.most_likely))
             ret = np.zeros_like(domain)
             ret[right_spot] = 1.0
             return ret
-        values = sp.stats.beta.pdf(
-            domain, self.pert_beta_a, self.pert_beta_b,
-            scale=self.width, loc=self.source.optimistic)
+        values = self._get_rv().pdf(domain)
         return values
 
     def pert_rvs(self, size):
         if self.width > 0:
-            ret = sp.stats.beta.rvs(
-                self.pert_beta_a, self.pert_beta_b,
-                scale=self.width, loc=self.source.optimistic,
-                size=size)
+            ret = self._get_rv().rvs(size=size)
         else:
             ret = np.ones(size) * self.source.most_likely
         return ret
