@@ -21,5 +21,6 @@ def some_targets():
 
 
 def test_select_tasks_not_finished(some_targets):
+    doer = tm.Demo(some_targets, loader)
     assert not tm.get_not_finished_targets([])
     assert len(tm.get_not_finished_targets(some_targets)) == 2
