@@ -46,4 +46,3 @@ class AuthoritativeForm:
         )
         ret = (a for a in attributes)
         return ret
-

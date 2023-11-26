@@ -6,7 +6,7 @@ from ..entities import target
 
 from .timeline import Timeline
 from .progress import Progress
-from .aggregation import Aggregation
+from .aggregation import Aggregation, Summary
 
 from .progress import days_between
 

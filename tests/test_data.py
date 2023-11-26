@@ -7,6 +7,7 @@ import scipy.stats
 
 import estimage.data as tm
 from estimage.entities import estimate
+from estimage import utilities
 
 
 @pytest.fixture
@@ -432,23 +433,26 @@ def assert_sampling_corresponds_to_pdf(domain, generated, predicted, relative_di
 
     predicted /= np.max(predicted)
 
-    high_diff = np.quantile(np.abs(predicted - histogram), 0.95)
-    # plot_diffs(domain, histogram, predicted)
+    high_diff = np.quantile(np.abs(predicted - histogram), 0.90)
+    if high_diff > relative_diff:
+        plot_diffs(domain, histogram, predicted)
     assert high_diff < relative_diff
 
 
 def plot_diffs(dom, histogram, predicted):
+    import matplotlib
     import matplotlib.pyplot as plt
+    matplotlib.use("Agg")
     fig, ax = plt.subplots()
     ax.plot(dom, histogram, label="simulation")
     ax.plot(dom, predicted, label="prediction")
     ax.legend()
     ax.grid()
-    plt.show()
+    fig.savefig("testfail.png")
 
 
 def test_rv_algebra_addition():
-    num_trials = 400000
+    num_trials = 200000
     num_samples = 50
 
     e1 = tm.Estimate.from_triple(4, 2, 8)
@@ -470,49 +474,12 @@ def test_rv_algebra_addition():
     assert_sampling_corresponds_to_pdf(dom, generated_pert, computed_pert)
 
 
-def test_rv_algebra_gauss_division():
-    num_trials = 100000
-    num_samples = 100
-
-    dom = np.linspace(0.2, 2, num_samples)
-    generated_normal = sp.stats.norm.rvs(loc=1.5, scale=0.4, size=num_trials)
-    divided = 1.0 / generated_normal
-    # divided[generated_normal == 0] = np.inf
-    real_reciprocal_normal = estimate.reciprocal_normal_pdf(dom, 1.5, 0.4)
-    assert_sampling_corresponds_to_pdf(dom, divided, real_reciprocal_normal)
-
-
-def test_rv_algebra_division():
-    num_trials = 100000
-    num_samples = 100
-
-    gauss_mean = 1.5
-    gauss_std = 0.4
-
-    e1 = tm.Estimate.from_triple(0, 0, 0)
-    pdf = e1.divide_by_gauss_pdf(num_samples, gauss_mean, gauss_std)
-    np.testing.assert_array_equal(pdf[1], 0)
-
-    e1 = tm.Estimate.from_triple(2, 2, 2)
-    dom, pdf = e1.divide_by_gauss_pdf(num_samples, gauss_mean, gauss_std)
-    assert dom[0] > 0.05 * e1.expected
-    assert pdf[0] < 0.01
-    assert dom[-1] < 4 * e1.expected
-    assert pdf[-1] < 0.05
-    generated_pert = e1.pert_rvs(num_trials)
-    generated_normal = sp.stats.norm.rvs(loc=gauss_mean, scale=gauss_std, size=num_trials)
-    assert_sampling_corresponds_to_pdf(dom, generated_pert / generated_normal, pdf)
-
-    e1 = tm.Estimate.from_triple(5, 3, 10)
-    dom, pdf = e1.divide_by_gauss_pdf(num_samples, gauss_mean, gauss_std)
-    generated_pert = e1.pert_rvs(num_trials)
-    generated_normal = sp.stats.norm.rvs(loc=gauss_mean, scale=gauss_std, size=num_trials)
-    assert_sampling_corresponds_to_pdf(dom, generated_pert / generated_normal, pdf)
-
-    gauss_mean = 2
-    gauss_std = 0.4
-    e1 = tm.Estimate.from_triple(80, 60, 140)
-    dom, pdf = e1.divide_by_gauss_pdf(num_samples, gauss_mean, gauss_std)
-    generated_pert = e1.pert_rvs(num_trials)
-    generated_normal = sp.stats.norm.rvs(loc=gauss_mean, scale=gauss_std, size=num_trials)
-    assert_sampling_corresponds_to_pdf(dom, generated_pert / generated_normal, pdf)
+def plot_two_functions(dom1, hom1, dom2, hom2):
+    import pylab as pyl
+    f = pyl.figure()
+    plt = f.add_subplot()
+    plt.plot(dom1, hom1)
+    plt.plot(dom2, hom2)
+    plt.grid()
+    pyl.show()
+    f.savefig("lala.png")

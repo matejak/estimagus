@@ -1,6 +1,7 @@
 import datetime
 import typing
 import collections
+import dataclasses
 
 import numpy as np
 
@@ -222,3 +223,60 @@ class Aggregation:
             name = repre.task_name
             events_by_taskname[name] = manager.get_chronological_task_events_by_type(name)
         return self.process_events_by_taskname_and_type(events_by_taskname)
+
+    def summarize(self, when: datetime.datetime):
+        ret = Summary()
+        ret.total_days_in_period=(self.end - self.start).days
+        for r in self.repres:
+            repre_points = r.get_points_at(self.start)
+            if r.get_status_at(self.start) not in (
+                    data.State.done, data.State.abandoned):
+                ret.initial_todo += repre_points
+            if r.get_status_at(when) in (
+                    data.State.in_progress, data.State.review):
+                ret.now_underway += repre_points
+        return ret
+
+
+ZERO_ESTIMATE_FIELD = dataclasses.field(default_factory=lambda: data.Estimate.from_triple(0, 0, 0))
+
+@dataclasses.dataclass
+class Summary:
+    initial_todo: float = 0
+    initial_done: float = 0
+    cutoff_todo: float = 0
+    cutoff_underway: float = 0
+    cutoff_done: float = 0
+    total_days_in_period: int = 0
+    total_days_with_velocity: int = 0
+    daily_velocity: float = 0
+    nonzero_velocity: float = 0
+    total_points_done: float = 0
+    achieved_since_start: data.Estimate = ZERO_ESTIMATE_FIELD
+
+    def __init__(self, a: Aggregation, cutoff: datetime.datetime):
+        self.total_days_in_period = (a.end - a.start).days
+        self._start = a.start
+        self._cutoff = cutoff
+        for r in a.repres:
+            self._process_repre(r)
+
+        self._velocity_array = a.get_velocity_array()
+        self.daily_velocity = self._velocity_array.mean()
+        nonzero_velocity = self._velocity_array[self._velocity_array > 0]
+        self.nonzero_velocity = nonzero_velocity.mean()
+        self.total_days_with_velocity = len(nonzero_velocity)
+        self.total_points_done = self.cutoff_done - self.initial_done
+
+    def _process_repre(self, r):
+        repre_points = r.get_points_at(self._start)
+        if r.get_status_at(self._start) not in (
+                data.State.done, data.State.abandoned):
+            self.initial_todo += repre_points
+        status_at_cutoff = r.get_status_at(self._cutoff)
+        if status_at_cutoff in (data.State.in_progress, data.State.review):
+            self.cutoff_underway += repre_points
+        elif status_at_cutoff == data.State.todo:
+            self.cutoff_todo += repre_points
+        elif status_at_cutoff == data.State.done:
+            self.cutoff_done += repre_points

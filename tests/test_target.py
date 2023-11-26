@@ -4,6 +4,7 @@ import pytest
 
 import estimage.data as tm
 import estimage.entities.target as target
+from estimage.persistence.entrydef import memory
 
 from tests.test_inidata import temp_filename, targetio_inifile_cls
 
@@ -36,12 +37,16 @@ def tree_target(subtree_target):
     return ret
 
 
-@pytest.fixture(params=("ini",))
+@pytest.fixture(params=("ini", "memory"))
 def target_io(request, targetio_inifile_cls):
     choices = dict(
         ini=targetio_inifile_cls,
+        memory=memory.MemoryTargetIO,
     )
-    return choices[request.param]
+    io = choices[request.param]
+    io.forget_all()
+    yield io
+    io.forget_all()
 
 
 def test_leaf_properties(leaf_target):

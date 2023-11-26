@@ -18,9 +18,9 @@ def get_standard_pyplot():
     return plt
 
 
-def x_axis_weeks_and_months(ax, start, end):
+def x_axis_weeks_and_months(ax, start, end, week_index_start=0):
     ticks = dict()
-    set_week_ticks_to_mondays(ticks, start, end)
+    set_week_ticks_to_mondays(ticks, start, end, week_index_start)
     set_ticks_to_months(ticks, start, end)
 
     ax.set_xticks(list(ticks.keys()))
@@ -29,10 +29,10 @@ def x_axis_weeks_and_months(ax, start, end):
     ax.set_xlabel("time / weeks")
 
 
-def set_week_ticks_to_mondays(ticks, start, end):
-    week_index = 0
+def set_week_ticks_to_mondays(ticks, start, end, week_index_start=0):
+    week_index = week_index_start
     if start.weekday != 0:
-        week_index = 1
+        week_index = week_index_start + 1
     for day in range((end - start).days + 1):
         if (start + day * ONE_DAY).weekday() == 0:
             ticks[day] = str(week_index)

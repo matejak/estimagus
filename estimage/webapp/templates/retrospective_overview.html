@@ -5,38 +5,39 @@
 {% block retrospective_content %}
     <div class="row">
     <h1>Overview</h1>
+    <div class="row">
     <div class="col">
 {% block burndown %}
     <h2>Burndown</h2>
     <p>
-        Total SP waiting to be completed at start of the sprint: {{ initial_todo | round | int }}
+        Total SP waiting to be completed at start of the sprint: {{ summary.initial_todo | round | int }}
     </p>
     <p>
         Last recorded data:
         <ul>
-            <li>TODO: {{ last_record.todo | round | int }}</li>
-            <li>In Progress / needs review: {{ last_record.underway | round | int }}</li>
-            <li>Done: {{ last_record.done | round | int }}</li>
+            <li>TODO: {{ summary.cutoff_todo | round | int }}</li>
+            <li>In Progress / needs review: {{ summary.cutoff_underway | round | int }}</li>
+            <li>Done: {{ summary.cutoff_done | round | int }}</li>
         </ul>
     </p>
     <p>
-    <img src="{{ url_for('vis.visualize_overall_burndown', tier=0, size="normal") }}" alt="Overall Burndown"/>
+    <img src="{{ url_for('vis.visualize_overall_burndown', tier=0, size="wide") }}" alt="Overall Burndown"/>
     </p>
 {% endblock %}
     </div>
-    <div class="col">
+    </div>
+    <div class="row">
 {% block velocity %}
     <h2>Velocity</h2>
     <p>
         <ul>
-            <li>Average weekly across the whole period: {{ "%.02g" % (total_points_done / total_days_in_period * 7) }}, 𝜎 = {{ "%.03g" % velocity_stdev }}</li>
+            <li>Average weekly across the whole period: {{ "%.02g" % (summary.daily_velocity * 7) }}{# , 𝜎 = "%.02g" % weekly_velocity_stdev #}</li>
         </ul>
     </p>
     <p>
     <img src="{{ url_for('vis.visualize_velocity', epic_name='.') }}" alt="Overall velocity"/>
     </p>
 {% endblock %}
-    </div>
     </div>
 {% endblock retrospective_content %}
 </div>

@@ -1,5 +1,4 @@
 import datetime
-import types
 import collections
 
 import flask
@@ -9,7 +8,8 @@ from . import bp
 from . import forms
 from .. import web_utils
 from ... import data
-from ... import utilities
+from ... import utilities, statops
+from ...statops import summary
 from ... import simpledata as webdata
 from ... import history
 from ...plugins import redhat_compliance
@@ -229,7 +229,6 @@ def view_task(task, breadcrumbs, request_forms=None):
         user=user, forms=request_forms, task=task, context=context, similar_sized_targets=similar_targets)
 
 
-
 def get_projective_breadcrumbs():
     breadcrumbs = collections.OrderedDict()
     breadcrumbs["Planning"] = flask.url_for("main.tree_view")
@@ -336,7 +335,7 @@ def tree_view():
         targets=targets_tree_without_duplicates, model=model)
 
 
-def executive_summary_of_points_and_velocity(targets):
+def executive_summary_of_points_and_velocity(targets, cls=history.Summary):
     all_events = webdata.EventManager()
     all_events.load()
 
@@ -344,39 +343,9 @@ def executive_summary_of_points_and_velocity(targets):
     cutoff_date = min(datetime.datetime.today(), end)
     aggregation = history.Aggregation.from_targets(targets, start, end)
     aggregation.process_event_manager(all_events)
+    summary = cls(aggregation, cutoff_date)
 
-    done_on_start = 0
-    not_done_on_start = 0
-    cutoff_data = types.SimpleNamespace(todo=0, underway=0, done=0)
-    for r in aggregation.repres:
-        repre_points = r.get_points_at(start)
-        if r.get_status_at(start) in (data.State.todo, data.State.in_progress, data.State.review):
-            not_done_on_start += repre_points
-        elif r.get_status_at(start) == data.State.done:
-            done_on_start += repre_points
-
-        if r.get_status_at(cutoff_date) == data.State.todo:
-            cutoff_data.todo += repre_points
-        elif r.get_status_at(cutoff_date) in (data.State.in_progress, data.State.review):
-            cutoff_data.underway += repre_points
-        elif r.get_status_at(cutoff_date) == data.State.done:
-            cutoff_data.done += repre_points
-
-    velocity_array = aggregation.get_velocity_array()
-    velocity_stdev = velocity_array.var()**0.5
-    velocity_stdev_while_working = velocity_array[velocity_array > 0].var() ** 0.5
-
-    output = dict(
-        initial_todo=not_done_on_start,
-        initial_done=done_on_start,
-        last_record=cutoff_data,
-        total_days_in_period=(cutoff_date - start).days,
-        total_days_while_working=sum(velocity_array > 0),
-        velocity_stdev=velocity_stdev,
-        velocity_stdev_while_working=velocity_stdev_while_working,
-        total_points_done=cutoff_data.done - done_on_start,
-    )
-    return output
+    return summary
 
 
 @bp.route('/retrospective')
@@ -394,7 +363,25 @@ def overview_retro():
     return web_utils.render_template(
         "retrospective_overview.html",
         title="Retrospective view",
-        ** summary)
+        summary=summary)
+
+
+@bp.route('/completion')
+@flask_login.login_required
+def completion():
+    user = flask_login.current_user
+    user_id = user.get_id()
+
+    all_targets_by_id, model = web_utils.get_all_tasks_by_id_and_user_model("retro", user_id)
+    tier0_targets = [t for t in all_targets_by_id.values() if t.tier == 0]
+    tier0_targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(tier0_targets)
+
+    summary = executive_summary_of_points_and_velocity(tier0_targets_tree_without_duplicates, statops.summary.StatSummary)
+
+    return web_utils.render_template(
+        "completion.html",
+        title="Completion projection",
+        summary=summary)
 
 
 @bp.route('/retrospective_tree')
@@ -423,7 +410,7 @@ def tree_view_retro():
         "tree_view_retrospective.html",
         title="Retrospective Tasks tree view",
         targets=priority_sorted_targets, today=datetime.datetime.today(), model=model,
-        refresh_form=refresh_form, ** summary)
+        refresh_form=refresh_form, summary=summary)
 
 
 @bp.route('/retrospective/epic/<epic_name>')
@@ -435,11 +422,10 @@ def view_epic_retro(epic_name):
     all_targets_by_id, model = web_utils.get_all_tasks_by_id_and_user_model("retro", user_id)
     t = all_targets_by_id[epic_name]
 
-    executive_summary = executive_summary_of_points_and_velocity(t.children)
-
+    summary = executive_summary_of_points_and_velocity(t.children)
     breadcrumbs = get_retro_breadcrumbs()
     append_target_to_breadcrumbs(breadcrumbs, t, lambda n: flask.url_for("main.view_epic_retro", epic_name=n))
 
     return web_utils.render_template(
         'epic_view_retrospective.html', title='View epic', breadcrumbs=breadcrumbs,
-        today=datetime.datetime.today(), epic=t, model=model, ** executive_summary)
+        today=datetime.datetime.today(), epic=t, model=model, summary=summary)

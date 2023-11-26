@@ -1,17 +1,17 @@
 import typing
 import datetime
 
-from ... import data, inidata, PluginResolver, persistence
+from ... import data, inidata, persistence
 
 
-class IniTargetSaverBase(inidata.IniSaverBase):
+class IniTargetSaverBase(inidata.IniSaverBase, persistence.entrydef.Saver):
     def _store_our(self, t, attribute, value=None):
         if value is None and hasattr(t, attribute):
             value = getattr(t, attribute)
         return self._write_items_attribute(t.name, attribute, value)
 
 
-class IniTargetLoaderBase(inidata.IniLoaderBase):
+class IniTargetLoaderBase(inidata.IniLoaderBase, persistence.entrydef.Loader):
     def _get_our(self, t, attribute, fallback=None):
         if fallback is None and hasattr(t, attribute):
             fallback = getattr(t, attribute)

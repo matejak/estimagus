@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% import "utils.j2" as utils %}
+{% from 'bootstrap5/form.html' import render_form %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+    <h1>Execution Demo</h1>
+    <p>Day {{ day_index + 1 }}</p>
+    {{ render_form(plugin_form, action=url_for("demo.next_day")) }}
+    {{ render_form(reset_form, button_map={"reset": "danger"}, action=url_for("demo.reset")) }}
+    </div>
+</div>
+{% endblock %}
+
+

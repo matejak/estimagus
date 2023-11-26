@@ -5,16 +5,19 @@ import flask
 import flask_login
 import markupsafe
 
+import numpy as np
+import matplotlib
+
 from . import bp
 from .. import web_utils
 from ... import utilities
+from ...statops import func, dist
 from ... import simpledata as webdata
 from ... import history
-from ...visualize import utils, velocity, burndown, pert
-
-import matplotlib
+from ...visualize import utils, velocity, burndown, pert, completion
 
 
+WIDE_FIGURE_SIZE = (12.0, 4.4)
 NORMAL_FIGURE_SIZE = (6.0, 4.4)
 SMALL_FIGURE_SIZE = (2.2, 1.6)
 
@@ -52,6 +55,82 @@ def get_pert_in_figure(estimation, task_name):
     return fig
 
 
+def get_aggregation(targets_tree_without_duplicates):
+
+    all_events = webdata.EventManager()
+    all_events.load()
+    start, end = flask.current_app.config["RETROSPECTIVE_PERIOD"]
+    aggregation = history.Aggregation.from_targets(targets_tree_without_duplicates, start, end)
+    aggregation.process_event_manager(all_events)
+
+    return aggregation
+
+
+@bp.route('/completion.svg')
+@flask_login.login_required
+def visualize_completion():
+    user = flask_login.current_user
+    user_id = user.get_id()
+
+    all_targets_by_id, model = web_utils.get_all_tasks_by_id_and_user_model("retro", user_id)
+    all_targets = list(all_targets_by_id.values())
+    targets_tree_without_duplicates = utilities.reduce_subsets_from_sets([t for t in all_targets if t.tier == 0])
+
+    aggregation = get_aggregation(targets_tree_without_duplicates)
+
+    model = web_utils.get_user_model(user_id, targets_tree_without_duplicates)
+    todo = model.remaining_point_estimate
+
+    velocity_array = aggregation.get_velocity_array()
+    sl = func.get_pdf_bounds_slice(velocity_array)
+    nonzero_daily_velocity = velocity_array[sl]
+
+    v_mean, v_median = func.get_mean_median_dissolving_outliers(nonzero_daily_velocity, -1)
+
+    samples = 300
+    distro = dist.get_lognorm_given_mean_median(v_mean, v_median, samples)
+    dom = np.linspace(0, v_mean * 10, samples)
+    velocity_pdf = distro.pdf(dom)
+    completion_projection = func.construct_evaluation(dom, velocity_pdf, todo.expected, 200)
+
+    matplotlib.use("svg")
+
+    completion_class = flask.current_app.config["classes"]["MPLCompletionPlot"]
+
+    fig = completion_class(aggregation.start, completion_projection).get_figure()
+    fig.set_size_inches(* NORMAL_FIGURE_SIZE)
+    return send_figure_as_svg(fig, "completion.svg")
+
+
+@bp.route('/velocity-fit.svg')
+@flask_login.login_required
+def visualize_velocity_fit():
+    user = flask_login.current_user
+    user_id = user.get_id()
+    all_events = webdata.EventManager()
+    all_events.load()
+
+    all_targets_by_id, _ = web_utils.get_all_tasks_by_id_and_user_model("retro", user_id)
+    all_targets = list(all_targets_by_id.values())
+    targets_tree_without_duplicates = utilities.reduce_subsets_from_sets([t for t in all_targets if t.tier == 0])
+
+    start, end = flask.current_app.config["RETROSPECTIVE_PERIOD"]
+    aggregation = history.Aggregation.from_targets(targets_tree_without_duplicates, start, end)
+    aggregation.process_event_manager(all_events)
+
+    velocity_array = aggregation.get_velocity_array()
+    sl = func.get_pdf_bounds_slice(velocity_array)
+    nonzero_weekly_velocity = velocity_array[sl] * 7
+
+    matplotlib.use("svg")
+
+    fit_class = flask.current_app.config["classes"]["VelocityFitPlot"]
+
+    fig = fit_class(nonzero_weekly_velocity).get_figure()
+    fig.set_size_inches(* NORMAL_FIGURE_SIZE)
+    return send_figure_as_svg(fig, "completion.svg")
+
+
 @bp.route('/<epic_name>-velocity.svg')
 @flask_login.login_required
 def visualize_velocity(epic_name):
@@ -64,6 +143,7 @@ def visualize_velocity(epic_name):
     all_events.load()
 
     start, end = flask.current_app.config["RETROSPECTIVE_PERIOD"]
+    velocity_class = flask.current_app.config["classes"]["MPLVelocityPlot"]
 
     if epic_name == ".":
         target_tree = utilities.reduce_subsets_from_sets(list(all_targets.values()))
@@ -82,7 +162,7 @@ def visualize_velocity(epic_name):
     cutoff_date = min(datetime.datetime.today(), end)
 
     matplotlib.use("svg")
-    fig = velocity.MPLVelocityPlot(aggregation).get_figure(cutoff_date)
+    fig = velocity_class(aggregation).get_figure(cutoff_date)
     fig.set_size_inches(* NORMAL_FIGURE_SIZE)
     return send_figure_as_svg(fig, epic_name)
 
@@ -131,7 +211,7 @@ def visualize_task(task_name, nominal_or_remaining):
 def visualize_epic_burndown(epic_name, size):
     allowed_sizes = ("small", "normal")
     if size not in allowed_sizes:
-        msg = "Figure size must be one of {allowed_sizes}, got '{size}' instead."
+        msg = f"Figure size must be one of {allowed_sizes}, got '{size}' instead."
         raise ValueError(msg)
 
     cls, loader = web_utils.get_retro_loader()
@@ -149,9 +229,9 @@ def visualize_epic_burndown(epic_name, size):
 @bp.route('/tier<tier>-burndown-<size>.svg')
 @flask_login.login_required
 def visualize_overall_burndown(tier, size):
-    allowed_sizes = ("small", "normal")
+    allowed_sizes = ("small", "normal", "wide")
     if size not in allowed_sizes:
-        msg = "Figure size must be one of {allowed_sizes}, got '{size}' instead."
+        msg = f"Figure size must be one of {allowed_sizes}, got '{size}' instead."
         raise ValueError(msg)
     if (tier := int(tier)) < 0:
         msg = "Tier must be a non-negative number, got {tier}"
@@ -178,12 +258,17 @@ def output_burndown(target_tree, size):
     aggregation = history.Aggregation.from_targets(target_tree, start, end)
     aggregation.process_event_manager(all_events)
 
+    burndown_class = flask.current_app.config["classes"]["MPLPointPlot"]
+
     matplotlib.use("svg")
     if size == "small":
-        fig = burndown.MPLPointPlot(aggregation).get_small_figure()
+        fig = burndown_class(aggregation).get_small_figure()
         fig.set_size_inches(* SMALL_FIGURE_SIZE)
+    elif size == "wide":
+        fig = burndown_class(aggregation).get_figure()
+        fig.set_size_inches(* WIDE_FIGURE_SIZE)
     else:
-        fig = burndown.MPLPointPlot(aggregation).get_figure()
+        fig = burndown_class(aggregation).get_figure()
         fig.set_size_inches(* NORMAL_FIGURE_SIZE)
 
     basename = flask.request.path.split("/")[-1]
