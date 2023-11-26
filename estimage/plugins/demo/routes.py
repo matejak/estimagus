@@ -19,13 +19,15 @@ def next_day():
     cls, loader = web_utils.get_retro_loader()
     targets_by_id, model = web_utils.get_all_tasks_by_id_and_user_model("retro", user_id)
 
-    doer = demo.Demo(targets_by_id, loader)
+    start_date = flask.current_app.config["RETROSPECTIVE_PERIOD"][0]
+    doer = demo.Demo(loader, start_date)
+    doer.start_if_on_start()
 
     form = forms.DemoForm()
     form.issues.choices = doer.get_sensible_choices()
 
     if form.validate_on_submit():
-        doer.apply_work(form.progress.data, form.issues.data, model)
+        doer.apply_work(form.progress.data, form.issues.data)
 
     form.issues.choices = doer.get_actual_choices()
 

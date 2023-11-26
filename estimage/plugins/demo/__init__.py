@@ -3,10 +3,9 @@ import pathlib
 import datetime
 import json
 
-import flask
 import numpy as np
 
-from ... import simpledata, data
+from ... import simpledata, data, persistence
 
 
 NULL_CHOICE = ("noop", "Do Nothing")
@@ -21,16 +20,22 @@ def load_data():
     return ret
 
 
-
+# TODO: Strategies
+#  - random / uniform effort distribution
+#  - flexible / lossy force usage
+#  - auto-assignment of tasks (according to selection, all at once, sequential, n at a time)
+#  - jump a day, jump to the end
 class Demo:
-    def __init__(self, targets_by_id, loader):
-        self.targets_by_id = targets_by_id
+    def __init__(self, loader, start_date):
+        self.targets_by_id = loader.get_loaded_targets_by_id()
         self.loader = loader
+        self.start_date = start_date
 
+    def start_if_on_start(self):
         plugin_data = load_data()
         self.day_index = plugin_data.get("day_index", 0)
         if self.day_index == 0:
-            start(targets_by_id.values(), loader)
+            start(self.targets_by_id.values(), self.loader, self.start_date)
 
     def get_sensible_choices(self):
         targets = self.get_ordered_wip_targets()
@@ -46,23 +51,27 @@ class Demo:
         targets = self.get_ordered_wip_targets()
         plugin_data = load_data()
         velocity_in_stash = plugin_data.get("velocity_in_stash", dict())
-        label = f"{t.title} {velocity_in_stash.get(t.name, 0):.2g}/{t.point_cost}"
-        actual_choices = [(t.name, label) for t in targets]
+        actual_choices = []
+        for t in targets:
+            label = f"{t.title} {velocity_in_stash.get(t.name, 0):.2g}/{t.point_cost}"
+            actual_choices.append((t.name, label))
         if not actual_choices:
             actual_choices = [NULL_CHOICE]
         return actual_choices
 
-    def evaluate_progress(self, velocity_in_stash, names, model, plugin_data):
+    def evaluate_progress(self, velocity_in_stash, names, plugin_data):
         for name in names:
             target = self.targets_by_id[name]
 
-            if velocity_in_stash[name] > model.remaining_point_estimate_of(name).expected:
-                flask.flash(f"Finished {name}")
-                conclude_target(target, self.loader, plugin_data["day_index"])
+            if velocity_in_stash[name] > target.point_cost:
+                previously_finished = plugin_data.get("finished", [])
+                previously_finished.append(name)
+                plugin_data["finished"] = previously_finished
+                conclude_target(target, self.loader, self.start_date, plugin_data["day_index"])
             else:
-                begin_target(target, self.loader, plugin_data["day_index"])
+                begin_target(target, self.loader, self.start_date, plugin_data["day_index"])
 
-    def apply_work(self, progress, names, model):
+    def apply_work(self, progress, names):
         plugin_data = load_data()
         self.day_index += 1
         plugin_data["day_index"] = self.day_index
@@ -72,7 +81,7 @@ class Demo:
             velocity_in_stash = plugin_data.get("velocity_in_stash", dict())
             apply_velocities(names, progress, velocity_in_stash)
             plugin_data["velocity_in_stash"] = velocity_in_stash
-            evaluate_progress(velocity_in_stash, names, model, plugin_data)
+            self.evaluate_progress(velocity_in_stash, names, plugin_data)
         save_data(plugin_data)
 
     def get_not_finished_targets(self):
@@ -117,13 +126,11 @@ class NotToday:
     def get_date_of_dday(self):
         data = load_data()
         day_index = data.get("day_index", 0)
-        start = flask.current_app.config["RETROSPECTIVE_PERIOD"][0]
-        return start + datetime.timedelta(days=day_index)
+        return self.start + datetime.timedelta(days=day_index)
 
 
-def start(targets, loader):
-    start = flask.current_app.config["RETROSPECTIVE_PERIOD"][0]
-    date = start - datetime.timedelta(days=20)
+def start(targets, loader, start_date):
+    date = start_date - datetime.timedelta(days=20)
     mgr = simpledata.EventManager()
     for t in targets:
         evt = data.Event(t.name, "state", date)
@@ -136,9 +143,8 @@ def start(targets, loader):
     mgr.save()
 
 
-def begin_target(target, loader, day_index):
-    start = flask.current_app.config["RETROSPECTIVE_PERIOD"][0]
-    date = start + datetime.timedelta(days=day_index)
+def begin_target(target, loader, start_date, day_index):
+    date = start_date + datetime.timedelta(days=day_index)
     mgr = simpledata.EventManager()
     mgr.load()
     if len(mgr.get_chronological_task_events_by_type(target.name)["state"]) < 2:
@@ -152,9 +158,8 @@ def begin_target(target, loader, day_index):
     target.save_metadata(loader)
 
 
-def conclude_target(target, loader, day_index):
-    start = flask.current_app.config["RETROSPECTIVE_PERIOD"][0]
-    date = start + datetime.timedelta(days=day_index)
+def conclude_target(target, loader, start_date, day_index):
+    date = start_date + datetime.timedelta(days=day_index)
     mgr = simpledata.EventManager()
     mgr.load()
     evt = data.Event(target.name, "state", date)

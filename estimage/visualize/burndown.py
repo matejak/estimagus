@@ -23,12 +23,15 @@ class MPLPointPlot:
     )
     DDAY_LABEL = "today"
 
-    def __init__(self, a: history.Aggregation):
+    def __init__(self, a: history.Aggregation, * args, ** kwargs):
         self.aggregation = a
+        self.start = a.start
+        self.end = a.end
+        self.width = 1.0
+        super().__init__(* args, ** kwargs)
         self.status_arrays = np.zeros((len(self.STYLES), a.days))
         dday_date = self.get_date_of_dday()
-        self.index_of_dday = history.days_between(self.aggregation.start, dday_date)
-        self.width = 1.0
+        self.index_of_dday = history.days_between(self.start, dday_date)
 
     def get_date_of_dday(self):
         return datetime.datetime.today()
@@ -44,7 +47,7 @@ class MPLPointPlot:
                 linewidth=self.width, label="burndown")
 
     def _show_dday(self, ax):
-        if self.aggregation.start <= self.get_date_of_dday() <= self.aggregation.end:
+        if self.start <= self.get_date_of_dday() <= self.end:
             ax.axvline(self.index_of_dday, label=self.DDAY_LABEL, color="grey", linewidth=self.width * 2)
 
     def _plot_prepared_arrays(self, ax):
@@ -78,7 +81,7 @@ class MPLPointPlot:
         self._show_dday(ax)
         ax.legend(loc="upper right")
 
-        utils.x_axis_weeks_and_months(ax, self.aggregation.start, self.aggregation.end)
+        utils.x_axis_weeks_and_months(ax, self.start, self.end)
         ax.set_ylabel("points")
 
         return fig

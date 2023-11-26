@@ -23,7 +23,7 @@ class MPLVelocityPlot:
     )
     DDAY_LABEL = "today"
 
-    def __init__(self, a: typing.Iterable[history.Aggregation]):
+    def __init__(self, a: typing.Iterable[history.Aggregation], * args, ** kwargs):
         try:
             num_tiers = len(a)
         except TypeError:
@@ -35,6 +35,7 @@ class MPLVelocityPlot:
         self.days = np.arange(a[0].days)
         self.start = a[0].start
         self.end = a[0].end
+        super().__init__(* args, ** kwargs)
 
     def _prepare_plots(self, cutoff_date):
         for tier, aggregation in enumerate(self.aggregations_by_tiers):

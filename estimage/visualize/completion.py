@@ -15,6 +15,7 @@ class MPLCompletionPlot:
     def __init__(self, period_start, cdf):
         self.dom = np.arange(len(cdf))
         self.cdf = cdf * 100
+        self.start = period_start
         self.ppf = sp.interpolate.interp1d(cdf, self.dom)
 
     def _dom_to_days(self, dom_numbers):
