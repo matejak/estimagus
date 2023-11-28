@@ -128,7 +128,12 @@ class Estimate:
             )
             raise ValueError(msg)
         expected = (optimistic + pessimistic + 4 * most_likely) / 6
-        sigma = math.sqrt((expected - optimistic) * (pessimistic - expected) / 7.0)
+
+        variance = (expected - optimistic) * (pessimistic - expected) / 7.0
+        if variance < 0 and variance > - 1e-10:
+            variance = 0
+        sigma = math.sqrt(variance)
+
         ret = cls(expected, sigma)
         ret.source = EstimInput(most_likely)
         ret.source.optimistic = optimistic
