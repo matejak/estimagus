@@ -1,6 +1,7 @@
+import collections
 import pathlib
 
-from flask import Flask
+import flask
 from flask_login import LoginManager
 from flask_bootstrap import Bootstrap5
 from jinja2 import loaders
@@ -16,7 +17,7 @@ from .persons import bp as persons_bp
 login = LoginManager()
 
 
-class PluginFriendlyFlask(Flask):
+class PluginFriendlyFlask(flask.Flask):
     def __init__(self, import_name, ** kwargs):
         webapp_folder = pathlib.Path(__file__).absolute().parent
         templates_folder = webapp_folder / "templates"
@@ -85,3 +86,46 @@ def create_app(config_class=config.Config):
         pass
 
     return app
+
+
+def create_app_multihead(config_class=config.MultiheadConfig):
+    app = PluginFriendlyFlask(__name__)
+    app.jinja_env.globals.update(dict(State=data.State))
+    app.config.from_object(config_class)
+    app.config["head"] = collections.defaultdict(dict)
+
+    for directory in app.config["DATA_DIRS"]:
+        configure_head(app, directory)
+
+    app.register_blueprint(login_bp)
+
+    Bootstrap5(app)
+
+    login.init_app(app)
+    login.user_loader(users.load_user)
+    login.login_view = "login.auto_login"
+
+    if not app.debug and not app.testing:
+        pass
+
+    return app
+
+
+def configure_head(app, directory):
+    config_class = simpledata.AppData
+    config_class.DATADIR = pathlib.Path(directory)
+    app.config.from_object(config.read_or_create_config(simpledata.AppData))
+    app.config["head"][directory]["classes"] = app.plugin_resolver.class_dict
+    plugins_dict = {name: plugins.get_plugin(name) for name in app.config["head"][directory].get("PLUGINS", [])}
+
+    bp = flask.Blueprint(directory, __name__, url_prefix=f"/{directory}")
+
+    bp.register_blueprint(main_bp)
+    bp.register_blueprint(vis_bp, url_prefix="/vis")
+    bp.register_blueprint(persons_bp)
+    for plugin in plugins_dict.values():
+        plugin_bp = plugins.get_plugin_blueprint(plugin)
+        if plugin_bp:
+            bp.register_blueprint(plugin_bp, url_prefix="/plugins")
+
+    app.register_blueprint(bp)

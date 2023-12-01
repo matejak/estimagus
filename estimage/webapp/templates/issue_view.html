@@ -1,6 +1,6 @@
 {% extends base %}
 
-{% import "utils.j2" as utils %}
+{% import "utils.j2" as utils with context %}
 {% from 'bootstrap5/form.html' import render_form %}
 
 
@@ -20,7 +20,7 @@
 {{ utils.accordion_with_stuff(
 	"Estimation", estimate_exists,
 	("Modify" if estimate_exists else "Create") ~ " the estimate",
-	render_form(forms["estimation"], button_map={"submit": "primary", "delete": "danger"}, action=url_for("main.estimate", task_name=task.name))
+	render_form(forms["estimation"], button_map={"submit": "primary", "delete": "danger"}, action=relative_url_for("main.estimate", task_name=task.name))
 	)
 }}
 {%- endmacro %}
@@ -64,7 +64,7 @@
 	{%- endif %}
         </div>
         <div class="col">
-        <img src="{{ url_for('vis.visualize_task', task_name=task.name, nominal_or_remaining='nominal') }}" alt="PERT prob density function for {{ task.name }}"/>
+        <img src="{{ relative_url_for('vis.visualize_task', task_name=task.name, nominal_or_remaining='nominal') }}" alt="PERT prob density function for {{ task.name }}"/>
         </div>
     </div>
     {% if forms %}
@@ -74,7 +74,7 @@
     <p>
         {{ task_authoritative() | indent(8) -}}
         {% if "authoritative" in forms -%}
-        {{ render_form(forms["authoritative"], action=url_for("main.move_consensus_estimate_to_authoritative", task_name=task.name)) }}
+        {{ render_form(forms["authoritative"], action=relative_url_for("main.move_consensus_estimate_to_authoritative", task_name=task.name)) }}
         {%- endif %}
     </p>
     </div>
@@ -84,7 +84,7 @@
 	<p>Point cost: {{ utils.render_estimate(context.global_estimate) }}</p>
 	{% endif %}
 	{% if "consensus" in forms %}
-        {{ render_form(forms["consensus"], button_map={"submit": "primary", "delete": "danger"}, action=url_for("main.move_issue_estimate_to_consensus", task_name=task.name)) }}
+        {{ render_form(forms["consensus"], button_map={"submit": "primary", "delete": "danger"}, action=relative_url_for("main.move_issue_estimate_to_consensus", task_name=task.name)) }}
 	{% endif %}
     </div>
     <div class="col">

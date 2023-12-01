@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 
 {% block navbar_secondary_common %}
-		{{ render_nav_item('main.overview_retro', 'Overview') }}
-		{{ render_nav_item('main.tree_view_retro', 'Tree View') }}
-		{{ render_nav_item('persons.retrospective_workload', 'Workloads') }}
-		{{ render_nav_item('main.completion', 'Completion') }}
+		{{ render_nav_item(head_prefix ~ 'main.overview_retro', 'Overview') }}
+		{{ render_nav_item(head_prefix ~ 'main.tree_view_retro', 'Tree View') }}
+		{{ render_nav_item(head_prefix ~ 'persons.retrospective_workload', 'Workloads') }}
+		{{ render_nav_item(head_prefix ~ 'main.completion', 'Completion') }}
 {% endblock %}
