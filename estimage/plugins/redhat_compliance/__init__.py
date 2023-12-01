@@ -129,7 +129,8 @@ class Importer(jira.Importer):
     EPIC_LINK = "customfield_12311140"
     CONTRIBUTORS = "customfield_12315950"
     COMMITMENT = "customfield_12317404"
-    STATUS_SUMMARY = "customfield_12317299"
+    STATUS_SUMMARY_OLD = "customfield_12317299"
+    STATUS_SUMMARY_NEW = "customfield_12320841"
     WORK_START = "customfield_12313941"
     WORK_END = "customfield_12313942"
 
@@ -139,12 +140,19 @@ class Importer(jira.Importer):
     def _set_points_of(self, item, points):
         item.update({self.STORY_POINTS: round(points, 2)})
 
+    def _get_status_summary(self, item):
+        ret = self._get_contents_of_rendered_field(item, self.STATUS_SUMMARY_OLD)
+        if ret:
+            return ret
+        ret = self._get_contents_of_rendered_field(item, self.STATUS_SUMMARY_NEW)
+        return ret
+
     def merge_jira_item_without_children(self, item):
 
         result = super().merge_jira_item_without_children(item)
 
         result.point_cost = self._get_points_of(item)
-        result.status_summary = self._get_contents_of_rendered_field(item, self.STATUS_SUMMARY)
+        result.status_summary = self._get_status_summary(item)
         result.loading_plugin = "jira-rhcompliance"
         self._record_collaborators(result, item)
         self._record_commitment_as_tier_and_tags(result, item)

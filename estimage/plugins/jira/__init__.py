@@ -152,7 +152,7 @@ def import_event(event, date, related_task):
         evt.value_before = float(former_value or 0)
         evt.value_after = float(new_value or 0)
         evt.msg = f"Points changed from {former_value} to {new_value}"
-    elif field_name == "Latest Status Summary":
+    elif field_name in ("Latest Status Summary", "Status Summary"):
         evt = evts.Event(related_task_name, "status_summary", date)
         evt.value_before = former_value
         evt.value_after = new_value
