@@ -18,6 +18,9 @@ from .forms import CryptoForm
 PROJECT_NAME = "CRYPTO"
 jira.JIRA_STATUS_TO_STATE["Closed"] = jira.target.State.done
 
+TEMPLATE_OVERRIDES = {
+    "tree_view_retrospective.html": "crypto-retrotree.html",
+}
 
 class InputSpec(jira.InputSpec):
     @classmethod
@@ -26,16 +29,16 @@ class InputSpec(jira.InputSpec):
         ret.server_url = "https://issues.redhat.com"
         ret.token = form.token.data
         ret.cutoff_date = app.config["RETROSPECTIVE_PERIOD"][0]
-        query = f"project = {PROJECT_NAME} AND type = Epic AND Sprint in openSprints()"
-        query = f"project = Crypto AND type = Task AND sprint in openSprints()"
+        query = f"project = {PROJECT_NAME} AND type = Task AND labels = Committed AND sprint in openSprints()"
+        query = f"project = {PROJECT_NAME} AND type = Task AND sprint in openSprints()"
         ret.retrospective_query = query
-        ret.projective_query = query
+        ret.projective_query = ""
         ret.item_class = app.config["classes"]["BaseTarget"]
         return ret
 
 
-def get_tasks(jira, query, all_items_by_name, parents_child_keymap):
-    tasks = jira.search_issues(
+def get_tasks(jira_connection, query, all_items_by_name, parents_child_keymap):
+    tasks = jira_connection.search_issues(
         query, expand="changelog,renderedFields", maxResults=0)
 
     new_task_names = set()
@@ -44,8 +47,8 @@ def get_tasks(jira, query, all_items_by_name, parents_child_keymap):
         if task.key in all_items_by_name:
             continue
         all_items_by_name[task.key] = task
-        identify_epic_subtasks(jira, task, all_items_by_name, parents_child_keymap)
-        jira.recursively_identify_task_subtasks(jira, task, all_items_by_name, parents_child_keymap):
+        jira.identify_epic_subtasks(jira_connection, task, all_items_by_name, parents_child_keymap)
+        jira.recursively_identify_task_subtasks(jira_connection, task, all_items_by_name, parents_child_keymap)
     return new_task_names
 
 
@@ -60,38 +63,48 @@ class Importer(jira.Importer):
         # item.update({self.STORY_POINTS: round(points, 2)})
 
     def _get_owner_epic_of(self, assignee, committed):
-        name = f"{PROJECT_NAME}-{task.assignee}"
+        if not assignee:
+            assignee = "nobody"
+        name = f"{PROJECT_NAME}-{assignee}"
         if committed:
             name += "-C"
 
-        epic = self._all_issues_by_name.get(name)
+        epic = self._targets_by_id.get(name)
 
         if not epic:
             epic = self.item_class(name)
             epic.assignee = assignee
             epic.title = f"Issues of {assignee}"
+            epic.tier = 1
             if committed:
                 epic.title = "Committed " + epic.title
+                epic.tier = 0
+            self._targets_by_id[name] = epic
         return epic
 
-    def put_tasks_under_artificial_epics(tasks):
+    def put_tasks_under_artificial_epics(self, tasks):
         epic_names = set()
-        for task in tasks:
-            epic = self._get_owner_epic_of(task.assignee, "Committed" in task.tags)
+        for task_name in tasks:
+            task = self._targets_by_id[task_name]
+            epic = self._get_owner_epic_of(task.assignee, "label:Committed" in task.tags)
             epic.add_element(task)
             epic_names.add(epic.name)
+        return epic_names
 
 
     def import_data(self, spec):
         retro_tasks = set()
+        issue_names_requiring_events = set()
         if spec.retrospective_query:
             self.report("Gathering retro stuff")
             retro_tasks = get_tasks(
                 self.jira, spec.retrospective_query, self._all_issues_by_name,
                 self._parents_child_keymap)
-            self.put_tasks_under_artificial_epics(retro_tasks)
-            new_targets = self.export_jira_epic_chain_to_targets(retro_epic_names)
+            new_targets = self.export_jira_epic_chain_to_targets(retro_tasks)
+            self._targets_by_id.update(new_targets)
+            new_epic_names = self.put_tasks_under_artificial_epics(retro_tasks)
             self._retro_targets.update(new_targets.keys())
+            self._retro_targets.update(new_epic_names)
             issue_names_requiring_events.update(new_targets.keys())
             self._targets_by_id.update(new_targets)
 
@@ -109,10 +122,10 @@ class Importer(jira.Importer):
             self._projective_targets.update(new_targets.keys())
             self._projective_targets.update(known_targets.keys())
 
-        self.resolve_inheritance(proj_epic_names.union(retro_epic_names))
+        self.resolve_inheritance(proj_tasks.union(retro_tasks))
 
         for name in issue_names_requiring_events:
-            new_events = get_task_events(self._all_issues_by_name[name], spec.cutoff_date)
+            new_events = jira.get_task_events(self._all_issues_by_name[name], spec.cutoff_date)
             self._all_events.extend(new_events)
 
 
