@@ -335,7 +335,11 @@ class Importer:
         result.status = self.status_to_state(item)
         if item.fields.issuetype.name == "Epic" and result.status == "abandoned":
             result.status = "done"
-        result.priority = JIRA_PRIORITY_TO_VALUE.get(item.get_field("priority").name, 0)
+        priority = item.get_field("priority")
+        if not priority:
+            result.priority = 0
+        else:
+            result.priority = JIRA_PRIORITY_TO_VALUE.get(priority.name, 0)
         result.tags = {f"label:{value}" for value in (item.get_field("labels") or [])}
 
         if assignee := item.get_field("assignee"):

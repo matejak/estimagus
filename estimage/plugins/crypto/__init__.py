@@ -7,16 +7,40 @@ import typing
 import flask
 
 from ... import simpledata, data, persistence
-from .. import jira
+from .. import jira, redhat_compliance
 from ...webapp import web_utils
+from ...entities import status
+from ...visualize.burndown import StatusStyle
 from .forms import CryptoForm
 
 
 # TEMPLATE_EXPORTS = dict(base="rhc-base.html")
 
+EXPORTS = dict(
+    MPLPointPlot="MPLPointPlot",
+    Statuses="Statuses",
+)
+
 
 PROJECT_NAME = "CRYPTO"
-jira.JIRA_STATUS_TO_STATE["Closed"] = jira.target.State.done
+
+class Statuses:
+    def __init__(self):
+        super().__init__()
+        self.statuses.extend([
+            status.Status.create("rhel-in_progress", started=True, wip=True, done=False),
+            status.Status.create("rhel-integration", started=True, wip=False, done=False),
+        ])
+
+
+class MPLPointPlot:
+    def get_styles(self):
+        ret = super().get_styles()
+        ret["rhel-in_progress"] = StatusStyle(color=(0.1, 0.2, 0.5, 0.4), label="BZ In Progress", weight=60)
+        ret["rhel-integration"] = StatusStyle(color=(0.2, 0.4, 0.7, 0.6), label="BZ Integration", weight=61)
+        return ret
+
+
 
 TEMPLATE_OVERRIDES = {
     "tree_view_retrospective.html": "crypto-retrotree.html",
@@ -29,11 +53,11 @@ class InputSpec(jira.InputSpec):
         ret.server_url = "https://issues.redhat.com"
         ret.token = form.token.data
         ret.cutoff_date = app.config["RETROSPECTIVE_PERIOD"][0]
-        query = f"project = {PROJECT_NAME} AND type = Task AND labels = Committed AND sprint in openSprints()"
         query = f"project = {PROJECT_NAME} AND type = Task AND sprint in openSprints()"
+        query = "filter = 12350823 AND Sprint in openSprints() AND labels = committed AND issuetype in (task, bug, Story)"
         ret.retrospective_query = query
         ret.projective_query = ""
-        ret.item_class = app.config["classes"]["BaseTarget"]
+        ret.item_class = app.config["classes"]["BaseCard"]
         return ret
 
 
@@ -69,7 +93,7 @@ class Importer(jira.Importer):
         if committed:
             name += "-C"
 
-        epic = self._targets_by_id.get(name)
+        epic = self._cards_by_id.get(name)
 
         if not epic:
             epic = self.item_class(name)
@@ -79,13 +103,13 @@ class Importer(jira.Importer):
             if committed:
                 epic.title = "Committed " + epic.title
                 epic.tier = 0
-            self._targets_by_id[name] = epic
+            self._cards_by_id[name] = epic
         return epic
 
     def put_tasks_under_artificial_epics(self, tasks):
         epic_names = set()
         for task_name in tasks:
-            task = self._targets_by_id[task_name]
+            task = self._cards_by_id[task_name]
             epic = self._get_owner_epic_of(task.assignee, "label:Committed" in task.tags)
             epic.add_element(task)
             epic_names.add(epic.name)
@@ -100,13 +124,13 @@ class Importer(jira.Importer):
             retro_tasks = get_tasks(
                 self.jira, spec.retrospective_query, self._all_issues_by_name,
                 self._parents_child_keymap)
-            new_targets = self.export_jira_epic_chain_to_targets(retro_tasks)
-            self._targets_by_id.update(new_targets)
+            new_cards = self.export_jira_epic_chain_to_cards(retro_tasks)
+            self._cards_by_id.update(new_cards)
             new_epic_names = self.put_tasks_under_artificial_epics(retro_tasks)
-            self._retro_targets.update(new_targets.keys())
-            self._retro_targets.update(new_epic_names)
-            issue_names_requiring_events.update(new_targets.keys())
-            self._targets_by_id.update(new_targets)
+            self._retro_cards.update(new_cards.keys())
+            self._retro_cards.update(new_epic_names)
+            issue_names_requiring_events.update(new_cards.keys())
+            self._cards_by_id.update(new_cards)
 
         proj_tasks = set()
         if spec.projective_query:
@@ -115,19 +139,19 @@ class Importer(jira.Importer):
                 self.jira, spec.projective_query, self._all_issues_by_name,
                 self._parents_child_keymap)
             new_names = proj_epic_names.difference(retro_epic_names)
-            new_targets = self.export_jira_epic_chain_to_targets(new_names)
+            new_cards = self.export_jira_epic_chain_to_cards(new_names)
             known_names = proj_epic_names.intersection(retro_epic_names)
-            known_targets = self.export_jira_epic_chain_to_targets(known_names)
-            self._targets_by_id.update(new_targets)
-            self._projective_targets.update(new_targets.keys())
-            self._projective_targets.update(known_targets.keys())
+            known_cards = self.export_jira_epic_chain_to_cards(known_names)
+            self._cards_by_id.update(new_cards)
+            self._projective_cards.update(new_cards.keys())
+            self._projective_cards.update(known_cards.keys())
 
         self.resolve_inheritance(proj_tasks.union(retro_tasks))
 
         for name in issue_names_requiring_events:
-            new_events = jira.get_task_events(self._all_issues_by_name[name], spec.cutoff_date)
+            extractor = jira.EventExtractor(self._all_issues_by_name[name], spec.cutoff_date)
+            new_events = extractor.get_task_events(self)
             self._all_events.extend(new_events)
-
 
     def merge_jira_item_without_children(self, item):
 
@@ -137,7 +161,7 @@ class Importer(jira.Importer):
         return result
 
     def update_points_of(self, our_task, points):
-        jira_task = self.find_target(our_task.name)
+        jira_task = self.find_card(our_task.name)
         remote_points = self._get_points_of(jira_task)
         if remote_points == points:
             return jira_task
@@ -151,6 +175,19 @@ class Importer(jira.Importer):
         self._set_points_of(jira_task, points)
         jira_task.find(jira_task.key)
         return self.merge_jira_item_without_children(jira_task)
+
+    @classmethod
+    def _status_to_state(cls, item, jira_string):
+        item_name = item.key
+
+        if item_name.startswith(PROJECT_NAME):
+            return super()._status_to_state(item, jira_string)
+        elif item_name.startswith("RHELPLAN"):
+            return redhat_compliance.RHELPLAN_STATUS_TO_STATE.get(jira_string, "irrelevant")
+        elif item_name.startswith("RHEL"):
+            return redhat_compliance.RHEL_STATUS_TO_STATE.get(jira_string, "irrelevant")
+        else:
+            return redhat_compliance.JIRA_STATUS_TO_STATE.get(jira_string, "irrelevant")
 
 
 def do_stuff(spec):
