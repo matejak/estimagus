@@ -47,7 +47,7 @@ def send_figure_as_svg(figure, basename):
 
 
 def get_pert_in_figure(estimation, task_name):
-    pert_class = web_utils.get_final_class("PertPlotter")
+    pert_class = flask.current_app.get_final_class("PertPlotter")
     fig = pert.get_pert_in_figure(estimation, task_name, pert_class)
     fig.set_size_inches(* NORMAL_FIGURE_SIZE)
 
@@ -58,7 +58,7 @@ def get_aggregation(targets_tree_without_duplicates):
 
     all_events = webdata.EventManager()
     all_events.load()
-    start, end = flask.current_app.config["RETROSPECTIVE_PERIOD"]
+    start, end = flask.current_app.get_config_option("RETROSPECTIVE_PERIOD")
     aggregation = history.Aggregation.from_targets(targets_tree_without_duplicates, start, end)
     aggregation.process_event_manager(all_events)
 
@@ -94,7 +94,7 @@ def visualize_completion():
 
     matplotlib.use("svg")
 
-    completion_class = web_utils.get_final_class("MPLCompletionPlot")
+    completion_class = flask.current_app.get_final_class("MPLCompletionPlot")
 
     fig = completion_class(aggregation.start, completion_projection).get_figure()
     fig.set_size_inches(* NORMAL_FIGURE_SIZE)
@@ -113,7 +113,7 @@ def visualize_velocity_fit():
     all_targets = list(all_targets_by_id.values())
     targets_tree_without_duplicates = utilities.reduce_subsets_from_sets([t for t in all_targets if t.tier == 0])
 
-    start, end = flask.current_app.config["RETROSPECTIVE_PERIOD"]
+    start, end = flask.current_app.get_config_option("RETROSPECTIVE_PERIOD")
     aggregation = history.Aggregation.from_targets(targets_tree_without_duplicates, start, end)
     aggregation.process_event_manager(all_events)
 
@@ -123,7 +123,7 @@ def visualize_velocity_fit():
 
     matplotlib.use("svg")
 
-    fit_class = web_utils.get_final_class("VelocityFitPlot")
+    fit_class = flask.current_app.get_final_class("VelocityFitPlot")
 
     fig = fit_class(nonzero_weekly_velocity).get_figure()
     fig.set_size_inches(* NORMAL_FIGURE_SIZE)
@@ -141,8 +141,8 @@ def visualize_velocity(epic_name):
     all_events = webdata.EventManager()
     all_events.load()
 
-    start, end = flask.current_app.config["RETROSPECTIVE_PERIOD"]
-    velocity_class = web_utils.get_final_class("MPLVelocityPlot")
+    start, end = flask.current_app.get_config_option("RETROSPECTIVE_PERIOD")
+    velocity_class = flask.current_app.get_final_class("MPLVelocityPlot")
 
     if epic_name == ".":
         target_tree = utilities.reduce_subsets_from_sets(list(all_targets.values()))
@@ -250,14 +250,14 @@ def visualize_overall_burndown(tier, size):
 
 
 def output_burndown(target_tree, size):
-    start, end = flask.current_app.config["RETROSPECTIVE_PERIOD"]
+    start, end = flask.current_app.get_config_option("RETROSPECTIVE_PERIOD")
     all_events = webdata.EventManager()
     all_events.load()
 
     aggregation = history.Aggregation.from_targets(target_tree, start, end)
     aggregation.process_event_manager(all_events)
 
-    burndown_class = web_utils.get_final_class("MPLPointPlot")
+    burndown_class = flask.current_app.get_final_class("MPLPointPlot")
 
     matplotlib.use("svg")
     if size == "small":

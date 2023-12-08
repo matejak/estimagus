@@ -4,7 +4,7 @@ import datetime
 from ..simpledata import AppData
 
 
-def _parse_csv(csv):
+def parse_csv(csv):
     if csv == "":
         return []
     else:
@@ -24,11 +24,11 @@ class CommonConfig:
 
 class Config(CommonConfig):
     DATA_DIR = os.environ.get("DATA_DIR", "data")
-    PLUGINS = _parse_csv(os.environ.get("PLUGINS", ""))
+    PLUGINS = parse_csv(os.environ.get("PLUGINS", ""))
 
 
 class MultiheadConfig(CommonConfig):
-    DATA_DIRS = _parse_csv(os.environ.get("DATA_DIRS", "data"))
+    DATA_DIRS = parse_csv(os.environ.get("DATA_DIRS", "data"))
 
 
 def read_or_create_config(cls):

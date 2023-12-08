@@ -119,6 +119,7 @@ class IniAppdata(IniStorage):
     PROJECTIVE_QUARTER: str = ""
     DAY_INDEX: int = 0
     DATADIR: pathlib.Path = pathlib.Path(".")
+    META: typing.Dict[str, str] = dataclasses.field(default_factory=lambda: dict())
 
     @classmethod
     @property
@@ -147,10 +148,17 @@ class IniAppdata(IniStorage):
             retrospective=self.RETROSPECTIVE_QUARTER,
         )
 
+    def _save_metadata(self, to_save):
+        to_save["META"] = dict(
+            description=self.META.get("description", ""),
+            plugins=self.META.get("plugins_csv", ""),
+        )
+
     def save(self):
         to_save = dict()
         self._save_retrospective_period(to_save)
         self._save_quarters(to_save)
+        self._save_metadata(to_save)
 
         with self._manipulate_existing_config(self.CONFIG_FILENAME) as config:
             config.update(to_save)
@@ -162,6 +170,12 @@ class IniAppdata(IniStorage):
             self.RETROSPECTIVE_PERIOD = self._get_default_retrospective_period()
         else:
             self.RETROSPECTIVE_PERIOD = [datetime.datetime.fromisoformat(s) for s in (start, end)]
+
+    def _load_metadata(self, config):
+        self.META["description"] = config.get(
+            "META", "description", fallback="")
+        self.META["plugins_csv"] = config.get(
+            "META", "plugins", fallback="")
 
     def _load_quarters(self, config):
         self.PROJECTIVE_QUARTER = config.get(
@@ -179,4 +193,5 @@ class IniAppdata(IniStorage):
         config = result._load_existing_config(cls.CONFIG_FILENAME)
         result._load_retrospective_period(config)
         result._load_quarters(config)
+        result._load_metadata(config)
         return result

@@ -86,7 +86,7 @@ def move_issue_estimate_to_consensus(task_name):
 @bp.route('/authoritative/<task_name>', methods=['POST'])
 @flask_login.login_required
 def move_consensus_estimate_to_authoritative(task_name):
-    form = web_utils.get_final_class("AuthoritativeForm")
+    form = flask.current_app.get_final_class("AuthoritativeForm")
     if form.validate_on_submit():
         if form.i_kid_you_not.data:
             pollster_cons = webdata.AuthoritativePollster()
@@ -174,7 +174,7 @@ def view_projective_task(task_name):
     request_forms = dict(
         estimation=forms.NumberEstimationForm(),
         consensus=forms.ConsensusForm(),
-        authoritative=web_utils.get_final_class("AuthoritativeForm")(),
+        authoritative=flask.current_app.get_final_class("AuthoritativeForm")(),
     )
     breadcrumbs = get_projective_breadcrumbs()
     append_target_to_breadcrumbs(breadcrumbs, t, lambda n: web_utils.url_for("main.view_epic", epic_name=n))
@@ -339,7 +339,7 @@ def executive_summary_of_points_and_velocity(targets, cls=history.Summary):
     all_events = webdata.EventManager()
     all_events.load()
 
-    start, end = flask.current_app.config["RETROSPECTIVE_PERIOD"]
+    start, end = flask.current_app.get_config_option("RETROSPECTIVE_PERIOD")
     cutoff_date = min(datetime.datetime.today(), end)
     aggregation = history.Aggregation.from_targets(targets, start, end)
     aggregation.process_event_manager(all_events)

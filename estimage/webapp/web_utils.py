@@ -5,7 +5,6 @@ import urllib
 from .. import simpledata as webdata
 from .. import utilities, persistence
 
-
 def app_is_multihead(app=None):
     if not app:
         app = flask.current_app
@@ -15,23 +14,15 @@ def app_is_multihead(app=None):
 def url_for(endpoint, * args, ** kwargs):
     if app_is_multihead():
         head_name = flask.request.blueprints[-1]
-        if head_name in ("login",):
-            head_name = "DEMO"
-        endpoint = f"{head_name}.{endpoint}"
+        if head_name in ("login", "neck"):
+            endpoint = f"{head_name}"
+        else:
+            endpoint = f"{head_name}.{endpoint}"
     return flask.url_for(endpoint, * args, ** kwargs)
 
 
-def get_final_class(class_name, app=None):
-    if app_is_multihead(app):
-        head_name = flask.request.blueprints[-1]
-        ret = flask.current_app.config["head"][head_name]["classes"].get(class_name)
-    else:
-        ret = flask.current_app.config["classes"].get(class_name)
-    return ret
-
-
 def _get_entrydef_loader(flavor, backend):
-    target_class = get_final_class("BaseTarget")
+    target_class = flask.current_app.get_final_class("BaseTarget")
     # in the special case of the ini backend, the registered loader doesn't call super()
     # when looking up CONFIG_FILENAME
     loader = type("loader", (flavor, persistence.SAVERS[target_class][backend], persistence.LOADERS[target_class][backend]), dict())
@@ -47,7 +38,7 @@ def get_proj_loader():
 
 
 def get_workloads(workload_type):
-    if workloads := get_final_class("Workloads"):
+    if workloads := flask.current_app.get_final_class("Workloads"):
         workload_type = type(f"ext_{workload_type.__name__}", (workload_type, workloads), dict())
     return workload_type
 
@@ -94,17 +85,27 @@ def render_template(path, title, **kwargs):
         authenticated_user = flask_login.current_user
     # maybe_overriden_path = flask.current_app.config["plugins_templates_overrides"](path)
     head_prefix = ""
+    custom_items = dict()
     if "head" in flask.current_app.config:
-        head_prefix = f"{flask.request.blueprints[-1]}."
+        head_name = flask.request.blueprints[-1]
+        if head_name not in ("login", "neck"):
+            head_prefix = f"{head_name}."
+            for plugin, (title, endpoint) in CUSTOM_MENU_ITEMS.items():
+                if plugin in flask.current_app.get_config_option("PLUGINS"):
+                    custom_items[title] = head_prefix + endpoint
+    else:
+        for plugin, (title, endpoint) in CUSTOM_MENU_ITEMS.items():
+            if plugin in flask.current_app.get_config_option("PLUGINS"):
+                custom_items[title] = endpoint
     return flask.render_template(
         path, head_prefix=head_prefix, title=title, authenticated_user=authenticated_user, relative_url_for=url_for,
-        custom_items=CUSTOM_MENU_ITEMS, ** kwargs)
+        custom_items=custom_items, ** kwargs)
 
 
 def safe_url_to_redirect(candidate):
     if not candidate or urllib.parse.urlparse(candidate).netloc != '':
         if app_is_multihead():
-            candidate = flask.url_for('DEMO.main.tree_view')
+            candidate = flask.url_for('neck.index')
         else:
             candidate = flask.url_for('main.tree_view')
     return candidate
@@ -112,9 +113,9 @@ def safe_url_to_redirect(candidate):
 
 CUSTOM_MENU_ITEMS = dict()
 
-def is_primary_menu_of(blueprint, title):
+def is_primary_menu_of(plugin_name, blueprint, title):
     def wrapper(fun):
         endpoint = f"{blueprint.name}.{fun.__name__}"
-        CUSTOM_MENU_ITEMS[title] = endpoint
+        CUSTOM_MENU_ITEMS[plugin_name] = (title, endpoint)
         return fun
     return wrapper
