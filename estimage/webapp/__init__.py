@@ -38,6 +38,12 @@ class PluginFriendlyFlask(flask.Flask):
     def get_config_option(self, option):
         raise NotImplementedError()
 
+    def get_plugins_in_context(self):
+        raise NotImplementedError()
+
+    def get_correct_context_endpoint(self, endpoint):
+        return endpoint
+
 
 class PluginFriendlySingleheadFlask(PluginFriendlyFlask):
     def __init__(self, import_name, ** kwargs):
@@ -55,8 +61,13 @@ class PluginFriendlySingleheadFlask(PluginFriendlyFlask):
     def get_config_option(self, option):
         return self.config[option]
 
+    def get_plugins_in_context(self):
+        return self.get_config_option("PLUGINS")
+
 
 class PluginFriendlyMultiheadFlask(PluginFriendlyFlask):
+    NON_HEAD_BLUEPRINTS = ("login", "neck")
+
     def __init__(self, import_name, ** kwargs):
         super().__init__(import_name, ** kwargs)
         self._plugin_resolvers = dict()
@@ -79,6 +90,16 @@ class PluginFriendlyMultiheadFlask(PluginFriendlyFlask):
 
     def get_config_option(self, option):
         return self.config["head"][self.current_head][option]
+
+    def get_correct_context_endpoint(self, endpoint):
+        if (head_name := self.current_head) in self.NON_HEAD_BLUEPRINTS:
+            return super().get_correct_context_endpoint(endpoint)
+        return f"{head_name}.{endpoint}"
+
+    def get_plugins_in_context(self):
+        if self.current_head in self.NON_HEAD_BLUEPRINTS:
+            return dict()
+        return self.get_config_option("PLUGINS")
 
 
 def create_app(config_class=config.Config):

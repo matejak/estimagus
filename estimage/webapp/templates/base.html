@@ -19,8 +19,8 @@
 	    <div class="navbar-nav mr-auto">
 		{% block navbar %}
 		{% block navbar_common %}
-		{{ render_nav_item(head_prefix ~ 'main.overview_retro', 'Retrospective') }}
-		{{ render_nav_item(head_prefix ~ 'main.tree_view', 'Planning') }}
+		{{ render_nav_item(get_head_absolute_endpoint('main.overview_retro'), 'Retrospective') }}
+		{{ render_nav_item(get_head_absolute_endpoint('main.tree_view'), 'Planning') }}
 		{% endblock %}
 		{% block navbar_custom %}
 		{% for name, entrypoint in custom_items.items() %}

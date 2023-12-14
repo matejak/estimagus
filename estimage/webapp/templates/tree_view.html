@@ -12,7 +12,7 @@
         Grand total: {{ utils.render_estimate(model.remaining_point_estimate) }}
     </p>
     <p>
-    <img src="{{ relative_url_for('vis.visualize_task', task_name='.', nominal_or_remaining='remaining') }}" alt="PERT prob density function for everything"/>
+    <img src="{{ head_url_for('vis.visualize_task', task_name='.', nominal_or_remaining='remaining') }}" alt="PERT prob density function for everything"/>
     </p>
         </div>
         <div class="col">
@@ -21,7 +21,7 @@
         Grand total: {{ utils.render_estimate(model.nominal_point_estimate) }}
     </p>
     <p>
-    <img src="{{ relative_url_for('vis.visualize_task', task_name='.', nominal_or_remaining='nominal') }}" alt="PERT prob density function for everything"/>
+    <img src="{{ head_url_for('vis.visualize_task', task_name='.', nominal_or_remaining='nominal') }}" alt="PERT prob density function for everything"/>
     </p>
         </div>
     </div>

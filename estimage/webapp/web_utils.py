@@ -5,19 +5,16 @@ import urllib
 from .. import simpledata as webdata
 from .. import utilities, persistence
 
+
 def app_is_multihead(app=None):
     if not app:
         app = flask.current_app
     return "head" in app.config
 
 
-def url_for(endpoint, * args, ** kwargs):
-    if app_is_multihead():
-        head_name = flask.request.blueprints[-1]
-        if head_name in ("login", "neck"):
-            endpoint = f"{head_name}"
-        else:
-            endpoint = f"{head_name}.{endpoint}"
+def head_url_for(endpoint, * args, ** kwargs):
+    app = flask.current_app
+    endpoint = app.get_correct_context_endpoint(endpoint)
     return flask.url_for(endpoint, * args, ** kwargs)
 
 
@@ -76,6 +73,19 @@ def get_user_model(user_id, targets_tree_without_duplicates):
     return model
 
 
+def get_head_absolute_endpoint(endpoint):
+    return flask.current_app.get_correct_context_endpoint(endpoint)
+
+
+def get_custom_items_dict():
+    custom_items = dict()
+    app = flask.current_app
+    for plugin, (title, endpoint) in CUSTOM_MENU_ITEMS.items():
+        if plugin in app.get_plugins_in_context():
+            custom_items[title] = get_head_absolute_endpoint(endpoint)
+    return custom_items
+
+
 def render_template(path, title, **kwargs):
     loaded_templates = dict()
     loaded_templates["base"] = flask.current_app.jinja_env.get_template("base.html")
@@ -84,22 +94,11 @@ def render_template(path, title, **kwargs):
     if flask_login.current_user.is_authenticated:
         authenticated_user = flask_login.current_user
     # maybe_overriden_path = flask.current_app.config["plugins_templates_overrides"](path)
-    head_prefix = ""
-    custom_items = dict()
-    if "head" in flask.current_app.config:
-        head_name = flask.request.blueprints[-1]
-        if head_name not in ("login", "neck"):
-            head_prefix = f"{head_name}."
-            for plugin, (title, endpoint) in CUSTOM_MENU_ITEMS.items():
-                if plugin in flask.current_app.get_config_option("PLUGINS"):
-                    custom_items[title] = head_prefix + endpoint
-    else:
-        for plugin, (title, endpoint) in CUSTOM_MENU_ITEMS.items():
-            if plugin in flask.current_app.get_config_option("PLUGINS"):
-                custom_items[title] = endpoint
+    custom_menu_items = get_custom_items_dict()
     return flask.render_template(
-        path, head_prefix=head_prefix, title=title, authenticated_user=authenticated_user, relative_url_for=url_for,
-        custom_items=custom_items, ** kwargs)
+        path, get_head_absolute_endpoint=get_head_absolute_endpoint,
+        title=title, authenticated_user=authenticated_user, head_url_for=head_url_for,
+        custom_items=custom_menu_items, ** kwargs)
 
 
 def safe_url_to_redirect(candidate):
