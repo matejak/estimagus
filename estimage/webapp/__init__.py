@@ -1,5 +1,6 @@
 import collections
 import pathlib
+import os
 
 import flask
 from flask_login import LoginManager
@@ -102,7 +103,15 @@ class PluginFriendlyMultiheadFlask(PluginFriendlyFlask):
         return self.get_config_option("PLUGINS")
 
 
-def create_app(config_class=config.Config):
+def create_app():
+    if "DATA_DIRS" in os.environ:
+        app = create_app_multihead()
+    else:
+        app = create_app_singlehead()
+    return app
+
+
+def create_app_singlehead(config_class=config.Config):
     app = PluginFriendlySingleheadFlask(__name__)
     app.jinja_env.globals.update(dict(State=data.State))
     app.config.from_object(config_class)
