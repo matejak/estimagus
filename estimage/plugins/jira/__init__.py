@@ -8,6 +8,7 @@ from jira import JIRA, exceptions
 from ...entities import target
 from ... import simpledata
 from ...entities import event as evts
+from ... import simpledata
 
 
 JIRA_STATUS_TO_STATE = {

@@ -6,8 +6,20 @@ from .. import simpledata as webdata
 from .. import utilities, persistence
 
 
+def app_is_multihead(app=None):
+    if not app:
+        app = flask.current_app
+    return "head" in app.config
+
+
+def head_url_for(endpoint, * args, ** kwargs):
+    app = flask.current_app
+    endpoint = app.get_correct_context_endpoint(endpoint)
+    return flask.url_for(endpoint, * args, ** kwargs)
+
+
 def _get_entrydef_loader(flavor, backend):
-    target_class = flask.current_app.config["classes"]["BaseTarget"]
+    target_class = flask.current_app.get_final_class("BaseTarget")
     # in the special case of the ini backend, the registered loader doesn't call super()
     # when looking up CONFIG_FILENAME
     loader = type("loader", (flavor, persistence.SAVERS[target_class][backend], persistence.LOADERS[target_class][backend]), dict())
@@ -23,8 +35,8 @@ def get_proj_loader():
 
 
 def get_workloads(workload_type):
-    if workloads := flask.current_app.config["classes"].get("Workloads"):
-        workload_type = type(f"ext_{workload_type.__name__}", (workloads, workload_type), dict())
+    if workloads := flask.current_app.get_final_class("Workloads"):
+        workload_type = type(f"ext_{workload_type.__name__}", (workload_type, workloads), dict())
     return workload_type
 
 
@@ -61,6 +73,19 @@ def get_user_model(user_id, targets_tree_without_duplicates):
     return model
 
 
+def get_head_absolute_endpoint(endpoint):
+    return flask.current_app.get_correct_context_endpoint(endpoint)
+
+
+def get_custom_items_dict():
+    custom_items = dict()
+    app = flask.current_app
+    for plugin, (title, endpoint) in CUSTOM_MENU_ITEMS.items():
+        if plugin in app.get_plugins_in_context():
+            custom_items[title] = get_head_absolute_endpoint(endpoint)
+    return custom_items
+
+
 def render_template(path, title, **kwargs):
     loaded_templates = dict()
     loaded_templates["base"] = flask.current_app.jinja_env.get_template("base.html")
@@ -68,23 +93,28 @@ def render_template(path, title, **kwargs):
     authenticated_user = ""
     if flask_login.current_user.is_authenticated:
         authenticated_user = flask_login.current_user
-    maybe_overriden_path = flask.current_app.config["plugins_templates_overrides"](path)
+    # maybe_overriden_path = flask.current_app.config["plugins_templates_overrides"](path)
+    custom_menu_items = get_custom_items_dict()
     return flask.render_template(
-        maybe_overriden_path, title=title, authenticated_user=authenticated_user,
-        custom_items=CUSTOM_MENU_ITEMS, ** kwargs)
+        path, get_head_absolute_endpoint=get_head_absolute_endpoint,
+        title=title, authenticated_user=authenticated_user, head_url_for=head_url_for,
+        custom_items=custom_menu_items, ** kwargs)
 
 
 def safe_url_to_redirect(candidate):
     if not candidate or urllib.parse.urlparse(candidate).netloc != '':
-        candidate = flask.url_for('main.tree_view')
+        if app_is_multihead():
+            candidate = flask.url_for('neck.index')
+        else:
+            candidate = flask.url_for('main.tree_view')
     return candidate
 
 
 CUSTOM_MENU_ITEMS = dict()
 
-def is_primary_menu_of(blueprint, title):
+def is_primary_menu_of(plugin_name, blueprint, title):
     def wrapper(fun):
         endpoint = f"{blueprint.name}.{fun.__name__}"
-        CUSTOM_MENU_ITEMS[title] = endpoint
+        CUSTOM_MENU_ITEMS[plugin_name] = (title, endpoint)
         return fun
     return wrapper

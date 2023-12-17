@@ -10,7 +10,7 @@ from . import forms
 bp = flask.Blueprint("rhcompliance", __name__, template_folder="templates")
 
 
-@web_utils.is_primary_menu_of(bp, "Red Hat Compliance")
+@web_utils.is_primary_menu_of("redhat_compliance", bp, "Red Hat Compliance")
 @bp.route('/rhcompliance', methods=("GET", "POST"))
 @flask_login.login_required
 def sync():
@@ -41,7 +41,7 @@ def sync():
             flask.flash(error_msg)
     else:
         form.quarter.data = redhat_compliance.datetime_to_epoch(datetime.datetime.today())
-        next_starts_soon = redhat_compliance.days_to_next_epoch(datetime.datetime.today()) < 20
+        next_starts_soon = redhat_compliance.days_to_next_epoch(datetime.datetime.today()) < 30
         form.project_next.data = next_starts_soon
 
     return web_utils.render_template(

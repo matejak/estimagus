@@ -80,13 +80,13 @@ def move_issue_estimate_to_consensus(task_name):
             flask.flash("Consensus not updated, request was not serious")
 
     return flask.redirect(
-        flask.url_for("main.view_projective_task", task_name=task_name))
+        web_utils.head_url_for("main.view_projective_task", task_name=task_name))
 
 
 @bp.route('/authoritative/<task_name>', methods=['POST'])
 @flask_login.login_required
 def move_consensus_estimate_to_authoritative(task_name):
-    form = flask.current_app.config["classes"]["AuthoritativeForm"]()
+    form = flask.current_app.get_final_class("AuthoritativeForm")
     if form.validate_on_submit():
         if form.i_kid_you_not.data:
             pollster_cons = webdata.AuthoritativePollster()
@@ -103,7 +103,7 @@ def move_consensus_estimate_to_authoritative(task_name):
             flask.flash("Authoritative estimate not updated, request was not serious")
 
     return flask.redirect(
-        flask.url_for("main.view_projective_task", task_name=task_name))
+        web_utils.head_url_for("main.view_projective_task", task_name=task_name))
 
 
 @bp.route('/estimate/<task_name>', methods=['POST'])
@@ -129,7 +129,7 @@ def estimate(task_name):
         msg += ", ".join(form.get_all_errors())
         flask.flash(msg)
     return flask.redirect(
-        flask.url_for("main.view_projective_task", task_name=task_name))
+        web_utils.head_url_for("main.view_projective_task", task_name=task_name))
 
 
 def tell_of_bad_estimation_input(task_name, task_category, message):
@@ -174,10 +174,10 @@ def view_projective_task(task_name):
     request_forms = dict(
         estimation=forms.NumberEstimationForm(),
         consensus=forms.ConsensusForm(),
-        authoritative=flask.current_app.config["classes"]["AuthoritativeForm"](),
+        authoritative=flask.current_app.get_final_class("AuthoritativeForm")(),
     )
     breadcrumbs = get_projective_breadcrumbs()
-    append_target_to_breadcrumbs(breadcrumbs, t, lambda n: flask.url_for("main.view_epic", epic_name=n))
+    append_target_to_breadcrumbs(breadcrumbs, t, lambda n: web_utils.head_url_for("main.view_epic", epic_name=n))
     return view_task(t, breadcrumbs, request_forms)
 
 
@@ -187,7 +187,7 @@ def view_retro_task(task_name):
     t = retro_retrieve_task(task_name)
 
     breadcrumbs = get_retro_breadcrumbs()
-    append_target_to_breadcrumbs(breadcrumbs, t, lambda n: flask.url_for("main.view_epic_retro", epic_name=n))
+    append_target_to_breadcrumbs(breadcrumbs, t, lambda n: web_utils.head_url_for("main.view_epic_retro", epic_name=n))
     return view_task(t, breadcrumbs)
 
 
@@ -231,13 +231,13 @@ def view_task(task, breadcrumbs, request_forms=None):
 
 def get_projective_breadcrumbs():
     breadcrumbs = collections.OrderedDict()
-    breadcrumbs["Planning"] = flask.url_for("main.tree_view")
+    breadcrumbs["Planning"] = web_utils.head_url_for("main.tree_view")
     return breadcrumbs
 
 
 def get_retro_breadcrumbs():
     breadcrumbs = collections.OrderedDict()
-    breadcrumbs["Retrospective"] = flask.url_for("main.tree_view_retro")
+    breadcrumbs["Retrospective"] = web_utils.head_url_for("main.tree_view_retro")
     return breadcrumbs
 
 
@@ -273,7 +273,7 @@ def view_epic(epic_name):
     refresh_form.next.data = flask.request.path
 
     breadcrumbs = get_projective_breadcrumbs()
-    append_target_to_breadcrumbs(breadcrumbs, t, lambda n: flask.url_for("main.view_epic", epic_name=n))
+    append_target_to_breadcrumbs(breadcrumbs, t, lambda n: web_utils.head_url_for("main.view_epic", epic_name=n))
 
     return web_utils.render_template(
         'epic_view.html', title='View epic', epic=t, estimate=estimate, model=model, breadcrumbs=breadcrumbs,
@@ -291,7 +291,7 @@ def get_similar_tasks(user_id, task_name, all_targets_by_id):
 
 @bp.route('/')
 def index():
-    return flask.redirect(flask.url_for("main.overview_retro"))
+    return flask.redirect(web_utils.head_url_for("main.overview_retro"))
 
 
 @bp.route('/refresh', methods=["POST"])
@@ -339,7 +339,7 @@ def executive_summary_of_points_and_velocity(targets, cls=history.Summary):
     all_events = webdata.EventManager()
     all_events.load()
 
-    start, end = flask.current_app.config["RETROSPECTIVE_PERIOD"]
+    start, end = flask.current_app.get_config_option("RETROSPECTIVE_PERIOD")
     cutoff_date = min(datetime.datetime.today(), end)
     aggregation = history.Aggregation.from_targets(targets, start, end)
     aggregation.process_event_manager(all_events)
@@ -424,7 +424,7 @@ def view_epic_retro(epic_name):
 
     summary = executive_summary_of_points_and_velocity(t.children)
     breadcrumbs = get_retro_breadcrumbs()
-    append_target_to_breadcrumbs(breadcrumbs, t, lambda n: flask.url_for("main.view_epic_retro", epic_name=n))
+    append_target_to_breadcrumbs(breadcrumbs, t, lambda n: web_utils.head_url_for("main.view_epic_retro", epic_name=n))
 
     return web_utils.render_template(
         'epic_view_retrospective.html', title='View epic', breadcrumbs=breadcrumbs,

@@ -1,6 +1,6 @@
 {% extends "general_retro.html" %}
 
-{% import "utils.j2" as utils %}
+{% import "utils.j2" as utils with context %}
 
 {% block content %}
 <div class="container">
@@ -23,7 +23,7 @@
         </ul>
     </p>
     <p>
-    <img src="{{ url_for('vis.visualize_epic_burndown', epic_name=epic.name, size="normal") }}" alt="Epic Burndown"/>
+    <img src="{{ head_url_for('vis.visualize_epic_burndown', epic_name=epic.name, size="normal") }}" alt="Epic Burndown"/>
     </p>
     </div>
     <div class="col">
@@ -35,7 +35,7 @@
         </ul>
     </p>
     <p>
-    <img src="{{ url_for('vis.visualize_velocity', epic_name=epic.name) }}" alt="Epic velocity"/>
+    <img src="{{ head_url_for('vis.visualize_velocity', epic_name=epic.name) }}" alt="Epic velocity"/>
     </p>
 	    {% else -%}
     <p>

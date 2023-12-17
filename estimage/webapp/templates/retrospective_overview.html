@@ -21,7 +21,7 @@
         </ul>
     </p>
     <p>
-    <img src="{{ url_for('vis.visualize_overall_burndown', tier=0, size="wide") }}" alt="Overall Burndown"/>
+    <img src="{{ head_url_for('vis.visualize_overall_burndown', tier=0, size="wide") }}" alt="Overall Burndown"/>
     </p>
 {% endblock %}
     </div>
@@ -35,7 +35,7 @@
         </ul>
     </p>
     <p>
-    <img src="{{ url_for('vis.visualize_velocity', epic_name='.') }}" alt="Overall velocity"/>
+    <img src="{{ head_url_for('vis.visualize_velocity', epic_name='.') }}" alt="Overall velocity"/>
     </p>
 {% endblock %}
     </div>

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% import "utils.j2" as utils %}
+{% import "utils.j2" as utils with context %}
 
 {% block content %}
 <div class="container">
@@ -30,7 +30,7 @@
         <div class="col">
             <p>Remaining point cost: {{ utils.render_estimate(model.remaining_point_estimate_of(epic.name)) }}</p>
             <p>Nominal point cost: {{ utils.render_estimate(model.nominal_point_estimate_of(epic.name)) }}</p>
-            <img src="{{ url_for('vis.visualize_task', task_name=epic.name, nominal_or_remaining='remaining') }}" alt="PERT prob density function for {{ epic.name }} - remaining work"/>
+            <img src="{{ head_url_for('vis.visualize_task', task_name=epic.name, nominal_or_remaining='remaining') }}" alt="PERT prob density function for {{ epic.name }} - remaining work"/>
         </div>
     </div>
     {%- if similar_sized_epics %}

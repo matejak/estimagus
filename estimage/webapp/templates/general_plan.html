@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
 {% block navbar_secondary_common %}
-		{{ render_nav_item('main.tree_view', 'Tree View') }}
-		{{ render_nav_item('persons.planning_workload', 'Workloads') }}
+		{{ render_nav_item(get_head_absolute_endpoint('main.tree_view'), 'Tree View') }}
+		{{ render_nav_item(get_head_absolute_endpoint('persons.planning_workload'), 'Workloads') }}
 {% endblock %}

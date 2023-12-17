@@ -17,7 +17,10 @@ class IniInDirMixin:
     @property
     def CONFIG_FILENAME(cls):
         try:
-            datadir = pathlib.Path(flask.current_app.config["DATA_DIR"])
+            if "head" in flask.current_app.config:
+                datadir = pathlib.Path(flask.request.blueprints[-1])
+            else:
+                datadir = pathlib.Path(flask.current_app.config["DATA_DIR"])
         except RuntimeError:
             datadir = pathlib.Path(".")
         ret = datadir / cls.CONFIG_BASENAME

@@ -4,8 +4,6 @@ import collections
 import dateutil.relativedelta
 import typing
 
-import flask
-
 from ... import simpledata, data, persistence
 from ...entities import target
 from .. import jira
@@ -61,7 +59,7 @@ class InputSpec(jira.InputSpec):
         proj_narrowing = f"sprint = {planning_epoch}"
         ret.retrospective_query = " ".join((query_lead, retro_narrowing))
         ret.projective_query = " ".join((query_lead, proj_narrowing))
-        ret.item_class = app.config["classes"]["BaseTarget"]
+        ret.item_class = app.get_final_class("BaseTarget")
         return ret
 
 
@@ -227,7 +225,7 @@ def _get_simple_spec(token):
     spec = Spec(
         server_url="https://issues.redhat.com",
         token=token,
-        item_class=flask.current_app.config["classes"]["BaseTarget"])
+        item_class = app.get_final_class("BaseTarget"))
     return spec
 
 

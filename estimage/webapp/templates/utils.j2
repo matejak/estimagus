@@ -47,7 +47,7 @@
               </div>
               {% if model.remaining_point_estimate_of(epic.name).expected > 0 %}
               <div class="col">
-    <img src="{{ url_for('vis.visualize_epic_burndown', epic_name=epic.name, size="small") }}" alt="Epic Burndown"/>
+    <img src="{{ head_url_for('vis.visualize_epic_burndown', epic_name=epic.name, size="small") }}" alt="Epic Burndown"/>
               </div>
               {% endif %}
            </div>
@@ -65,7 +65,7 @@
 {% endmacro %}
 
 {% macro refresh_whatever(target, mode, next) -%}
-        <a href="{{ url_for("main.refresh_single", name=target.name, mode=mode, next=next) }}">{{ render_icon("arrow-clockwise") }}</a>
+        <a href="{{ head_url_for("main.refresh_single", name=target.name, mode=mode, next=next) }}">{{ render_icon("arrow-clockwise") }}</a>
 {%- endmacro %}
 
 {% set task_type_to_function = {
@@ -74,7 +74,7 @@
 } %}
 
 {% macro task_link(task, type) -%}
-        <a href="{{ url_for(task_type_to_function[type], task_name=task.name) }}">{{ task.name }}</a>&nbsp;<a href="{{ task.uri }}" rel="external">{{ render_icon("box-arrow-up-right") }}</a>
+        <a href="{{ head_url_for(task_type_to_function[type], task_name=task.name) }}">{{ task.name }}</a>&nbsp;<a href="{{ task.uri }}" rel="external">{{ render_icon("box-arrow-up-right") }}</a>
 {%- endmacro %}
 
 {% macro epic_external_link(epic) -%}
@@ -82,7 +82,7 @@
 {%- endmacro %}
 
 {% macro epic_link(epic, endpoint="main.view_epic") -%}
-        <a href="{{ url_for(endpoint, epic_name=epic.name) }}">{{ epic.name }}</a>&nbsp;{{ epic_external_link(epic) }}
+        <a href="{{ head_url_for(endpoint, epic_name=epic.name) }}">{{ epic.name }}</a>&nbsp;{{ epic_external_link(epic) }}
 {%- endmacro %}
 
 {% macro render_state_short(state) -%}
@@ -212,7 +212,7 @@
 	{% if refresh_form %}
         <div class="col">
 	{{ caller() }}
-	{{ render_form(refresh_form, action=url_for("main.refresh")) }}
+	{{ render_form(refresh_form, action=head_url_for("main.refresh")) }}
         </div>
 	{% endif %}
 {%- endmacro %}

@@ -37,12 +37,20 @@ The compose file is set up to mount the data directory to the container where it
 Anyway, after running `docker-compose up estimagus`, you should be able to connect to http://localhost:5000, and start exploring the app.
 
 
+## Single-head vs multihead
+
+Estimagus can operate support more independent views - typically multiple projects, or historical snapshots of a project.
+The switch between single- and multi-head operation is the `DATA_DIRS` environmental variable - if supplied, the app will launch in a multi-head mode.
+From the usability perspective, accessing the root will always put you on track.
+
+
 ## Configuration
 
 Following environmental variables are recognized and used:
 
 - `SECRET_KEY`: Has to be set to a string, preferably a long and random one. Needed for persistence of user logins.
-- `DATA_DIR`: Where the app should look for the data.
+- `DATA_DIR`: Where the single-head app should look for the data.
+- `DATA_DIRS`: An ordered, comma-separated list of directories with configuration and data of "heads" for the multi-head setup.
 - `LOGIN_PROVIDER_NAME`: one of `autologin` or `google`. Autologin logs in any user, google allows Google login when set up properly.
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`: When using google login, you need to obtain those from Google to have the Google login working.
 - `PLUGINS`: An ordered, comma-separated list of plugin names to load.
