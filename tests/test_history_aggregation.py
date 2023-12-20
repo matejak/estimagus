@@ -6,23 +6,23 @@ import numpy.testing
 
 from estimage import history, data
 import estimage.history.aggregation as tm
-import estimage.entities.target as target
+import estimage.entities.card as card
 
 from test_events import mgr, early_event, ONE_DAY, PERIOD_START, LONG_PERIOD_END
-from test_history_progress import simple_target, repre, oneday_repre, twoday_repre, twoday_repre_done_in_day
+from test_history_progress import simple_card, repre, oneday_repre, twoday_repre, twoday_repre_done_in_day
 
 
 @pytest.fixture
-def supertask_target(simple_target):
-    ret = target.BaseTarget("supertask")
-    ret.add_element(simple_target)
+def supertask_card(simple_card):
+    ret = card.BaseCard("supertask")
+    ret.add_element(simple_card)
     return ret
 
 
 @pytest.fixture
-def another_supertask_target(simple_target):
-    ret = target.BaseTarget("another-supertask")
-    subtask = simple_target
+def another_supertask_card(simple_card):
+    ret = card.BaseCard("another-supertask")
+    subtask = simple_card
     subtask.name = "subtask"
     ret.add_element(subtask)
     return ret
@@ -32,14 +32,14 @@ def test_aggregation(repre):
     someday = datetime.datetime(2022, 10, 10)
     day_after = someday + ONE_DAY
 
-    repre.update(day_after, points=6, status=target.State.review)
+    repre.update(day_after, points=6, status=card.State.review)
 
     aggregation = tm.Aggregation()
     aggregation.add_repre(repre)
     aggregation.add_repre(repre)
 
-    assert aggregation.states_on(someday) == {repre.get_status_at(someday)}
-    assert aggregation.states_on(someday) != {repre.get_status_at(day_after)}
+    assert aggregation.statuss_on(someday) == {repre.get_status_at(someday)}
+    assert aggregation.statuss_on(someday) != {repre.get_status_at(day_after)}
 
     assert aggregation.points_on(someday) == 2 * repre.get_points_at(someday)
     assert aggregation.points_on(day_after) == 2 * repre.get_points_at(day_after)
@@ -67,71 +67,71 @@ def test_aggregation_enforce_time_bounds(repre, oneday_repre):
         aggregation.add_repre(oneday_repre)
 
 
-def check_repre_against_target(target, repre, start, end):
+def check_repre_against_card(card, repre, start, end):
     assert repre.start == start
     assert repre.end == end
-    assert repre.task_name == target.name
-    assert repre.get_points_at(start) == target.point_cost
-    assert repre.get_status_at(start) == target.state
+    assert repre.task_name == card.name
+    assert repre.get_points_at(start) == card.point_cost
+    assert repre.get_status_at(start) == card.status
 
 
-def test_simple_target_to_aggregation(simple_target):
+def test_simple_card_to_aggregation(simple_card):
     start = PERIOD_START
     end = PERIOD_START
 
-    aggregation = tm.Aggregation.from_target(simple_target, start, end)
+    aggregation = tm.Aggregation.from_card(simple_card, start, end)
     assert len(aggregation.repres) == 1
     repre = aggregation.repres[0]
 
-    check_repre_against_target(simple_target, repre, start, end)
+    check_repre_against_card(simple_card, repre, start, end)
 
 
-def test_simple_target_to_aggregation_long(simple_target):
+def test_simple_card_to_aggregation_long(simple_card):
     start = PERIOD_START
     end = LONG_PERIOD_END
 
-    aggregation = tm.Aggregation.from_target(simple_target, start, end)
+    aggregation = tm.Aggregation.from_card(simple_card, start, end)
     assert len(aggregation.repres) == 1
     repre = aggregation.repres[0]
 
-    check_repre_against_target(simple_target, repre, start, end)
+    check_repre_against_card(simple_card, repre, start, end)
 
 
-def test_supertask_to_aggregation_long(supertask_target):
+def test_supertask_to_aggregation_long(supertask_card):
     start = PERIOD_START
     end = LONG_PERIOD_END
 
-    aggregation = tm.Aggregation.from_target(supertask_target, start, end)
+    aggregation = tm.Aggregation.from_card(supertask_card, start, end)
     assert len(aggregation.repres) == 1
     repre = aggregation.repres[0]
 
-    check_repre_against_target(supertask_target.children[0], repre, start, end)
+    check_repre_against_card(supertask_card.children[0], repre, start, end)
 
 
-def test_supertask_with_more_subtasks_to_aggregation_long(supertask_target):
+def test_supertask_with_more_subtasks_to_aggregation_long(supertask_card):
     start = PERIOD_START
     end = LONG_PERIOD_END
 
-    next_subtask = target.BaseTarget("next_subtask")
-    supertask_target.add_element(next_subtask)
+    next_subtask = card.BaseCard("next_subtask")
+    supertask_card.add_element(next_subtask)
 
-    aggregation = tm.Aggregation.from_target(supertask_target, start, end)
+    aggregation = tm.Aggregation.from_card(supertask_card, start, end)
     assert len(aggregation.repres) == 2
 
-    check_repre_against_target(supertask_target.children[0], aggregation.repres[0], start, end)
-    check_repre_against_target(supertask_target.children[1], aggregation.repres[1], start, end)
+    check_repre_against_card(supertask_card.children[0], aggregation.repres[0], start, end)
+    check_repre_against_card(supertask_card.children[1], aggregation.repres[1], start, end)
 
 
-def test_supertasks_to_aggregation_long(supertask_target, another_supertask_target):
+def test_supertasks_to_aggregation_long(supertask_card, another_supertask_card):
     start = PERIOD_START
     end = LONG_PERIOD_END
 
-    aggregation = tm.Aggregation.from_targets(
-        [supertask_target, another_supertask_target], start, end)
+    aggregation = tm.Aggregation.from_cards(
+        [supertask_card, another_supertask_card], start, end)
     assert len(aggregation.repres) == 2
 
-    check_repre_against_target(supertask_target.children[0], aggregation.repres[0], start, end)
-    check_repre_against_target(another_supertask_target.children[0], aggregation.repres[1], start, end)
+    check_repre_against_card(supertask_card.children[0], aggregation.repres[0], start, end)
+    check_repre_against_card(another_supertask_card.children[0], aggregation.repres[1], start, end)
 
 
 def test_aggregation_point_velocity_array(twoday_repre_done_in_day):
@@ -150,7 +150,7 @@ def test_aggregation_plan(twoday_repre_done_in_day):
 
     another_points = 8
     another_repre = history.Progress(a.start, a.end)
-    another_repre.status_timeline.set_value_at(a.start, target.State.todo)
+    another_repre.status_timeline.set_value_at(a.start, card.State.todo)
     another_repre.points_timeline.set_value_at(PERIOD_START, another_points)
     a.add_repre(another_repre)
 
@@ -168,75 +168,75 @@ def test_aggregation_point_velocity_trivial(twoday_repre_done_in_day):
     assert a.point_velocity.sigma == pytest.approx(1)
 
 
-def test_target_span_propagates_to_children():
+def test_card_span_propagates_to_children():
     END = PERIOD_START + 5 * ONE_DAY
-    parent = target.BaseTarget("p")
+    parent = card.BaseCard("p")
     parent.work_span = (PERIOD_START + ONE_DAY, END)
-    child = target.BaseTarget("c")
+    child = card.BaseCard("c")
     parent.add_element(child)
 
-    r = tm.convert_target_to_representations_of_leaves(parent, PERIOD_START, END)[0]
+    r = tm.convert_card_to_representations_of_leaves(parent, PERIOD_START, END)[0]
     assert r.remainder_timeline.value_at(PERIOD_START + ONE_DAY) == 1
 
     parent.work_span = (None, END - ONE_DAY)
-    r = tm.convert_target_to_representations_of_leaves(parent, PERIOD_START, END)[0]
+    r = tm.convert_card_to_representations_of_leaves(parent, PERIOD_START, END)[0]
     assert r.remainder_timeline.value_at(PERIOD_START + ONE_DAY) == 0.75
     assert r.remainder_timeline.value_at(END - ONE_DAY) == 0
 
     parent.work_span = (PERIOD_START + ONE_DAY, None)
-    r = tm.convert_target_to_representations_of_leaves(parent, PERIOD_START, END)[0]
+    r = tm.convert_card_to_representations_of_leaves(parent, PERIOD_START, END)[0]
     assert r.remainder_timeline.value_at(PERIOD_START + ONE_DAY) == 1.0
     assert r.remainder_timeline.value_at(END) == 0
 
 
-def test_target_span_incomplete_works():
+def test_card_span_incomplete_works():
     END = PERIOD_START + 5 * ONE_DAY
-    t = target.BaseTarget("")
+    t = card.BaseCard("")
     t.work_span = (None, END - ONE_DAY)
-    r = tm.convert_target_to_representations_of_leaves(t, PERIOD_START, END)[0]
+    r = tm.convert_card_to_representations_of_leaves(t, PERIOD_START, END)[0]
     assert r.remainder_timeline.value_at(PERIOD_START + ONE_DAY) == 0.75
     assert r.remainder_timeline.value_at(END - ONE_DAY) == 0
 
     t.work_span = (None, PERIOD_START - ONE_DAY)
-    r = tm.convert_target_to_representations_of_leaves(t, PERIOD_START, END)[0]
+    r = tm.convert_card_to_representations_of_leaves(t, PERIOD_START, END)[0]
 
     t.work_span = (END + ONE_DAY, END + ONE_DAY)
-    r = tm.convert_target_to_representations_of_leaves(t, PERIOD_START, END)[0]
+    r = tm.convert_card_to_representations_of_leaves(t, PERIOD_START, END)[0]
     assert r.remainder_timeline.value_at(PERIOD_START) == 1
     assert r.remainder_timeline.value_at(END - ONE_DAY) == 1
     assert r.remainder_timeline.value_at(END) == 1
 
     t.work_span = (PERIOD_START - 5 * ONE_DAY, END + 5 * ONE_DAY)
-    r = tm.convert_target_to_representations_of_leaves(t, PERIOD_START, END)[0]
+    r = tm.convert_card_to_representations_of_leaves(t, PERIOD_START, END)[0]
     assert r.remainder_timeline.value_at(PERIOD_START) == pytest.approx(2 / 3)
     assert r.remainder_timeline.value_at(END) == pytest.approx(1 / 3)
 
 
-def test_target_span_not_started_works():
+def test_card_span_not_started_works():
     END = PERIOD_START + 5 * ONE_DAY
-    t = target.BaseTarget("")
+    t = card.BaseCard("")
 
     t.work_span = (PERIOD_START - ONE_DAY, PERIOD_START - ONE_DAY)
-    r = tm.convert_target_to_representations_of_leaves(t, PERIOD_START, END)[0]
+    r = tm.convert_card_to_representations_of_leaves(t, PERIOD_START, END)[0]
     assert r.remainder_timeline.value_at(END) == 0
     assert r.remainder_timeline.value_at(PERIOD_START) == 0
 
     t.work_span = (PERIOD_START - ONE_DAY, PERIOD_START + ONE_DAY)
-    r = tm.convert_target_to_representations_of_leaves(t, PERIOD_START, END)[0]
+    r = tm.convert_card_to_representations_of_leaves(t, PERIOD_START, END)[0]
     assert r.remainder_timeline.value_at(PERIOD_START + ONE_DAY) == 0
     assert r.remainder_timeline.value_at(PERIOD_START) == 0.5
 
 
-def test_target_span_propagates():
+def test_card_span_propagates():
     END = PERIOD_START + 5 * ONE_DAY
-    t = target.BaseTarget("")
-    r = tm.convert_target_to_representations_of_leaves(t, PERIOD_START, END)[0]
+    t = card.BaseCard("")
+    r = tm.convert_card_to_representations_of_leaves(t, PERIOD_START, END)[0]
 
     assert r.remainder_timeline.value_at(PERIOD_START) == 1
     assert r.remainder_timeline.value_at(END) == 0
 
     t.work_span = (PERIOD_START + 2 * ONE_DAY, END - ONE_DAY)
-    r = tm.convert_target_to_representations_of_leaves(t, PERIOD_START, END)[0]
+    r = tm.convert_card_to_representations_of_leaves(t, PERIOD_START, END)[0]
 
     assert r.remainder_timeline.value_at(PERIOD_START) == 1
     assert r.remainder_timeline.value_at(END) == 0
@@ -248,34 +248,34 @@ def test_target_span_propagates():
     assert r.remainder_timeline.value_at(PERIOD_START + 3 * ONE_DAY) == 0.5
 
 
-def test_target_span_starting_before_is_correctly_recalculated():
+def test_card_span_starting_before_is_correctly_recalculated():
     END = PERIOD_START + 5 * ONE_DAY
-    t = target.BaseTarget("")
+    t = card.BaseCard("")
     t.work_span = (PERIOD_START - ONE_DAY, END - ONE_DAY)
-    r = tm.convert_target_to_representations_of_leaves(t, PERIOD_START, END)[0]
+    r = tm.convert_card_to_representations_of_leaves(t, PERIOD_START, END)[0]
     assert r.remainder_timeline.value_at(PERIOD_START) == 0.8
 
 
-def test_target_span_ending_after_is_recalculated():
+def test_card_span_ending_after_is_recalculated():
     END = PERIOD_START + 5 * ONE_DAY
-    t = target.BaseTarget("")
+    t = card.BaseCard("")
     t.work_span = (PERIOD_START + ONE_DAY, END + ONE_DAY)
-    r = tm.convert_target_to_representations_of_leaves(t, PERIOD_START, END)[0]
+    r = tm.convert_card_to_representations_of_leaves(t, PERIOD_START, END)[0]
     overflowing_ratio = ONE_DAY / (t.work_span[1] - t.work_span[0])
     assert r.remainder_timeline.value_at(END) == pytest.approx(overflowing_ratio)
 
 
 @pytest.fixture
-def simple_long_period_aggregation(simple_target):
+def simple_long_period_aggregation(simple_card):
     start = PERIOD_START
     end = LONG_PERIOD_END
-    ret = tm.Aggregation.from_target(simple_target, start, end)
+    ret = tm.Aggregation.from_card(simple_card, start, end)
     return ret
 
 
-def add_status_event_days_after_start(mgr, target, days, before, after):
+def add_status_event_days_after_start(mgr, card, days, before, after):
     date = PERIOD_START + datetime.timedelta(days=days)
-    evt = data.Event(target.name, "state", date)
+    evt = data.Event(card.name, "state", date)
     evt.value_before = before
     evt.value_after = after
     mgr.add_event(evt)
@@ -303,21 +303,21 @@ def test_event_processing(simple_long_period_aggregation):
     assert repre.get_points_at(start) == 1
 
 
-def test_aggregation_and_event_manager(mgr, simple_long_period_aggregation, simple_target, early_event):
+def test_aggregation_and_event_manager(mgr, simple_long_period_aggregation, simple_card, early_event):
     early_event.quantity = "points"
     simple_long_period_aggregation.process_event_manager(mgr)
     repre = simple_long_period_aggregation.repres[0]
     assert repre.get_points_at(PERIOD_START) == repre.get_points_at(LONG_PERIOD_END)
-    assert repre.get_points_at(PERIOD_START) == simple_target.point_cost
+    assert repre.get_points_at(PERIOD_START) == simple_card.point_cost
 
-    early_event.task_name = simple_target.name + "---"
+    early_event.task_name = simple_card.name + "---"
     mgr.add_event(early_event)
     simple_long_period_aggregation.process_event_manager(mgr)
     repre = simple_long_period_aggregation.repres[0]
     assert repre.get_points_at(PERIOD_START) == repre.get_points_at(LONG_PERIOD_END)
-    assert repre.get_points_at(PERIOD_START) == simple_target.point_cost
+    assert repre.get_points_at(PERIOD_START) == simple_card.point_cost
 
-    early_event.task_name = simple_target.name
+    early_event.task_name = simple_card.name
     early_event.value_after = "99"
     mgr.add_event(early_event)
     simple_long_period_aggregation.process_event_manager(mgr)
@@ -326,45 +326,45 @@ def test_aggregation_and_event_manager(mgr, simple_long_period_aggregation, simp
     assert repre.get_points_at(PERIOD_START) == float(early_event.value_before)
 
 
-def get_wip_aggregation(simple_target, mgr):
-    simple_target.state = data.State.in_progress
+def get_wip_aggregation(simple_card, mgr):
+    simple_card.status = data.State.in_progress
     add_status_event_days_after_start(
-        mgr, simple_target, 10, data.State.todo, data.State.in_progress)
-    aggregation = tm.Aggregation.from_target(simple_target, PERIOD_START, LONG_PERIOD_END)
+        mgr, simple_card, 10, data.State.todo, data.State.in_progress)
+    aggregation = tm.Aggregation.from_card(simple_card, PERIOD_START, LONG_PERIOD_END)
     aggregation.process_event_manager(mgr)
     return aggregation
 
 
-def get_done_aggregation(simple_target, mgr, was_underway_for_days):
-    simple_target.state = data.State.done
+def get_done_aggregation(simple_card, mgr, was_underway_for_days):
+    simple_card.status = data.State.done
     add_status_event_days_after_start(
-        mgr, simple_target, 10, data.State.todo, data.State.in_progress)
+        mgr, simple_card, 10, data.State.todo, data.State.in_progress)
     add_status_event_days_after_start(
-        mgr, simple_target, 10 + was_underway_for_days, data.State.in_progress, data.State.done)
-    aggregation = tm.Aggregation.from_target(simple_target, PERIOD_START, LONG_PERIOD_END)
+        mgr, simple_card, 10 + was_underway_for_days, data.State.in_progress, data.State.done)
+    aggregation = tm.Aggregation.from_card(simple_card, PERIOD_START, LONG_PERIOD_END)
     aggregation.process_event_manager(mgr)
     return aggregation
 
 
-def test_aggregation_summary(simple_target, mgr):
-    a = get_wip_aggregation(simple_target, mgr)
+def test_aggregation_summary(simple_card, mgr):
+    a = get_wip_aggregation(simple_card, mgr)
     summary = tm.Summary(a, LONG_PERIOD_END)
-    assert summary.initial_todo == simple_target.point_cost
+    assert summary.initial_todo == simple_card.point_cost
     assert summary.total_days_in_period == (LONG_PERIOD_END - PERIOD_START).days
     assert summary.cutoff_todo == 0
-    assert summary.cutoff_underway == simple_target.point_cost
+    assert summary.cutoff_underway == simple_card.point_cost
 
-def test_aggregation_velocity_summary(simple_target, mgr):
-    a = get_done_aggregation(simple_target, mgr, 0)
+def test_aggregation_velocity_summary(simple_card, mgr):
+    a = get_done_aggregation(simple_card, mgr, 0)
     summary = tm.Summary(a, LONG_PERIOD_END)
     assert summary.total_days_with_velocity == 1
-    assert summary.nonzero_velocity == simple_target.point_cost
+    assert summary.nonzero_velocity == simple_card.point_cost
     mean_velocity = summary.daily_velocity
     assert 0 < mean_velocity < summary.nonzero_velocity
 
     mgr.erase()
-    a = get_done_aggregation(simple_target, mgr, 2)
+    a = get_done_aggregation(simple_card, mgr, 2)
     summary = tm.Summary(a, LONG_PERIOD_END)
     assert summary.total_days_with_velocity == 2
-    assert summary.nonzero_velocity == simple_target.point_cost / 2.0
+    assert summary.nonzero_velocity == simple_card.point_cost / 2.0
     assert mean_velocity == summary.daily_velocity

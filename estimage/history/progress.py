@@ -5,7 +5,7 @@ import collections
 import numpy as np
 
 from .. import data
-from ..entities import target
+from ..entities import card
 from . import timeline
 
 
@@ -33,7 +33,7 @@ class Progress:
 
         self.points_timeline = timeline.Timeline(start, end)
         self.status_timeline = timeline.Timeline(start, end)
-        self.status_timeline.recreate_with_value(target.State.unknown)
+        self.status_timeline.recreate_with_value(card.State.unknown)
         self.time_timeline = timeline.Timeline(start, end)
 
         self.remainder_timeline = timeline.Timeline(start, end)
@@ -62,9 +62,9 @@ class Progress:
         return self.points_timeline.value_at(when)
 
     def always_was_irrelevant(self):
-        relevant_mask = self.status_timeline.get_value_mask(target.State.todo)
-        relevant_mask |= self.status_timeline.get_value_mask(target.State.in_progress)
-        relevant_mask |= self.status_timeline.get_value_mask(target.State.review)
+        relevant_mask = self.status_timeline.get_value_mask(card.State.todo)
+        relevant_mask |= self.status_timeline.get_value_mask(card.State.in_progress)
+        relevant_mask |= self.status_timeline.get_value_mask(card.State.review)
         if sum(relevant_mask):
             return False
         return True
@@ -78,10 +78,10 @@ class Progress:
 
     def get_status_at(self, when):
         if not self.relevancy_timeline.value_at(when):
-            return target.State.unknown
+            return card.State.unknown
         return self.status_timeline.value_at(when)
 
-    def status_is(self, status: target.State):
+    def status_is(self, status: card.State):
         return self.status_timeline.get_value_mask(status)
 
     def points_of_status(self, status):
@@ -109,25 +109,25 @@ class Progress:
             elif latest_at < self.end:
                 deadline_index = days_between(self.start, latest_at)
                 relevant_slice = slice(0, deadline_index + 1)
-        done_mask = self.status_timeline.get_value_mask(target.State.done)[relevant_slice]
+        done_mask = self.status_timeline.get_value_mask(card.State.done)[relevant_slice]
         task_done = done_mask.sum() > 0
         return task_done
 
     def points_completed(self, before=None):
         if not self.is_done(before):
             return 0
-        done_mask = self.status_timeline.get_value_mask(target.State.done)
+        done_mask = self.status_timeline.get_value_mask(card.State.done)
         task_points = self.points_timeline.get_masked_values(done_mask)[-1]
         return task_points
 
     @property
     def average_daily_velocity(self):
-        in_progress_mask = self.status_timeline.get_value_mask(target.State.in_progress)
+        in_progress_mask = self.status_timeline.get_value_mask(card.State.in_progress)
         time_taken = in_progress_mask.sum() or 1
         return self.points_completed() / time_taken
 
     def get_day_of_completion(self):
-        done_mask = self.status_timeline.get_value_mask(target.State.done)
+        done_mask = self.status_timeline.get_value_mask(card.State.done)
         if done_mask.sum() == 0:
             return None
         indices = np.arange(len(done_mask))
@@ -142,8 +142,8 @@ class Progress:
 
     def get_velocity_array(self):
         if not self.is_done():
-            return self.status_timeline.get_value_mask(target.State.done).astype(float)
-        velocity_array = self.status_timeline.get_value_mask(target.State.in_progress).astype(float)
+            return self.status_timeline.get_value_mask(card.State.done).astype(float)
+        velocity_array = self.status_timeline.get_value_mask(card.State.in_progress).astype(float)
         if velocity_array.sum() == 0:
             index_of_completion = days_between(self.start, self.get_day_of_completion())
             if index_of_completion == 0:

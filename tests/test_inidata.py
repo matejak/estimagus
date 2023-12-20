@@ -5,8 +5,8 @@ import datetime
 import pytest
 
 import estimage.inidata as tm
-from estimage.persistence import entrydef, event
-from estimage.persistence.entrydef import ini
+from estimage.persistence import card, event
+from estimage.persistence.card import ini
 import estimage.data as data
 from tests.test_events import early_event, less_early_event
 
@@ -22,11 +22,11 @@ def temp_filename():
 
 
 @pytest.fixture
-def targetio_inifile_cls(temp_filename):
-    class TmpIniTargetIO(entrydef.ini.IniTargetIO):
+def cardio_inifile_cls(temp_filename):
+    class TmpIniCardIO(card.ini.IniCardIO):
         CONFIG_FILENAME = temp_filename
 
-    yield TmpIniTargetIO
+    yield TmpIniCardIO
 
 
 @pytest.fixture
@@ -45,77 +45,77 @@ def appdata_inifile(temp_filename):
     yield TmpIniAppdata
 
 
-def test_require_name_for_saving(targetio_inifile_cls):
-    t = data.BaseTarget("")
+def test_require_name_for_saving(cardio_inifile_cls):
+    t = data.BaseCard("")
     with pytest.raises(RuntimeError, match="blank"):
-        t.save_metadata(targetio_inifile_cls)
+        t.save_metadata(cardio_inifile_cls)
 
 
-def test_load_non_existent(targetio_inifile_cls):
+def test_load_non_existent(cardio_inifile_cls):
     with pytest.raises(RuntimeError, match="something"):
-        data.BaseTarget.load_metadata("something", targetio_inifile_cls)
+        data.BaseCard.load_metadata("something", cardio_inifile_cls)
 
 
 @pytest.mark.dependency
-def test_save_tree_load_same(targetio_inifile_cls):
-    t2 = data.BaseTarget("second")
+def test_save_tree_load_same(cardio_inifile_cls):
+    t2 = data.BaseCard("second")
 
-    t1 = data.BaseTarget("first")
+    t1 = data.BaseCard("first")
     t1.add_element(t2)
-    t1.save_metadata(targetio_inifile_cls)
+    t1.save_metadata(cardio_inifile_cls)
 
-    t2.save_metadata(targetio_inifile_cls)
+    t2.save_metadata(cardio_inifile_cls)
 
-    loaded_target = data.BaseTarget.load_metadata("first", targetio_inifile_cls)
-    assert loaded_target.children[0].name == "second"
-    assert loaded_target.children[0].parent is loaded_target
-    assert loaded_target.parent is None
+    loaded_card = data.BaseCard.load_metadata("first", cardio_inifile_cls)
+    assert loaded_card.children[0].name == "second"
+    assert loaded_card.children[0].parent is loaded_card
+    assert loaded_card.parent is None
 
-    loaded_leaf = data.BaseTarget.load_metadata("second", targetio_inifile_cls)
+    loaded_leaf = data.BaseCard.load_metadata("second", cardio_inifile_cls)
     assert loaded_leaf.parent.name == "first"
 
-    t3 = data.BaseTarget("third")
+    t3 = data.BaseCard("third")
     loaded_leaf.add_element(t3)
 
-    loaded_leaf.save_metadata(targetio_inifile_cls)
-    t3.save_metadata(targetio_inifile_cls)
+    loaded_leaf.save_metadata(cardio_inifile_cls)
+    t3.save_metadata(cardio_inifile_cls)
 
-    loaded_subleaf = data.BaseTarget.load_metadata("third", targetio_inifile_cls)
+    loaded_subleaf = data.BaseCard.load_metadata("third", cardio_inifile_cls)
     assert loaded_subleaf.parent.name == "second"
     assert loaded_subleaf.parent.parent.name == "first"
 
 
 @pytest.mark.dependency
-def test_save_something_load_same(targetio_inifile_cls):
-    target = data.BaseTarget("name")
-    target.title = "title"
-    target.description = """A really\nnasty 'description' or "desc" %%boom!."""
-    target.save_metadata(targetio_inifile_cls)
+def test_save_something_load_same(cardio_inifile_cls):
+    card = data.BaseCard("name")
+    card.title = "title"
+    card.description = """A really\nnasty 'description' or "desc" %%boom!."""
+    card.save_metadata(cardio_inifile_cls)
 
-    data2 = data.BaseTarget.load_metadata("name", targetio_inifile_cls)
+    data2 = data.BaseCard.load_metadata("name", cardio_inifile_cls)
 
-    assert target.name == data2.name
-    assert target.title == data2.title
-    assert target.description == data2.description
+    assert card.name == data2.name
+    assert card.title == data2.title
+    assert card.description == data2.description
     assert len(data2.children) == 0
 
-    target.point_cost = 5
-    assert target.point_cost != data2.point_cost
-    target.save_metadata(targetio_inifile_cls)
-    data2 = data2.load_metadata("name", targetio_inifile_cls)
-    assert target.point_cost == data2.point_cost
+    card.point_cost = 5
+    assert card.point_cost != data2.point_cost
+    card.save_metadata(cardio_inifile_cls)
+    data2 = data2.load_metadata("name", cardio_inifile_cls)
+    assert card.point_cost == data2.point_cost
 
 
 @pytest.mark.dependency(depends=["test_save_something_load_same"])
-def test_save_something2_load_same(targetio_inifile_cls):
-    target = data.BaseTarget("id")
-    target.title = "titlung"
-    target.save_metadata(targetio_inifile_cls)
+def test_save_something2_load_same(cardio_inifile_cls):
+    card = data.BaseCard("id")
+    card.title = "titlung"
+    card.save_metadata(cardio_inifile_cls)
 
-    data2 = data.BaseTarget.load_metadata("id", targetio_inifile_cls)
+    data2 = data.BaseCard.load_metadata("id", cardio_inifile_cls)
 
-    assert target.name == data2.name
-    assert target.title == data2.title
+    assert card.name == data2.name
+    assert card.title == data2.title
 
 
 def test_eventmgr_storage(eventmgr_relevant_io, early_event, less_early_event):

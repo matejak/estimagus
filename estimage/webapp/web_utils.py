@@ -18,20 +18,20 @@ def head_url_for(endpoint, * args, ** kwargs):
     return flask.url_for(endpoint, * args, ** kwargs)
 
 
-def _get_entrydef_loader(flavor, backend):
-    target_class = flask.current_app.get_final_class("BaseTarget")
+def _get_card_loader(flavor, backend):
+    card_class = flask.current_app.get_final_class("BaseCard")
     # in the special case of the ini backend, the registered loader doesn't call super()
     # when looking up CONFIG_FILENAME
-    loader = type("loader", (flavor, persistence.SAVERS[target_class][backend], persistence.LOADERS[target_class][backend]), dict())
-    return target_class, loader
+    loader = type("loader", (flavor, persistence.SAVERS[card_class][backend], persistence.LOADERS[card_class][backend]), dict())
+    return card_class, loader
 
 
 def get_retro_loader():
-    return _get_entrydef_loader(webdata.RetroTargetIO, "ini")
+    return _get_card_loader(webdata.RetroCardIO, "ini")
 
 
 def get_proj_loader():
-    return _get_entrydef_loader(webdata.ProjTargetIO, "ini")
+    return _get_card_loader(webdata.ProjCardIO, "ini")
 
 
 def get_workloads(workload_type):
@@ -48,18 +48,18 @@ def get_all_tasks_by_id_and_user_model(spec, user_id):
     else:
         msg = "Unknown specification of source: {spec}"
         raise KeyError(msg)
-    all_targets_by_id = loader.get_loaded_targets_by_id(cls)
-    targets_list = list(all_targets_by_id.values())
-    targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(targets_list)
-    model = get_user_model(user_id, targets_tree_without_duplicates)
-    model.update_targets_with_values(targets_tree_without_duplicates)
-    return all_targets_by_id, model
+    all_cards_by_id = loader.get_loaded_cards_by_id(cls)
+    cards_list = list(all_cards_by_id.values())
+    cards_tree_without_duplicates = utilities.reduce_subsets_from_sets(cards_list)
+    model = get_user_model(user_id, cards_tree_without_duplicates)
+    model.update_cards_with_values(cards_tree_without_duplicates)
+    return all_cards_by_id, model
 
 
-def get_user_model(user_id, targets_tree_without_duplicates):
+def get_user_model(user_id, cards_tree_without_duplicates):
     authoritative_pollster = webdata.AuthoritativePollster()
     user_pollster = webdata.UserPollster(user_id)
-    model = webdata.get_model(targets_tree_without_duplicates)
+    model = webdata.get_model(cards_tree_without_duplicates)
     try:
         authoritative_pollster.supply_valid_estimations_to_tasks(model.get_all_task_models())
     except ValueError as exc:

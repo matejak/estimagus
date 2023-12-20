@@ -7,8 +7,8 @@ from ... import data, persistence
 GLOBAL_STORAGE = collections.defaultdict(dict)
 
 
-@persistence.saver_of(data.BaseTarget, "memory")
-class MemoryTargetSaver(persistence.entrydef.Saver):
+@persistence.saver_of(data.BaseCard, "memory")
+class MemoryCardSaver(persistence.card.Saver):
     def _save(self, t, attribute):
         GLOBAL_STORAGE[t.name][attribute] = getattr(t, attribute)
 
@@ -49,8 +49,8 @@ class MemoryTargetSaver(persistence.entrydef.Saver):
         GLOBAL_STORAGE.clear()
 
 
-@persistence.loader_of(data.BaseTarget, "memory")
-class MemoryTargetLoader(persistence.entrydef.Loader):
+@persistence.loader_of(data.BaseCard, "memory")
+class MemoryCardLoader(persistence.card.Loader):
     def _load(self, t, attribute):
         setattr(t, attribute, GLOBAL_STORAGE[t.name][attribute])
 
@@ -87,29 +87,29 @@ class MemoryTargetLoader(persistence.entrydef.Loader):
         self._load(t, "uri")
 
     @classmethod
-    def get_all_target_names(cls):
+    def get_all_card_names(cls):
         return set(GLOBAL_STORAGE.keys())
 
     @classmethod
-    def get_loaded_targets_by_id(cls, target_class=data.BaseTarget):
+    def get_loaded_cards_by_id(cls, card_class=data.BaseCard):
         ret = dict()
         loader = cls()
         for name in GLOBAL_STORAGE:
-            target = target_class(name)
-            target.load_data_by_loader(loader)
-            ret[name] = target
+            card = card_class(name)
+            card.load_data_by_loader(loader)
+            ret[name] = card
         return ret
 
     @classmethod
-    def load_all_targets(cls, target_class=data.BaseTarget):
+    def load_all_cards(cls, card_class=data.BaseCard):
         ret = []
         loader = cls()
         for name in GLOBAL_STORAGE:
-            target = target_class(name)
-            target.load_data_by_loader(loader)
-            ret.append(target)
+            card = card_class(name)
+            card.load_data_by_loader(loader)
+            ret.append(card)
         return ret
 
 
-class MemoryTargetIO(MemoryTargetSaver, MemoryTargetLoader):
+class MemoryCardIO(MemoryCardSaver, MemoryCardLoader):
     pass

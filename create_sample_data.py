@@ -9,7 +9,7 @@ def create_task(cls, name, points, state=data.State.todo):
     t = cls()
     t.name = name
     t.point_cost = points
-    t.state = state
+    t.status = state
     t.title = f"Issue {name}"
     t.description = f"Description of Issue {name}"
     t.save_metadata()
@@ -18,11 +18,11 @@ def create_task(cls, name, points, state=data.State.todo):
 
 
 def create_projective_task(name, points):
-    return create_task(sd.ProjTarget, name, points)
+    return create_task(sd.ProjCard, name, points)
 
 
 def create_retrospective_task(name, points, state):
-    return create_task(sd.RetroTarget, name, points, state)
+    return create_task(sd.RetroCard, name, points, state)
 
 
 def create_epic(cls, name, children=None):
@@ -37,11 +37,11 @@ def create_epic(cls, name, children=None):
 
 
 def create_projective_epic(name, children=None):
-    return create_epic(sd.ProjTarget, name, children)
+    return create_epic(sd.ProjCard, name, children)
 
 
 def create_retrospective_epic(name, children=None):
-    return create_epic(sd.RetroTarget, name, children)
+    return create_epic(sd.RetroCard, name, children)
 
 
 def create_projective_tasks_and_epics():

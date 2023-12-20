@@ -1,11 +1,11 @@
 {% from 'bootstrap5/utils.html' import render_icon %}
 {% from 'bootstrap5/form.html' import render_form %}
 
-{% macro render_whatever_retro(target, model, today, recursive=true) %}
-{% if target.children %}
-{{ render_epic_retro(target, model, today, recursive) }}
+{% macro render_whatever_retro(card, model, today, recursive=true) %}
+{% if card.children %}
+{{ render_epic_retro(card, model, today, recursive) }}
 {% else %}
-{{ render_task(target, "retrospective", model) }}
+{{ render_task(card, "retrospective", model) }}
 {% endif %}
 {% endmacro %}
 
@@ -18,7 +18,7 @@
               <div class="col">
 
         <p>
-        {{ state_to_string(epic.state) }}, {{ "%.2g" % model.remaining_point_estimate_of(epic.name).expected }} points remaining.
+        {{ state_to_string(epic.status) }}, {{ "%.2g" % model.remaining_point_estimate_of(epic.name).expected }} points remaining.
         </p>
         <p>
 	Owner:
@@ -37,9 +37,9 @@
 	: {{ epic.status_summary | safe }}</p>
         {%- endif %}
         {% if recursive -%}
-        {% for target in (epic.children | sort(attribute="name")) %}
+        {% for card in (epic.children | sort(attribute="name")) %}
         <ul>
-            {{- render_whatever_retro(target, model, today, recursive=recursive) -}}
+            {{- render_whatever_retro(card, model, today, recursive=recursive) -}}
         </ul>
         {% endfor %}
         {%- endif %}
@@ -56,16 +56,16 @@
     </li>
 {% endmacro %}
 
-{% macro render_whatever(target, model, recursive=true) %}
-{% if target.children %}
-{{ render_epic(target, model, recursive=recursive) }}
+{% macro render_whatever(card, model, recursive=true) %}
+{% if card.children %}
+{{ render_epic(card, model, recursive=recursive) }}
 {% else %}
-{{ render_task(target, "projective", model) }}
+{{ render_task(card, "projective", model) }}
 {% endif %}
 {% endmacro %}
 
-{% macro refresh_whatever(target, mode, next) -%}
-        <a href="{{ head_url_for("main.refresh_single", name=target.name, mode=mode, next=next) }}">{{ render_icon("arrow-clockwise") }}</a>
+{% macro refresh_whatever(card, mode, next) -%}
+        <a href="{{ head_url_for("main.refresh_single", name=card.name, mode=mode, next=next) }}">{{ render_icon("arrow-clockwise") }}</a>
 {%- endmacro %}
 
 {% set task_type_to_function = {
@@ -94,7 +94,7 @@
 {%- endmacro %}
 
 {% macro render_task_basic(task, task_type, model) -%}
-        {{ task_link(task, task_type) }} &mdash; <span class="task-state">{{ state_to_string(task.state) }}</span><span class="task-points {{- " uncounted_points" if model and model.get_element(task.name).masked }}">{{ "%.2g" % task.point_cost }}</span>
+        {{ task_link(task, task_type) }} &mdash; <span class="task-state">{{ state_to_string(task.status) }}</span><span class="task-points {{- " uncounted_points" if model and model.get_element(task.name).masked }}">{{ "%.2g" % task.point_cost }}</span>
 	{{ truncate_text_to(task.title, "350pt") }}
 {%- endmacro %}
 
@@ -125,8 +125,8 @@
         {% endif %}
         {% if recursive -%}
         <ul>
-            {% for target in (epic.children | sort(attribute="name")) %}
-            {{- render_whatever(target, model, recursive=recursive) -}}
+            {% for card in (epic.children | sort(attribute="name")) %}
+            {{- render_whatever(card, model, recursive=recursive) -}}
             {% endfor %}
         </ul>
         {%- endif %}
@@ -149,7 +149,7 @@
 <div class="accordion" id="accordion{{ stem }}">
 <div class="accordion-item">
 	<h{{ heading_level }} class="accordion-header" id="accordionHeading">
-		<button class="accordion-button {{- " collapsed" if collapsed }}" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ stem }}" aria-expanded="{{ "false" if collapsed else "true" }}" aria-controls="collapse{{ stem }}">
+		<button class="accordion-button {{- " collapsed" if collapsed }}" type="button" data-bs-toggle="collapse" data-bs-card="#collapse{{ stem }}" aria-expanded="{{ "false" if collapsed else "true" }}" aria-controls="collapse{{ stem }}">
 			{{ header_text }}
 		</button>
 	</h{{ heading_level }}>
@@ -168,7 +168,7 @@
 {% if task.uri -%}
 <a href="{{ task.uri }}">{{ task.uri }}</a>
 {% endif -%}
-<div>State: {{ state_to_string(task.state)  }}</div>
+<div>State: {{ state_to_string(task.status)  }}</div>
 {% if (task.description | length) < 1200 %}
 <h3>Description</h3>
 <p>
@@ -180,13 +180,13 @@
 {%- endmacro %}
 
 
-{% macro render_similar_sized_tasks(similar_sized_targets) -%}
+{% macro render_similar_sized_tasks(similar_sized_cards) -%}
     <div class="row">
     <h4>Tasks of similar sizes</h4>
     <p>
     <ul>
-    {%- for target in similar_sized_targets %}
-    <li>{{ render_task_basic(target, "projective", None) }}: {{ render_estimate(target.point_estimate) }}</li>
+    {%- for card in similar_sized_cards %}
+    <li>{{ render_task_basic(card, "projective", None) }}: {{ render_estimate(card.point_estimate) }}</li>
     {%- endfor %}
     </ul>
     </p>

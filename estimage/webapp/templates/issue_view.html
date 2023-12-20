@@ -92,8 +92,8 @@
         {{ estimation_form_in_accordion(context.own_estimation_exists) }}
     </div>
     </div>
-    {%- if similar_sized_targets %}
-        {{ utils.render_similar_sized_tasks(similar_sized_targets[:8]) }}
+    {%- if similar_sized_cards %}
+        {{ utils.render_similar_sized_tasks(similar_sized_cards[:8]) }}
     {%- endif %}
     {%- endif %}
 </div>

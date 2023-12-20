@@ -151,19 +151,19 @@ def give_data_to_context(context, user_pollster, global_pollster):
         flask.flash(msg)
 
 
-def get_similar_targets_with_estimations(user_id, task_name):
+def get_similar_cards_with_estimations(user_id, task_name):
     cls, loader = web_utils.get_proj_loader()
-    all_targets = loader.get_loaded_targets_by_id(cls)
+    all_cards = loader.get_loaded_cards_by_id(cls)
     cls, loader = web_utils.get_retro_loader()
-    all_targets.update(loader.get_loaded_targets_by_id(cls))
+    all_cards.update(loader.get_loaded_cards_by_id(cls))
 
-    similar_targets = []
-    similar_tasks = get_similar_tasks(user_id, task_name, all_targets)
+    similar_cards = []
+    similar_tasks = get_similar_tasks(user_id, task_name, all_cards)
     for task in similar_tasks:
-        target = all_targets[task.name]
-        target.point_estimate = task.nominal_point_estimate
-        similar_targets.append(target)
-    return similar_targets
+        card = all_cards[task.name]
+        card.point_estimate = task.nominal_point_estimate
+        similar_cards.append(card)
+    return similar_cards
 
 
 @bp.route('/projective/task/<task_name>')
@@ -177,7 +177,7 @@ def view_projective_task(task_name):
         authoritative=flask.current_app.get_final_class("AuthoritativeForm")(),
     )
     breadcrumbs = get_projective_breadcrumbs()
-    append_target_to_breadcrumbs(breadcrumbs, t, lambda n: web_utils.head_url_for("main.view_epic", epic_name=n))
+    append_card_to_breadcrumbs(breadcrumbs, t, lambda n: web_utils.head_url_for("main.view_epic", epic_name=n))
     return view_task(t, breadcrumbs, request_forms)
 
 
@@ -187,7 +187,7 @@ def view_retro_task(task_name):
     t = retro_retrieve_task(task_name)
 
     breadcrumbs = get_retro_breadcrumbs()
-    append_target_to_breadcrumbs(breadcrumbs, t, lambda n: web_utils.head_url_for("main.view_epic_retro", epic_name=n))
+    append_card_to_breadcrumbs(breadcrumbs, t, lambda n: web_utils.head_url_for("main.view_epic_retro", epic_name=n))
     return view_task(t, breadcrumbs)
 
 
@@ -220,13 +220,13 @@ def view_task(task, breadcrumbs, request_forms=None):
     if request_forms:
         _setup_forms_according_to_context(request_forms, context)
 
-    similar_targets = []
+    similar_cards = []
     if context.estimation_source != "none":
-        similar_targets = get_similar_targets_with_estimations(user_id, task.name)
+        similar_cards = get_similar_cards_with_estimations(user_id, task.name)
 
     return web_utils.render_template(
         'issue_view.html', title='Estimate Issue', breadcrumbs=breadcrumbs,
-        user=user, forms=request_forms, task=task, context=context, similar_sized_targets=similar_targets)
+        user=user, forms=request_forms, task=task, context=context, similar_sized_cards=similar_cards)
 
 
 def get_projective_breadcrumbs():
@@ -241,15 +241,15 @@ def get_retro_breadcrumbs():
     return breadcrumbs
 
 
-def append_parent_to_breadcrumbs(breadcrumbs, target, name_to_url):
-    if target.parent:
-        append_parent_to_breadcrumbs(breadcrumbs, target.parent, name_to_url)
-    breadcrumbs[target.name] = name_to_url(target.name)
+def append_parent_to_breadcrumbs(breadcrumbs, card, name_to_url):
+    if card.parent:
+        append_parent_to_breadcrumbs(breadcrumbs, card.parent, name_to_url)
+    breadcrumbs[card.name] = name_to_url(card.name)
 
 
-def append_target_to_breadcrumbs(breadcrumbs, target, name_to_url):
-    append_parent_to_breadcrumbs(breadcrumbs, target, name_to_url)
-    breadcrumbs[target.name] = None
+def append_card_to_breadcrumbs(breadcrumbs, card, name_to_url):
+    append_parent_to_breadcrumbs(breadcrumbs, card, name_to_url)
+    breadcrumbs[card.name] = None
 
 
 @bp.route('/projective/epic/<epic_name>')
@@ -259,9 +259,9 @@ def view_epic(epic_name):
 
     user_id = user.get_id()
     cls, loader = web_utils.get_proj_loader()
-    all_targets = loader.load_all_targets(cls)
-    targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(all_targets)
-    model = web_utils.get_user_model(user_id, targets_tree_without_duplicates)
+    all_cards = loader.load_all_cards(cls)
+    cards_tree_without_duplicates = utilities.reduce_subsets_from_sets(all_cards)
+    model = web_utils.get_user_model(user_id, cards_tree_without_duplicates)
 
     estimate = model.nominal_point_estimate_of(epic_name)
 
@@ -273,18 +273,18 @@ def view_epic(epic_name):
     refresh_form.next.data = flask.request.path
 
     breadcrumbs = get_projective_breadcrumbs()
-    append_target_to_breadcrumbs(breadcrumbs, t, lambda n: web_utils.head_url_for("main.view_epic", epic_name=n))
+    append_card_to_breadcrumbs(breadcrumbs, t, lambda n: web_utils.head_url_for("main.view_epic", epic_name=n))
 
     return web_utils.render_template(
         'epic_view.html', title='View epic', epic=t, estimate=estimate, model=model, breadcrumbs=breadcrumbs,
         refresh_form=refresh_form)
 
 
-def get_similar_tasks(user_id, task_name, all_targets_by_id):
+def get_similar_tasks(user_id, task_name, all_cards_by_id):
     all_tasks = []
-    all_targets = list(all_targets_by_id.values())
-    targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(all_targets)
-    model = web_utils.get_user_model(user_id, targets_tree_without_duplicates)
+    all_cards = list(all_cards_by_id.values())
+    cards_tree_without_duplicates = utilities.reduce_subsets_from_sets(all_cards)
+    model = web_utils.get_user_model(user_id, cards_tree_without_duplicates)
     all_tasks.extend(model.get_all_task_models())
     return webdata.order_nearby_tasks(model.get_element(task_name), all_tasks, 0.5, 2)
 
@@ -304,7 +304,7 @@ def refresh():
         else:
             io_cls = web_utils.get_retro_loader()[1]
         try:
-            redhat_compliance.refresh_targets(
+            redhat_compliance.refresh_cards(
                 form.get_what_names_to_refresh(), io_cls, form.token.data)
         except Exception as exc:
             msg = f"Error doing refresh: {exc}"
@@ -327,21 +327,21 @@ def tree_view():
     user = flask_login.current_user
     user_id = user.get_id()
 
-    all_targets_by_id, model = web_utils.get_all_tasks_by_id_and_user_model("proj", user_id)
-    all_targets = list(all_targets_by_id.values())
-    targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(all_targets)
+    all_cards_by_id, model = web_utils.get_all_tasks_by_id_and_user_model("proj", user_id)
+    all_cards = list(all_cards_by_id.values())
+    cards_tree_without_duplicates = utilities.reduce_subsets_from_sets(all_cards)
     return web_utils.render_template(
         "tree_view.html", title="Tasks tree view",
-        targets=targets_tree_without_duplicates, model=model)
+        cards=cards_tree_without_duplicates, model=model)
 
 
-def executive_summary_of_points_and_velocity(targets, cls=history.Summary):
+def executive_summary_of_points_and_velocity(cards, cls=history.Summary):
     all_events = webdata.EventManager()
     all_events.load()
 
     start, end = flask.current_app.get_config_option("RETROSPECTIVE_PERIOD")
     cutoff_date = min(datetime.datetime.today(), end)
-    aggregation = history.Aggregation.from_targets(targets, start, end)
+    aggregation = history.Aggregation.from_cards(cards, start, end)
     aggregation.process_event_manager(all_events)
     summary = cls(aggregation, cutoff_date)
 
@@ -354,11 +354,11 @@ def overview_retro():
     user = flask_login.current_user
     user_id = user.get_id()
 
-    all_targets_by_id, model = web_utils.get_all_tasks_by_id_and_user_model("retro", user_id)
-    tier0_targets = [t for t in all_targets_by_id.values() if t.tier == 0]
-    tier0_targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(tier0_targets)
+    all_cards_by_id, model = web_utils.get_all_tasks_by_id_and_user_model("retro", user_id)
+    tier0_cards = [t for t in all_cards_by_id.values() if t.tier == 0]
+    tier0_cards_tree_without_duplicates = utilities.reduce_subsets_from_sets(tier0_cards)
 
-    summary = executive_summary_of_points_and_velocity(tier0_targets_tree_without_duplicates)
+    summary = executive_summary_of_points_and_velocity(tier0_cards_tree_without_duplicates)
 
     return web_utils.render_template(
         "retrospective_overview.html",
@@ -372,11 +372,11 @@ def completion():
     user = flask_login.current_user
     user_id = user.get_id()
 
-    all_targets_by_id, model = web_utils.get_all_tasks_by_id_and_user_model("retro", user_id)
-    tier0_targets = [t for t in all_targets_by_id.values() if t.tier == 0]
-    tier0_targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(tier0_targets)
+    all_cards_by_id, model = web_utils.get_all_tasks_by_id_and_user_model("retro", user_id)
+    tier0_cards = [t for t in all_cards_by_id.values() if t.tier == 0]
+    tier0_cards_tree_without_duplicates = utilities.reduce_subsets_from_sets(tier0_cards)
 
-    summary = executive_summary_of_points_and_velocity(tier0_targets_tree_without_duplicates, statops.summary.StatSummary)
+    summary = executive_summary_of_points_and_velocity(tier0_cards_tree_without_duplicates, statops.summary.StatSummary)
 
     return web_utils.render_template(
         "completion.html",
@@ -390,26 +390,26 @@ def tree_view_retro():
     user = flask_login.current_user
     user_id = user.get_id()
 
-    all_targets_by_id, model = web_utils.get_all_tasks_by_id_and_user_model("retro", user_id)
-    all_targets = list(all_targets_by_id.values())
-    targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(all_targets)
+    all_cards_by_id, model = web_utils.get_all_tasks_by_id_and_user_model("retro", user_id)
+    all_cards = list(all_cards_by_id.values())
+    cards_tree_without_duplicates = utilities.reduce_subsets_from_sets(all_cards)
 
-    tier0_targets = [t for t in all_targets_by_id.values() if t.tier == 0]
-    tier0_targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(tier0_targets)
-    targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(all_targets)
+    tier0_cards = [t for t in all_cards_by_id.values() if t.tier == 0]
+    tier0_cards_tree_without_duplicates = utilities.reduce_subsets_from_sets(tier0_cards)
+    cards_tree_without_duplicates = utilities.reduce_subsets_from_sets(all_cards)
 
-    summary = executive_summary_of_points_and_velocity(tier0_targets_tree_without_duplicates)
-    priority_sorted_targets = sorted(targets_tree_without_duplicates, key=lambda x: - x.priority)
+    summary = executive_summary_of_points_and_velocity(tier0_cards_tree_without_duplicates)
+    priority_sorted_cards = sorted(cards_tree_without_duplicates, key=lambda x: - x.priority)
 
     refresh_form = redhat_compliance.forms.RedhatComplianceRefreshForm()
-    refresh_form.request_refresh_of([e.name for e in priority_sorted_targets])
+    refresh_form.request_refresh_of([e.name for e in priority_sorted_cards])
     refresh_form.mode.data = "retrospective"
     refresh_form.next.data = flask.request.path
 
     return web_utils.render_template(
         "tree_view_retrospective.html",
         title="Retrospective Tasks tree view",
-        targets=priority_sorted_targets, today=datetime.datetime.today(), model=model,
+        cards=priority_sorted_cards, today=datetime.datetime.today(), model=model,
         refresh_form=refresh_form, summary=summary)
 
 
@@ -419,12 +419,12 @@ def view_epic_retro(epic_name):
     user = flask_login.current_user
     user_id = user.get_id()
 
-    all_targets_by_id, model = web_utils.get_all_tasks_by_id_and_user_model("retro", user_id)
-    t = all_targets_by_id[epic_name]
+    all_cards_by_id, model = web_utils.get_all_tasks_by_id_and_user_model("retro", user_id)
+    t = all_cards_by_id[epic_name]
 
     summary = executive_summary_of_points_and_velocity(t.children)
     breadcrumbs = get_retro_breadcrumbs()
-    append_target_to_breadcrumbs(breadcrumbs, t, lambda n: web_utils.head_url_for("main.view_epic_retro", epic_name=n))
+    append_card_to_breadcrumbs(breadcrumbs, t, lambda n: web_utils.head_url_for("main.view_epic_retro", epic_name=n))
 
     return web_utils.render_template(
         'epic_view_retrospective.html', title='View epic', breadcrumbs=breadcrumbs,

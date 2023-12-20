@@ -3,7 +3,7 @@ import typing
 from .estimate import Estimate
 from .task import TaskModel
 from .composition import Composition
-from .target import BaseTarget
+from .card import BaseCard
 
 
 class EstiModel:
@@ -96,20 +96,20 @@ class EstiModel:
     def get_element(self, name):
         return self.name_result_map[name]
 
-    def update_targets_with_values(self, targets: typing.Container[BaseTarget]):
-        for t in targets:
-            self._update_target(t)
+    def update_cards_with_values(self, cards: typing.Container[BaseCard]):
+        for t in cards:
+            self._update_card(t)
 
-    def _update_target(self, target: BaseTarget):
-        for dep in target.children:
-            self._update_target(dep)
-        if target.name not in self.name_result_map:
+    def _update_card(self, card: BaseCard):
+        for dep in card.children:
+            self._update_card(dep)
+        if card.name not in self.name_result_map:
             return
-        element = self.name_result_map[target.name]
-        target.point_cost = element.nominal_point_estimate.expected
-        target.time_cost = element.nominal_time_estimate.expected
+        element = self.name_result_map[card.name]
+        card.point_cost = element.nominal_point_estimate.expected
+        card.time_cost = element.nominal_time_estimate.expected
 
-    def export_element(self, name: str) -> BaseTarget:
-        target = BaseTarget(name)
-        self._update_target(target)
-        return target
+    def export_element(self, name: str) -> BaseCard:
+        card = BaseCard(name)
+        self._update_card(card)
+        return card

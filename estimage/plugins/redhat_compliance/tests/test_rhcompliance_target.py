@@ -1,18 +1,18 @@
 import pytest
 
 from estimage import plugins, PluginResolver, persistence
-from estimage.data import BaseTarget
+from estimage.data import BaseCard
 import estimage.plugins.redhat_compliance as tm
 
-from tests.test_target import base_target_load_save, fill_target_instance_with_stuff, assert_targets_are_equal
-from tests.test_inidata import temp_filename, targetio_inifile_cls
+from tests.test_card import base_card_load_save, fill_card_instance_with_stuff, assert_cards_are_equal
+from tests.test_inidata import temp_filename, cardio_inifile_cls
 
 
 @pytest.fixture(params=("ini",))
-def target_io(request, targetio_inifile_cls):
-    cls = tm.BaseTarget
+def card_io(request, cardio_inifile_cls):
+    cls = tm.BaseCard
     choices = dict(
-        ini=targetio_inifile_cls,
+        ini=cardio_inifile_cls,
     )
     backend = request.param
     appropriate_io = type(
@@ -23,22 +23,22 @@ def target_io(request, targetio_inifile_cls):
 
 
 def plugin_fill(t):
-    fill_target_instance_with_stuff(t)
+    fill_card_instance_with_stuff(t)
 
     t.status_summary = "Lorem Ipsum and So On"
     # t.status_summary_time = datetime.datetime(1918, 8, 3)
 
 
 def plugin_test(lhs, rhs):
-    assert_targets_are_equal(lhs, rhs)
+    assert_cards_are_equal(lhs, rhs)
     assert lhs.status_summary == rhs.status_summary
     assert lhs.status_summary_time == rhs.status_summary_time
 
 
-def test_target_load_and_save_values(target_io):
+def test_card_load_and_save_values(card_io):
     resolver = PluginResolver()
     resolver.add_known_extendable_classes()
-    assert "BaseTarget" in resolver.class_dict
+    assert "BaseCard" in resolver.class_dict
     resolver.resolve_extension(tm)
-    cls = resolver.class_dict["BaseTarget"]
-    base_target_load_save(target_io, cls, plugin_fill, plugin_test)
+    cls = resolver.class_dict["BaseCard"]
+    base_card_load_save(card_io, cls, plugin_fill, plugin_test)

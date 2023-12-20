@@ -31,19 +31,19 @@ def get_completion_pdf(velocity_dom, velocity_hom, numiter):
     return res_dom, res_hom
 
 
-def evaluate_completion_pdf(completion_dom, completion_hom, target):
-    ratio = completion_hom[completion_dom > target].sum()
+def evaluate_completion_pdf(completion_dom, completion_hom, card):
+    ratio = completion_hom[completion_dom > card].sum()
     return ratio / completion_hom.sum()
 
 
-def construct_evaluation(velocity_dom, velocity_hom, target, iter_limit=100):
-    if target == 0:
+def construct_evaluation(velocity_dom, velocity_hom, card, iter_limit=100):
+    if card == 0:
         return np.ones(1)
     res_dom = np.zeros(1)
     res_hom = np.ones(1)
     results = []
     for _ in range(iter_limit):
-        result = evaluate_completion_pdf(res_dom, res_hom, target)
+        result = evaluate_completion_pdf(res_dom, res_hom, card)
         results.append(result)
         if result > 0.99:
             break

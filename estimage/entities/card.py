@@ -20,17 +20,17 @@ class State(enum.IntEnum):
     abandoned = enum.auto()
 
 
-@PluginResolver.class_is_extendable("BaseTarget")
+@PluginResolver.class_is_extendable("BaseCard")
 @dataclasses.dataclass(init=False)
-class BaseTarget:
+class BaseCard:
     point_cost: float
     name: str
     title: str
     description: str
-    children: typing.List["BaseTarget"]
-    parent: "BaseTarget"
-    depends_on: typing.List["BaseTarget"]
-    prerequisite_of: typing.List["BaseTarget"]
+    children: typing.List["BaseCard"]
+    parent: "BaseCard"
+    depends_on: typing.List["BaseCard"]
+    prerequisite_of: typing.List["BaseCard"]
     state: State
     collaborators: typing.List[str]
     assignee: str
@@ -52,7 +52,7 @@ class BaseTarget:
         self.parent = None
         self.depends_on = []
         self.prerequisite_of = []
-        self.state = State.unknown
+        self.status = State.unknown
         self.collaborators = []
         self.assignee = ""
         self.priority = 50.0
@@ -75,11 +75,11 @@ class BaseTarget:
         ret = TaskModel(self.name)
         if self.point_cost:
             ret.point_estimate = Estimate(self.point_cost, 0)
-        if self.state in (State.abandoned, State.done):
+        if self.status in (State.abandoned, State.done):
             ret.mask()
         return ret
 
-    def add_element(self, what: "BaseTarget"):
+    def add_element(self, what: "BaseCard"):
         self.children.append(what)
         what.parent = self
 
@@ -109,7 +109,7 @@ class BaseTarget:
         loader.load_work_span(self)
         loader.load_uri_and_plugin(self)
 
-    def __contains__(self, lhs: "BaseTarget"):
+    def __contains__(self, lhs: "BaseCard"):
         lhs_name = lhs.name
 
         if self.name == lhs.name:
@@ -130,15 +130,15 @@ class BaseTarget:
         return ret
 
     @classmethod
-    def to_tree(cls, targets: typing.List["BaseTarget"]):
-        if not targets:
+    def to_tree(cls, cards: typing.List["BaseCard"]):
+        if not cards:
             return Composition("")
-        targets = utilities.reduce_subsets_from_sets(targets)
+        cards = utilities.reduce_subsets_from_sets(cards)
         result = Composition("")
-        if len(targets) == 1 and (target := targets[0]).children:
-            result = target._convert_into_composition()
+        if len(cards) == 1 and (card := cards[0]).children:
+            result = card._convert_into_composition()
             return result
-        for t in targets:
+        for t in cards:
             if t.children:
                 result.add_composition(t._convert_into_composition())
             else:

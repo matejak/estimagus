@@ -27,7 +27,7 @@ def load_data():
 #  - jump a day, jump to the end
 class Demo:
     def __init__(self, loader, start_date):
-        self.targets_by_id = loader.get_loaded_targets_by_id()
+        self.cards_by_id = loader.get_loaded_cards_by_id()
         self.loader = loader
         self.start_date = start_date
 
@@ -35,24 +35,24 @@ class Demo:
         plugin_data = load_data()
         self.day_index = plugin_data.get("day_index", 0)
         if self.day_index == 0:
-            start(self.targets_by_id.values(), self.loader, self.start_date)
+            start(self.cards_by_id.values(), self.loader, self.start_date)
 
     def get_sensible_choices(self):
-        targets = self.get_ordered_wip_targets()
-        sensible_choices = [(t.name, t.title) for t in targets]
+        cards = self.get_ordered_wip_cards()
+        sensible_choices = [(t.name, t.title) for t in cards]
         if not sensible_choices:
             sensible_choices = [NULL_CHOICE]
         return sensible_choices
 
-    def get_ordered_wip_targets(self):
-        return sorted(self.get_not_finished_targets(), key=lambda t: t.name)
+    def get_ordered_wip_cards(self):
+        return sorted(self.get_not_finished_cards(), key=lambda t: t.name)
 
     def get_actual_choices(self):
-        targets = self.get_ordered_wip_targets()
+        cards = self.get_ordered_wip_cards()
         plugin_data = load_data()
         velocity_in_stash = plugin_data.get("velocity_in_stash", dict())
         actual_choices = []
-        for t in targets:
+        for t in cards:
             label = f"{t.title} {velocity_in_stash.get(t.name, 0):.2g}/{t.point_cost}"
             actual_choices.append((t.name, label))
         if not actual_choices:
@@ -61,15 +61,15 @@ class Demo:
 
     def evaluate_progress(self, velocity_in_stash, names, plugin_data):
         for name in names:
-            target = self.targets_by_id[name]
+            card = self.cards_by_id[name]
 
-            if velocity_in_stash[name] > target.point_cost:
+            if velocity_in_stash[name] > card.point_cost:
                 previously_finished = plugin_data.get("finished", [])
                 previously_finished.append(name)
                 plugin_data["finished"] = previously_finished
-                conclude_target(target, self.loader, self.start_date, plugin_data["day_index"])
+                conclude_card(card, self.loader, self.start_date, plugin_data["day_index"])
             else:
-                begin_target(target, self.loader, self.start_date, plugin_data["day_index"])
+                begin_card(card, self.loader, self.start_date, plugin_data["day_index"])
 
     def apply_work(self, progress, names):
         plugin_data = load_data()
@@ -84,9 +84,9 @@ class Demo:
             self.evaluate_progress(velocity_in_stash, names, plugin_data)
         save_data(plugin_data)
 
-    def get_not_finished_targets(self):
-        targets = self.targets_by_id.values()
-        ret = [t for t in targets if t.state in (data.State.todo, data.State.in_progress)]
+    def get_not_finished_cards(self):
+        cards = self.cards_by_id.values()
+        ret = [t for t in cards if t.status in (data.State.todo, data.State.in_progress)]
         ret = [t for t in ret if not t.children]
         return ret
 
@@ -129,47 +129,47 @@ class NotToday:
         return self.start + datetime.timedelta(days=day_index)
 
 
-def start(targets, loader, start_date):
+def start(cards, loader, start_date):
     date = start_date - datetime.timedelta(days=20)
     mgr = simpledata.EventManager()
-    for t in targets:
+    for t in cards:
         evt = data.Event(t.name, "state", date)
         evt.value_before = data.State.unknown
         evt.value_after = data.State.todo
         mgr.add_event(evt)
 
-        t.state = data.State.todo
+        t.status = data.State.todo
         t.save_metadata(loader)
     mgr.save()
 
 
-def begin_target(target, loader, start_date, day_index):
+def begin_card(card, loader, start_date, day_index):
     date = start_date + datetime.timedelta(days=day_index)
     mgr = simpledata.EventManager()
     mgr.load()
-    if len(mgr.get_chronological_task_events_by_type(target.name)["state"]) < 2:
-        evt = data.Event(target.name, "state", date)
+    if len(mgr.get_chronological_task_events_by_type(card.name)["state"]) < 2:
+        evt = data.Event(card.name, "state", date)
         evt.value_before = data.State.todo
         evt.value_after = data.State.in_progress
         mgr.add_event(evt)
         mgr.save()
 
-    target.state = data.State.in_progress
-    target.save_metadata(loader)
+    card.status = data.State.in_progress
+    card.save_metadata(loader)
 
 
-def conclude_target(target, loader, start_date, day_index):
+def conclude_card(card, loader, start_date, day_index):
     date = start_date + datetime.timedelta(days=day_index)
     mgr = simpledata.EventManager()
     mgr.load()
-    evt = data.Event(target.name, "state", date)
+    evt = data.Event(card.name, "state", date)
     evt.value_before = data.State.in_progress
     evt.value_after = data.State.done
     mgr.add_event(evt)
     mgr.save()
 
-    target.state = data.State.done
-    target.save_metadata(loader)
+    card.status = data.State.done
+    card.save_metadata(loader)
 
 
 EXPORTS = dict(

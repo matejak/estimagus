@@ -6,9 +6,9 @@ from ... import data
 
 class Saver:
     @classmethod
-    def bulk_save_metadata(cls, targets: typing.Iterable[data.BaseTarget]):
+    def bulk_save_metadata(cls, cards: typing.Iterable[data.BaseCard]):
         saver = cls()
-        for t in targets:
+        for t in cards:
             t.pass_data_to_saver(saver)
 
     @classmethod
@@ -23,21 +23,21 @@ class Saver:
 
 class Loader:
     @classmethod
-    def get_all_target_names(cls):
+    def get_all_card_names(cls):
         raise NotImplementedError()
 
     @classmethod
-    def get_loaded_targets_by_id(cls, target_class=typing.Type[data.BaseTarget]):
+    def get_loaded_cards_by_id(cls, card_class=typing.Type[data.BaseCard]):
         raise NotImplementedError()
 
     @classmethod
-    def denormalize(cls, t: data.BaseTarget):
+    def denormalize(cls, t: data.BaseCard):
         for child in t.children:
             child.parent = t
             cls.denormalize(child)
 
     @classmethod
-    def load_all_targets(cls, target_class=typing.Type[data.BaseTarget]):
+    def load_all_cards(cls, card_class=typing.Type[data.BaseCard]):
         raise NotImplementedError()
 
     @classmethod

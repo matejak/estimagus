@@ -318,9 +318,9 @@ def test_supply():
     with pytest.raises(RuntimeError):
         est.add_element(e1)
 
-    target = est.export_element("foo")
-    assert target.point_cost == 1
-    assert target.time_cost == 2
+    card = est.export_element("foo")
+    assert card.point_cost == 1
+    assert card.time_cost == 2
 
     assert est.main_composition.nominal_time_estimate.expected == 2
 
@@ -349,40 +349,40 @@ def test_supply():
     assert model2.nominal_point_estimate.expected == 5
 
 
-def test_model_updates_targets():
-    target_one = tm.BaseTarget("one")
-    target_one.point_cost = 5
+def test_model_updates_cards():
+    card_one = tm.BaseCard("one")
+    card_one.point_cost = 5
 
     model = tm.EstiModel()
-    targets = [target_one]
-    model.use_composition(target_one.to_tree(targets))
-    target_one.point_cost = 4
+    cards = [card_one]
+    model.use_composition(card_one.to_tree(cards))
+    card_one.point_cost = 4
 
-    target_two = tm.BaseTarget("two")
-    target_two.point_cost = 1
-    targets.append(target_two)
+    card_two = tm.BaseCard("two")
+    card_two.point_cost = 1
+    cards.append(card_two)
 
     assert model.export_element("one").point_cost == 5
-    model.update_targets_with_values(targets)
-    assert targets[0].point_cost == 5
+    model.update_cards_with_values(cards)
+    assert cards[0].point_cost == 5
 
 
-def test_model_updates_nested_targets():
-    target_one = tm.BaseTarget("one")
-    target_one.point_cost = 5
+def test_model_updates_nested_cards():
+    card_one = tm.BaseCard("one")
+    card_one.point_cost = 5
 
-    target_two = tm.BaseTarget("two")
-    target_two.point_cost = 1
-    target_two.children.append(target_one)
+    card_two = tm.BaseCard("two")
+    card_two.point_cost = 1
+    card_two.children.append(card_one)
 
     model = tm.EstiModel()
-    targets = [target_two]
-    model.use_composition(target_two.to_tree(targets))
-    target_one.point_cost = 4
+    cards = [card_two]
+    model.use_composition(card_two.to_tree(cards))
+    card_one.point_cost = 4
 
-    model.update_targets_with_values(targets)
-    assert target_one.point_cost == 5
-    assert target_two.point_cost == 1
+    model.update_cards_with_values(cards)
+    assert card_one.point_cost == 5
+    assert card_two.point_cost == 1
 
 
 def test_memory_types():

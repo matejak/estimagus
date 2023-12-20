@@ -12,18 +12,18 @@ class RedhatComplianceForm(FlaskForm):
 class RedhatComplianceRefreshForm(FlaskForm):
 
     def request_refresh_of(self, names):
-        self.targets.data = ",".join(names)
+        self.cards.data = ",".join(names)
         if len(names) == 1:
             self.submit.label.text = "Refresh item"
         elif (count := len(names)) > 1:
             self.submit.label.text = f"Refresh total {count} items"
 
     def get_what_names_to_refresh(self):
-        return self.targets.data.split(",")
+        return self.cards.data.split(",")
 
     token = wtforms.PasswordField('Token')
     mode = wtforms.HiddenField('retro_or_proj')
-    targets = wtforms.HiddenField('csv')
+    cards = wtforms.HiddenField('csv')
     next = wtforms.HiddenField('url')
     submit = wtforms.SubmitField("Refresh")
 

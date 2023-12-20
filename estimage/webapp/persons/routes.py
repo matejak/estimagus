@@ -9,9 +9,9 @@ from .. import web_utils
 from ... import persons, utilities
 
 
-def render_workload(title, mode, targets_tree, model):
+def render_workload(title, mode, cards_tree, model):
     simple_workloads_type = web_utils.get_workloads(persons.SimpleWorkloads)
-    simple_workloads = simple_workloads_type(targets_tree, model)
+    simple_workloads = simple_workloads_type(cards_tree, model)
     simple_workloads.solve_problem()
     simple_summary = simple_workloads.summary()
     all_persons = sorted(simple_workloads.persons_potential.keys())
@@ -20,7 +20,7 @@ def render_workload(title, mode, targets_tree, model):
         simple_summary=simple_summary, simple=simple_workloads,
         )
     optimized_workloads_type = web_utils.get_workloads(persons.OptimizedWorkloads)
-    optimized_workloads = optimized_workloads_type(targets_tree, model)
+    optimized_workloads = optimized_workloads_type(cards_tree, model)
     try:
         optimized_workloads.solve_problem()
         optimized_summary = optimized_workloads.summary()
@@ -42,10 +42,10 @@ def retrospective_workload():
     user = flask_login.current_user
     user_id = user.get_id()
 
-    all_targets_by_id, model = web_utils.get_all_tasks_by_id_and_user_model("retro", user_id)
-    all_targets = list(all_targets_by_id.values())
-    targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(all_targets)
-    return render_workload('Retrospective Workloads', "retro", targets_tree_without_duplicates, model)
+    all_cards_by_id, model = web_utils.get_all_tasks_by_id_and_user_model("retro", user_id)
+    all_cards = list(all_cards_by_id.values())
+    cards_tree_without_duplicates = utilities.reduce_subsets_from_sets(all_cards)
+    return render_workload('Retrospective Workloads', "retro", cards_tree_without_duplicates, model)
 
 
 @bp.route('/planning_workload')
@@ -54,7 +54,7 @@ def planning_workload():
     user = flask_login.current_user
     user_id = user.get_id()
 
-    all_targets_by_id, model = web_utils.get_all_tasks_by_id_and_user_model("proj", user_id)
-    all_targets = list(all_targets_by_id.values())
-    targets_tree_without_duplicates = utilities.reduce_subsets_from_sets(all_targets)
-    return render_workload('Planning Workloads', "plan", targets_tree_without_duplicates, model)
+    all_cards_by_id, model = web_utils.get_all_tasks_by_id_and_user_model("proj", user_id)
+    all_cards = list(all_cards_by_id.values())
+    cards_tree_without_duplicates = utilities.reduce_subsets_from_sets(all_cards)
+    return render_workload('Planning Workloads', "plan", cards_tree_without_duplicates, model)

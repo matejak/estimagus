@@ -27,8 +27,8 @@
     </div>
     <div class="row">
     <ul>
-    {% for target in targets | sort(attribute="name") -%}
-    {{ utils.render_whatever(target, model) }}
+    {% for card in cards | sort(attribute="name") -%}
+    {{ utils.render_whatever(card, model) }}
     {% endfor -%}
     </ul>
     </div>

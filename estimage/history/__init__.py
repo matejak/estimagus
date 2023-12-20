@@ -2,7 +2,7 @@ import datetime
 
 import numpy as np
 
-from ..entities import target
+from ..entities import card
 
 from .timeline import Timeline
 from .progress import Progress

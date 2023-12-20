@@ -3,7 +3,7 @@ import datetime
 import typing
 import collections
 
-from . import target
+from . import card
 
 
 @dataclasses.dataclass

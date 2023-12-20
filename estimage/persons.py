@@ -8,9 +8,9 @@ import scipy as sp
 from . import data, PluginResolver
 
 
-def get_all_collaborators(targets):
+def get_all_collaborators(cards):
     ret = set()
-    for t in targets:
+    for t in cards:
         ret.update(set(t.collaborators))
         ret.add(t.assignee)
     ret.discard("")
@@ -25,13 +25,13 @@ class WorkloadSummary(typing.NamedTuple):
 class Workload:
     name: str = ""
     points: float = 0
-    targets: typing.List[data.BaseTarget] = dataclasses.field(default_factory=list)
+    cards: typing.List[data.BaseCard] = dataclasses.field(default_factory=list)
     point_parts: typing.Dict[str, float] = dataclasses.field(default_factory=dict)
     proportions: typing.Dict[str, float] = dataclasses.field(default_factory=dict)
 
 
-def get_people_associaged_with(target: data.BaseTarget) -> typing.Set[str]:
-    associated_people = get_all_collaborators((target,))
+def get_people_associaged_with(card: data.BaseCard) -> typing.Set[str]:
+    associated_people = get_all_collaborators((card,))
     return associated_people
 
 
@@ -39,56 +39,56 @@ def get_people_associaged_with(target: data.BaseTarget) -> typing.Set[str]:
 @dataclasses.dataclass
 class Workloads:
     points: float = 0
-    targets: typing.List[data.BaseTarget] = dataclasses.field(default_factory=list)
+    cards: typing.List[data.BaseCard] = dataclasses.field(default_factory=list)
     persons_potential: typing.Dict[str, float] = dataclasses.field(
         default_factory=lambda: collections.defaultdict(lambda: 0))
     persons_indices: typing.Dict[str, int] = dataclasses.field(default_factory=dict)
-    targets_indices: typing.Dict[str, int] = dataclasses.field(default_factory=dict)
+    cards_indices: typing.Dict[str, int] = dataclasses.field(default_factory=dict)
     work_matrix = np.ndarray
     task_sizes = np.ndarray
 
     def __init__(self,
-                 targets: typing.Iterable[data.BaseTarget],
+                 cards: typing.Iterable[data.BaseCard],
                  model: data.EstiModel,
                  * args, ** kwargs):
         super().__init__(* args, ** kwargs)
 
         self.model = model
-        self.targets_by_name = collections.OrderedDict()
-        self.targets = targets
+        self.cards_by_name = collections.OrderedDict()
+        self.cards = cards
         self.persons_potential = dict()
         self.persons_indices = dict()
-        self.targets_indices = dict()
-        for t in targets:
-            self.targets_by_name[t.name] = t
-        self._target_persons_map = dict()
+        self.cards_indices = dict()
+        for t in cards:
+            self.cards_by_name[t.name] = t
+        self._card_persons_map = dict()
         self._fill_in_collaborators()
         self.task_sizes = np.array([
             self.model.remaining_point_estimate_of(t.name).expected
-            for t in self.targets_by_name.values()])
-        self.work_matrix = np.zeros((len(self.persons_potential), len(targets)))
+            for t in self.cards_by_name.values()])
+        self.work_matrix = np.zeros((len(self.persons_potential), len(cards)))
         self._create_indices()
 
     def _create_indices(self):
         for index, person_name in enumerate(self.persons_potential):
             self.persons_indices[person_name] = index
-        for index, target in enumerate(self.targets):
-            self.targets_indices[target.name] = index
+        for index, card in enumerate(self.cards):
+            self.cards_indices[card.name] = index
 
     def _fill_in_collaborators(self):
         all_collaborators = set()
-        for name, t in self.targets_by_name.items():
+        for name, t in self.cards_by_name.items():
             self.points += self.model.remaining_point_estimate_of(name).expected
 
             associated_people = get_people_associaged_with(t)
-            self._target_persons_map[name] = associated_people
+            self._card_persons_map[name] = associated_people
             all_collaborators.update(associated_people)
 
         for c in all_collaborators:
             self.persons_potential[c] = 1.0
 
-    def get_who_works_on(self, target_name: str) -> typing.Set[str]:
-        return self._target_persons_map.get(target_name, set())
+    def get_who_works_on(self, card_name: str) -> typing.Set[str]:
+        return self._card_persons_map.get(card_name, set())
 
     def of_person(self, person_name: str) -> Workload:
         raise NotImplementedError()
@@ -103,22 +103,22 @@ class Workloads:
 
 class SimpleWorkloads(Workloads):
     def solve_problem(self):
-        for tidx, target in enumerate(self.targets):
+        for tidx, card in enumerate(self.cards):
             if self.task_sizes[tidx] == 0:
                 continue
-            collaborating_group = self.get_who_works_on(target.name)
+            collaborating_group = self.get_who_works_on(card.name)
             person_potentials = [self.persons_potential.get(name) for name in collaborating_group]
-            target_potential = sum(person_potentials)
-            self._solve_problem_for_target(tidx, target_potential, collaborating_group)
+            card_potential = sum(person_potentials)
+            self._solve_problem_for_card(tidx, card_potential, collaborating_group)
 
-    def _solve_problem_for_target(self, tidx, target_potential, collaborating_group):
+    def _solve_problem_for_card(self, tidx, card_potential, collaborating_group):
         for pidx, person_name in enumerate(self.persons_potential):
             if person_name not in collaborating_group:
                 continue
 
             own_potential = self.persons_potential[person_name]
 
-            proportion = own_potential / target_potential
+            proportion = own_potential / card_potential
             points_contribution = self.task_sizes[tidx]
             points_contribution *= proportion
 
@@ -131,11 +131,11 @@ class SimpleWorkloads(Workloads):
         person_index = self.persons_indices[person_name]
         ret.points = sum(self.work_matrix[person_index])
         task_totals = np.sum(self.work_matrix, axis=0)
-        for task_index, task_name in enumerate(self.targets_by_name.keys()):
+        for task_index, task_name in enumerate(self.cards_by_name.keys()):
             projection = self.work_matrix[person_index, task_index]
             if projection == 0:
                 continue
-            ret.targets.append(self.targets_by_name[task_name])
+            ret.cards.append(self.cards_by_name[task_name])
             ret.point_parts[task_name] = projection
             ret.proportions[task_name] = projection / task_totals[task_index]
         return ret
@@ -143,20 +143,20 @@ class SimpleWorkloads(Workloads):
 
 class OptimizedWorkloads(Workloads):
     def __init__(self,
-                 targets: typing.Iterable[data.BaseTarget],
+                 cards: typing.Iterable[data.BaseCard],
                  model: data.EstiModel,
                  * args, ** kwargs):
-        super().__init__(targets, model, * args, ** kwargs)
-        self.task_totals = np.zeros(len(targets))
-        self.targets_indices = dict()
+        super().__init__(cards, model, * args, ** kwargs)
+        self.task_totals = np.zeros(len(cards))
+        self.cards_indices = dict()
         self._create_indices()
 
     def cost_matrix(self):
-        ret = np.ones((len(self.persons_potential), len(self.targets_by_name)))
+        ret = np.ones((len(self.persons_potential), len(self.cards_by_name)))
         ret *= np.inf
         for collab_idx, collab_name in enumerate(self.persons_potential):
-            for task_idx, task_name in enumerate(self.targets_by_name):
-                task_collaborators = self._target_persons_map[task_name]
+            for task_idx, task_name in enumerate(self.cards_by_name):
+                task_collaborators = self._card_persons_map[task_name]
                 if collab_name in task_collaborators:
                     ret[collab_idx, task_idx] = 1
         return ret
@@ -167,7 +167,7 @@ class OptimizedWorkloads(Workloads):
         costs = self.cost_matrix()
         indices = np.where(np.logical_and(np.min(costs, axis=0) == np.inf, self.task_sizes > 0))[0]
         if len(indices):
-            task_names = [self.targets[i].name for i in indices]
+            task_names = [self.cards[i].name for i in indices]
             msg = f"Nobody wants to work on some tasks: {task_names}"
             raise ValueError(msg)
         self.work_matrix = solve(self.task_sizes, self.persons_potential.values(), costs)
@@ -178,12 +178,12 @@ class OptimizedWorkloads(Workloads):
         ret = Workload()
         ret.points = sum(self.work_matrix[person_index])
         ret.points = round(ret.points, 1)
-        for task_index, task_name in enumerate(self.targets_by_name.keys()):
+        for task_index, task_name in enumerate(self.cards_by_name.keys()):
             projection = self.work_matrix[person_index, task_index]
             projection = round(projection, 1)
             if projection == 0:
                 continue
-            ret.targets.append(self.targets_by_name[task_name])
+            ret.cards.append(self.cards_by_name[task_name])
             ret.point_parts[task_name] = projection
             ret.proportions[task_name] = projection / self.task_totals[task_index]
         return ret

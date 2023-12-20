@@ -5,7 +5,7 @@ from estimage import simpledata as tm
 from estimage import data
 from estimage.persistence.pollster import memory
 
-from test_target import leaf_target, subtree_target
+from test_card import leaf_card, subtree_card
 
 
 def get_independent_memory_io():
@@ -14,13 +14,13 @@ def get_independent_memory_io():
     return ret
 
 
-def test_obtaining_model_considers_leaf_target_values(leaf_target, subtree_target):
-    model = tm.get_model([leaf_target])
+def test_obtaining_model_considers_leaf_card_values(leaf_card, subtree_card):
+    model = tm.get_model([leaf_card])
     assert model.nominal_point_estimate.expected > 0
-    assert model.nominal_point_estimate.expected == leaf_target.point_cost
+    assert model.nominal_point_estimate.expected == leaf_card.point_cost
 
-    model = tm.get_model([subtree_target])
-    assert model.nominal_point_estimate.expected == leaf_target.point_cost
+    model = tm.get_model([subtree_card])
+    assert model.nominal_point_estimate.expected == leaf_card.point_cost
 
 
 def test_empty_model():
@@ -28,17 +28,17 @@ def test_empty_model():
     assert model.nominal_point_estimate.expected == 0
 
 
-def test_obtaining_model_overriden_by_pollster(leaf_target):
+def test_obtaining_model_overriden_by_pollster(leaf_card):
     pollster = data.Pollster(memory.MemoryPollsterIO)
 
-    model = tm.get_model([leaf_target])
+    model = tm.get_model([leaf_card])
     pollster.supply_valid_estimations_to_tasks(model.get_all_task_models())
-    assert model.nominal_point_estimate.expected == leaf_target.point_cost
-    assert model.nominal_point_estimate_of(leaf_target.name).expected == leaf_target.point_cost
+    assert model.nominal_point_estimate.expected == leaf_card.point_cost
+    assert model.nominal_point_estimate_of(leaf_card.name).expected == leaf_card.point_cost
 
-    pollster.tell_points(leaf_target.name, data.EstimInput(99))
+    pollster.tell_points(leaf_card.name, data.EstimInput(99))
     pollster.supply_valid_estimations_to_tasks(model.get_all_task_models())
-    assert model.nominal_point_estimate_of(leaf_target.name).expected == 99
+    assert model.nominal_point_estimate_of(leaf_card.name).expected == 99
 
 
 @pytest.fixture
@@ -96,7 +96,7 @@ def test_context():
     competing_pollster.tell_points("task", data.EstimInput(1))
     competing_pollster.tell_points("t", data.EstimInput(2))
 
-    task = data.BaseTarget("task")
+    task = data.BaseCard("task")
     context = tm.Context(task)
     assert context.estimate_status == "absent"
     with pytest.raises(ValueError):
@@ -127,7 +127,7 @@ def test_context():
     assert context.estimate_status == "absent"
     assert context.estimation_source == "none"
 
-    task = data.BaseTarget("t")
+    task = data.BaseCard("t")
     task.point_cost = 1.2
     context = tm.Context(task)
     context.process_own_pollster(own_pollster)
@@ -168,7 +168,7 @@ def test_context_deal_with_defective_estimate():
     normal_pollster = data.Pollster(get_independent_memory_io())
     normal_pollster.tell_points("task", data.EstimInput(1))
 
-    task = data.BaseTarget("task")
+    task = data.BaseCard("task")
     context = tm.Context(task)
     with pytest.raises(ValueError):
         context.process_own_pollster(poisoned_pollster)

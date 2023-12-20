@@ -54,12 +54,12 @@ def get_pert_in_figure(estimation, task_name):
     return fig
 
 
-def get_aggregation(targets_tree_without_duplicates):
+def get_aggregation(cards_tree_without_duplicates):
 
     all_events = webdata.EventManager()
     all_events.load()
     start, end = flask.current_app.get_config_option("RETROSPECTIVE_PERIOD")
-    aggregation = history.Aggregation.from_targets(targets_tree_without_duplicates, start, end)
+    aggregation = history.Aggregation.from_cards(cards_tree_without_duplicates, start, end)
     aggregation.process_event_manager(all_events)
 
     return aggregation
@@ -71,13 +71,13 @@ def visualize_completion():
     user = flask_login.current_user
     user_id = user.get_id()
 
-    all_targets_by_id, model = web_utils.get_all_tasks_by_id_and_user_model("retro", user_id)
-    all_targets = list(all_targets_by_id.values())
-    targets_tree_without_duplicates = utilities.reduce_subsets_from_sets([t for t in all_targets if t.tier == 0])
+    all_cards_by_id, model = web_utils.get_all_tasks_by_id_and_user_model("retro", user_id)
+    all_cards = list(all_cards_by_id.values())
+    cards_tree_without_duplicates = utilities.reduce_subsets_from_sets([t for t in all_cards if t.tier == 0])
 
-    aggregation = get_aggregation(targets_tree_without_duplicates)
+    aggregation = get_aggregation(cards_tree_without_duplicates)
 
-    model = web_utils.get_user_model(user_id, targets_tree_without_duplicates)
+    model = web_utils.get_user_model(user_id, cards_tree_without_duplicates)
     todo = model.remaining_point_estimate
 
     velocity_array = aggregation.get_velocity_array()
@@ -109,12 +109,12 @@ def visualize_velocity_fit():
     all_events = webdata.EventManager()
     all_events.load()
 
-    all_targets_by_id, _ = web_utils.get_all_tasks_by_id_and_user_model("retro", user_id)
-    all_targets = list(all_targets_by_id.values())
-    targets_tree_without_duplicates = utilities.reduce_subsets_from_sets([t for t in all_targets if t.tier == 0])
+    all_cards_by_id, _ = web_utils.get_all_tasks_by_id_and_user_model("retro", user_id)
+    all_cards = list(all_cards_by_id.values())
+    cards_tree_without_duplicates = utilities.reduce_subsets_from_sets([t for t in all_cards if t.tier == 0])
 
     start, end = flask.current_app.get_config_option("RETROSPECTIVE_PERIOD")
-    aggregation = history.Aggregation.from_targets(targets_tree_without_duplicates, start, end)
+    aggregation = history.Aggregation.from_cards(cards_tree_without_duplicates, start, end)
     aggregation.process_event_manager(all_events)
 
     velocity_array = aggregation.get_velocity_array()
@@ -134,7 +134,7 @@ def visualize_velocity_fit():
 @flask_login.login_required
 def visualize_velocity(epic_name):
     cls, loader = web_utils.get_retro_loader()
-    all_targets = loader.get_loaded_targets_by_id(cls)
+    all_cards = loader.get_loaded_cards_by_id(cls)
 
     user = flask_login.current_user
     user_id = user.get_id()
@@ -145,17 +145,17 @@ def visualize_velocity(epic_name):
     velocity_class = flask.current_app.get_final_class("MPLVelocityPlot")
 
     if epic_name == ".":
-        target_tree = utilities.reduce_subsets_from_sets(list(all_targets.values()))
-        model = web_utils.get_user_model(user_id, target_tree)
-        model.update_targets_with_values(target_tree)
+        card_tree = utilities.reduce_subsets_from_sets(list(all_cards.values()))
+        model = web_utils.get_user_model(user_id, card_tree)
+        model.update_cards_with_values(card_tree)
 
-        aggregation = history.Aggregation.from_targets(target_tree, start, end)
+        aggregation = history.Aggregation.from_cards(card_tree, start, end)
     else:
-        epic = all_targets[epic_name]
+        epic = all_cards[epic_name]
         model = web_utils.get_user_model(user_id, [epic])
-        model.update_targets_with_values([epic])
+        model.update_cards_with_values([epic])
 
-        aggregation = history.Aggregation.from_target(epic, start, end)
+        aggregation = history.Aggregation.from_card(epic, start, end)
 
     aggregation.process_event_manager(all_events)
     cutoff_date = min(datetime.datetime.today(), end)
@@ -214,13 +214,13 @@ def visualize_epic_burndown(epic_name, size):
         raise ValueError(msg)
 
     cls, loader = web_utils.get_retro_loader()
-    all_targets = loader.get_loaded_targets_by_id(cls)
-    epic = all_targets[epic_name]
+    all_cards = loader.get_loaded_cards_by_id(cls)
+    epic = all_cards[epic_name]
 
     user = flask_login.current_user
     user_id = user.get_id()
     model = web_utils.get_user_model(user_id, [epic])
-    model.update_targets_with_values([epic])
+    model.update_cards_with_values([epic])
 
     return output_burndown([epic], size)
 
@@ -237,24 +237,24 @@ def visualize_overall_burndown(tier, size):
         raise ValueError(msg)
 
     cls, loader = web_utils.get_retro_loader()
-    all_targets = loader.get_loaded_targets_by_id(cls)
-    all_targets = [target for name, target in all_targets.items() if target.tier <= tier]
-    target_tree = utilities.reduce_subsets_from_sets(all_targets)
+    all_cards = loader.get_loaded_cards_by_id(cls)
+    all_cards = [card for name, card in all_cards.items() if card.tier <= tier]
+    card_tree = utilities.reduce_subsets_from_sets(all_cards)
 
     user = flask_login.current_user
     user_id = user.get_id()
-    model = web_utils.get_user_model(user_id, target_tree)
-    model.update_targets_with_values(target_tree)
+    model = web_utils.get_user_model(user_id, card_tree)
+    model.update_cards_with_values(card_tree)
 
-    return output_burndown(target_tree, size)
+    return output_burndown(card_tree, size)
 
 
-def output_burndown(target_tree, size):
+def output_burndown(card_tree, size):
     start, end = flask.current_app.get_config_option("RETROSPECTIVE_PERIOD")
     all_events = webdata.EventManager()
     all_events.load()
 
-    aggregation = history.Aggregation.from_targets(target_tree, start, end)
+    aggregation = history.Aggregation.from_cards(card_tree, start, end)
     aggregation.process_event_manager(all_events)
 
     burndown_class = flask.current_app.get_final_class("MPLPointPlot")

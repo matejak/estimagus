@@ -5,20 +5,20 @@ import estimage.persons as tm
 import estimage.simpledata
 import estimage.data as data
 
-from test_target import leaf_target, standalone_leaf_target
+from test_card import leaf_card, standalone_leaf_card
 
 
 @pytest.fixture
-def shared_target(leaf_target):
-    leaf_target.collaborators.append("associate")
-    leaf_target.collaborators.append("parallel_associate")
-    return leaf_target
+def shared_card(leaf_card):
+    leaf_card.collaborators.append("associate")
+    leaf_card.collaborators.append("parallel_associate")
+    return leaf_card
 
 
 @pytest.fixture
-def exclusive_target(standalone_leaf_target):
-    standalone_leaf_target.collaborators.append("associate")
-    return standalone_leaf_target
+def exclusive_card(standalone_leaf_card):
+    standalone_leaf_card.collaborators.append("associate")
+    return standalone_leaf_card
 
 
 def evaluate_workloads(workloads):
@@ -31,27 +31,27 @@ def evaluate_workloads(workloads):
     assert total_assigned_points == pytest.approx(workloads.points)
 
 
-def test_target_association(shared_target):
-    target = data.BaseTarget("")
-    assert len(tm.get_people_associaged_with(target)) == 0
+def test_card_association(shared_card):
+    card = data.BaseCard("")
+    assert len(tm.get_people_associaged_with(card)) == 0
 
-    target.collaborators = ["lu", "men"]
-    assert len(tm.get_people_associaged_with(target)) == 2
-    assert "lu" in tm.get_people_associaged_with(target)
+    card.collaborators = ["lu", "men"]
+    assert len(tm.get_people_associaged_with(card)) == 2
+    assert "lu" in tm.get_people_associaged_with(card)
 
-    target.assignee = "ru"
-    assert len(tm.get_people_associaged_with(target)) == 3
-    assert "ru" in tm.get_people_associaged_with(target)
+    card.assignee = "ru"
+    assert len(tm.get_people_associaged_with(card)) == 3
+    assert "ru" in tm.get_people_associaged_with(card)
 
-    target.collaborators = [""]
-    assert len(tm.get_people_associaged_with(target)) == 1
-    assert "ru" in tm.get_people_associaged_with(target)
+    card.collaborators = [""]
+    assert len(tm.get_people_associaged_with(card)) == 1
+    assert "ru" in tm.get_people_associaged_with(card)
 
 
-def test_persons_workload(exclusive_target, shared_target):
-    targets = []
-    model = estimage.simpledata.get_model(targets)
-    workloads = tm.SimpleWorkloads(targets, model)
+def test_persons_workload(exclusive_card, shared_card):
+    cards = []
+    model = estimage.simpledata.get_model(cards)
+    workloads = tm.SimpleWorkloads(cards, model)
     workloads.solve_problem()
     evaluate_workloads(workloads)
     assert workloads.points == 0
@@ -59,65 +59,65 @@ def test_persons_workload(exclusive_target, shared_target):
     persons_workload = workloads.of_person("none")
     assert persons_workload.name == "none"
     assert persons_workload.points == 0
-    assert len(persons_workload.targets) == 0
+    assert len(persons_workload.cards) == 0
     assert not workloads.get_who_works_on("something")
 
-    targets = [exclusive_target]
-    model = estimage.simpledata.get_model(targets)
-    workloads = tm.SimpleWorkloads(targets, model)
+    cards = [exclusive_card]
+    model = estimage.simpledata.get_model(cards)
+    workloads = tm.SimpleWorkloads(cards, model)
     workloads.solve_problem()
     evaluate_workloads(workloads)
     assert len(workloads.persons_potential) == 1
-    working_group = workloads.get_who_works_on(exclusive_target.name)
+    working_group = workloads.get_who_works_on(exclusive_card.name)
     assert len(working_group) == 1
     assert "associate" in working_group
     persons_workload = workloads.of_person("associate")
-    assert persons_workload.points == exclusive_target.point_cost
-    assert len(persons_workload.targets) == 1
-    assert persons_workload.targets[0] == exclusive_target
+    assert persons_workload.points == exclusive_card.point_cost
+    assert len(persons_workload.cards) == 1
+    assert persons_workload.cards[0] == exclusive_card
     assert workloads.persons_potential["associate"] == 1.0
 
-    targets = [shared_target]
-    model = estimage.simpledata.get_model(targets)
-    workloads = tm.SimpleWorkloads(targets, model)
+    cards = [shared_card]
+    model = estimage.simpledata.get_model(cards)
+    workloads = tm.SimpleWorkloads(cards, model)
     workloads.solve_problem()
     evaluate_workloads(workloads)
     persons_workload = workloads.of_person("associate")
-    assert persons_workload.points == shared_target.point_cost / 2.0
-    assert len(persons_workload.targets) == 1
-    assert persons_workload.targets[0] == shared_target
+    assert persons_workload.points == shared_card.point_cost / 2.0
+    assert len(persons_workload.cards) == 1
+    assert persons_workload.cards[0] == shared_card
 
-    targets = [shared_target, exclusive_target]
-    model = estimage.simpledata.get_model(targets)
-    workloads = tm.SimpleWorkloads(targets, model)
+    cards = [shared_card, exclusive_card]
+    model = estimage.simpledata.get_model(cards)
+    workloads = tm.SimpleWorkloads(cards, model)
     workloads.solve_problem()
     evaluate_workloads(workloads)
     persons_workload = workloads.of_person("associate")
-    assert persons_workload.points == shared_target.point_cost / 2.0 + exclusive_target.point_cost
-    assert len(persons_workload.targets) == 2
-    assert persons_workload.point_parts["feal"] == exclusive_target.point_cost
+    assert persons_workload.points == shared_card.point_cost / 2.0 + exclusive_card.point_cost
+    assert len(persons_workload.cards) == 2
+    assert persons_workload.point_parts["feal"] == exclusive_card.point_cost
     assert persons_workload.proportions["feal"] == 1
     assert persons_workload.proportions["leaf"] == 0.5
-    workloads = tm.SimpleWorkloads(targets, model)
+    workloads = tm.SimpleWorkloads(cards, model)
     workloads.persons_potential["parallel_associate"] = 0
     workloads.solve_problem()
     evaluate_workloads(workloads)
 
 
-def test_get_all_collaborators(shared_target, exclusive_target):
+def test_get_all_collaborators(shared_card, exclusive_card):
     assert len(tm.get_all_collaborators([])) == 0
 
-    found = tm.get_all_collaborators([exclusive_target])
+    found = tm.get_all_collaborators([exclusive_card])
     assert len(found) == 1
     assert "associate" in found
 
-    found = tm.get_all_collaborators([exclusive_target, shared_target])
+    found = tm.get_all_collaborators([exclusive_card, shared_card])
     assert len(found) == 2
     assert "associate" in found
     assert "parallel_associate" in found
 
 
-def test_generate_target_occupation():
+def test_generate_card_occupation():
     task_sizes = [1]
     persons_potential = [1]
     bub = tm.gen_bub(task_sizes, persons_potential)
@@ -292,31 +292,31 @@ def test_optimization():
     evaluate_solution(solution, task_sizes, persons_potential, labor_cost)
 
 
-def test_workloads(exclusive_target, shared_target):
-    targets = []
-    model = estimage.simpledata.get_model(targets)
-    workloads = tm.OptimizedWorkloads(targets, model)
+def test_workloads(exclusive_card, shared_card):
+    cards = []
+    model = estimage.simpledata.get_model(cards)
+    workloads = tm.OptimizedWorkloads(cards, model)
     workloads.solve_problem()
 
-    targets = [exclusive_target]
-    model = estimage.simpledata.get_model(targets)
-    workloads = tm.OptimizedWorkloads(targets, model)
-    assert workloads.targets_by_name[exclusive_target.name] == exclusive_target
+    cards = [exclusive_card]
+    model = estimage.simpledata.get_model(cards)
+    workloads = tm.OptimizedWorkloads(cards, model)
+    assert workloads.cards_by_name[exclusive_card.name] == exclusive_card
     assert workloads.persons_potential["associate"] == 1
     assert workloads.cost_matrix()[0, 0] == 1
     workloads.solve_problem()
     summary = workloads.summary()
-    assert summary.expected_effort_of_full_potential == exclusive_target.point_cost
+    assert summary.expected_effort_of_full_potential == exclusive_card.point_cost
 
-    targets = [exclusive_target, shared_target]
-    model = estimage.simpledata.get_model(targets)
-    workloads = tm.OptimizedWorkloads(targets, model)
-    assert workloads.targets_by_name[exclusive_target.name] == exclusive_target
-    assert workloads.cost_matrix()[workloads.persons_indices["parallel_associate"], workloads.targets_indices[exclusive_target.name]] == np.inf
+    cards = [exclusive_card, shared_card]
+    model = estimage.simpledata.get_model(cards)
+    workloads = tm.OptimizedWorkloads(cards, model)
+    assert workloads.cards_by_name[exclusive_card.name] == exclusive_card
+    assert workloads.cost_matrix()[workloads.persons_indices["parallel_associate"], workloads.cards_indices[exclusive_card.name]] == np.inf
     assert sum(workloads.cost_matrix()[workloads.persons_indices["associate"], :]) == 2
     workloads.persons_potential["associate"] = 1
     workloads.persons_potential["parallel_associate"] = 0.5
     workloads.solve_problem()
     summary = workloads.summary()
     assert summary.expected_effort_of_full_potential == (
-        exclusive_target.point_cost + shared_target.point_cost) / 1.5
+        exclusive_card.point_cost + shared_card.point_cost) / 1.5

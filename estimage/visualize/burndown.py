@@ -3,7 +3,7 @@ import typing
 
 import numpy as np
 
-from ..entities.target import State
+from ..entities.card import State
 from . import utils
 from .. import history, PluginResolver
 

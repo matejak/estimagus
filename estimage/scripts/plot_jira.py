@@ -7,22 +7,22 @@ import estimage.history as hist
 import estimage.entities.event as evts
 import estimage.inidata as inidata
 import estimage.simpledata as webdata
-from estimage.entities import target
+from estimage.entities import card
 
 
 import con
 
 
 JIRA_STATUS_TO_STATE = {
-    "Backlog": target.State.todo,
-    "Refinement": target.State.todo,
-    "New": target.State.todo,
-    "Done": target.State.done,
-    "Abandoned": target.State.abandoned,
-    "Closed": target.State.abandoned,
-    "In Progress": target.State.in_progress,
-    "Needs Peer Review": target.State.review,
-    "To Do": target.State.todo,
+    "Backlog": card.State.todo,
+    "Refinement": card.State.todo,
+    "New": card.State.todo,
+    "Done": card.State.done,
+    "Abandoned": card.State.abandoned,
+    "Closed": card.State.abandoned,
+    "In Progress": card.State.in_progress,
+    "Needs Peer Review": card.State.review,
+    "To Do": card.State.todo,
 }
 
 
@@ -56,7 +56,7 @@ def get_tasks(query=con.query):
     return all_epics, all_subtasks
 
 
-class HybridTarget(inidata.IniTarget):
+class HybridCard(inidata.IniCard):
     CONFIG_FILENAME = "jira-export.ini"
 
 
@@ -66,37 +66,37 @@ def export_jira_item(cls, item, exported_items_by_name):
     ret.title = item.get_field("summary") or ""
     ret.description = item.get_field("description") or ""
     ret.point_cost = float(item.get_field(STORY_POINTS) or 0)
-    ret.state = JIRA_STATUS_TO_STATE.get(str(item.get_field("status")), target.State.unknown)
+    ret.status = JIRA_STATUS_TO_STATE.get(str(item.get_field("status")), card.State.unknown)
     ret.labels = item.get_field("labels") or []
 
     return ret
 
 
-def export_jira_tasks_to_targets(epics, tasks, target_class: target.BaseTarget):
-    targets_by_id = dict()
+def export_jira_tasks_to_cards(epics, tasks, card_class: card.BaseCard):
+    cards_by_id = dict()
     for e in epics.values():
-        targets_by_id[e.key] = export_jira_item(target_class, e, targets_by_id)
+        cards_by_id[e.key] = export_jira_item(card_class, e, cards_by_id)
 
     for t in tasks.values():
-        exported = export_jira_item(target_class, t, targets_by_id)
-        targets_by_id[t.key] = exported
+        exported = export_jira_item(card_class, t, cards_by_id)
+        cards_by_id[t.key] = exported
         if epic_id := t.get_field(EPIC_LINK):
-            targets_by_id[epic_id].add_element(exported)
+            cards_by_id[epic_id].add_element(exported)
 
-    return targets_by_id
+    return cards_by_id
 
 
-def save_exported_jira_tasks(targets_by_id):
-    for t in targets_by_id.values():
+def save_exported_jira_tasks(cards_by_id):
+    for t in cards_by_id.values():
         t.save_metadata()
         t.save_point_cost()
         t.save_time_cost()
 
 
-def export_projective_targets(query):
+def export_projective_cards(query):
     epics, tasks = get_tasks(query)
-    targets_by_id = export_jira_tasks_to_targets(epics, tasks, webdata.ProjTarget)
-    save_exported_jira_tasks(targets_by_id)
+    cards_by_id = export_jira_tasks_to_cards(epics, tasks, webdata.ProjCard)
+    save_exported_jira_tasks(cards_by_id)
 
 
 def save_events(tasks, epics_names, event_manager_cls: type):
@@ -147,10 +147,10 @@ def get_events(task, cutoff=None, sprint_epics=frozenset()):
     return events
 
 
-def export_retrospective_targets(query):
+def export_retrospective_cards(query):
     epics, tasks = get_tasks(query)
-    targets_by_id = export_jira_tasks_to_targets(epics, tasks, webdata.RetroTarget)
-    save_exported_jira_tasks(targets_by_id)
+    cards_by_id = export_jira_tasks_to_cards(epics, tasks, webdata.RetroCard)
+    save_exported_jira_tasks(cards_by_id)
 
     save_events(tasks.values(), epics.keys(), webdata.EventManager)
 

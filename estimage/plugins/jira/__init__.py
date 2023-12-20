@@ -5,29 +5,29 @@ import typing
 
 from jira import JIRA, exceptions
 
-from ...entities import target
+from ...entities import card
 from ... import simpledata
 from ...entities import event as evts
 from ... import simpledata
 
 
 JIRA_STATUS_TO_STATE = {
-    "Backlog": target.State.todo,
-    "Refinement": target.State.todo,
-    "New": target.State.todo,
-    "Done": target.State.done,
-    "Verified": target.State.done,
-    "Abandoned": target.State.abandoned,
-    "Closed": target.State.abandoned,
-    "In Progress": target.State.in_progress,
-    "ASSIGNED": target.State.in_progress,
-    "ON_DEV": target.State.in_progress,
-    "POST": target.State.in_progress,
-    "MODIFIED": target.State.in_progress,
-    "Needs Peer Review": target.State.review,
-    "Review": target.State.review,
-    "ON_QA": target.State.review,
-    "To Do": target.State.todo,
+    "Backlog": card.State.todo,
+    "Refinement": card.State.todo,
+    "New": card.State.todo,
+    "Done": card.State.done,
+    "Verified": card.State.done,
+    "Abandoned": card.State.abandoned,
+    "Closed": card.State.abandoned,
+    "In Progress": card.State.in_progress,
+    "ASSIGNED": card.State.in_progress,
+    "ON_DEV": card.State.in_progress,
+    "POST": card.State.in_progress,
+    "MODIFIED": card.State.in_progress,
+    "Needs Peer Review": card.State.review,
+    "Review": card.State.review,
+    "ON_QA": card.State.review,
+    "To Do": card.State.todo,
 }
 
 
@@ -60,7 +60,7 @@ class InputSpec:
         ret.retrospective_query = input_form.retroQuery.data
         ret.projective_query = input_form.projQuery.data
         ret.cutoff_date = input_form.cutoffDate.data
-        ret.item_class = app.config["classes"]["BaseTarget"]
+        ret.item_class = app.config["classes"]["BaseCard"]
         return ret
 
 
@@ -120,9 +120,9 @@ def resolve_inheritance_of_attributes(name, all_items_by_id, parents_child_keyma
         resolve_inheritance_of_attributes(child_name, all_items_by_id, parents_child_keymap)
 
 
-def save_exported_jira_tasks(all_targets_by_id, id_selection, target_io_class):
-    to_save = [all_targets_by_id[tid] for tid in id_selection]
-    target_io_class.bulk_save_metadata(to_save)
+def save_exported_jira_tasks(all_cards_by_id, id_selection, card_io_class):
+    to_save = [all_cards_by_id[tid] for tid in id_selection]
+    card_io_class.bulk_save_metadata(to_save)
 
 
 def jira_datetime_to_datetime(jira_datetime):
@@ -195,12 +195,12 @@ def get_task_events(task, cutoff_date):
 
 class Importer:
     def __init__(self, spec):
-        self._targets_by_id = dict()
+        self._cards_by_id = dict()
         self._all_issues_by_name = dict()
         self._parents_child_keymap = collections.defaultdict(set)
 
-        self._retro_targets = set()
-        self._projective_targets = set()
+        self._retro_cards = set()
+        self._projective_cards = set()
         self._all_events = []
         try:
             self.jira = JIRA(spec.server_url, token_auth=spec.token, validate=True)
@@ -221,10 +221,10 @@ class Importer:
             retro_epic_names = get_epics_and_their_tasks_by_id(
                 self.jira, spec.retrospective_query, self._all_issues_by_name,
                 self._parents_child_keymap)
-            new_targets = self.export_jira_epic_chain_to_targets(retro_epic_names)
-            self._retro_targets.update(new_targets.keys())
-            issue_names_requiring_events.update(new_targets.keys())
-            self._targets_by_id.update(new_targets)
+            new_cards = self.export_jira_epic_chain_to_cards(retro_epic_names)
+            self._retro_cards.update(new_cards.keys())
+            issue_names_requiring_events.update(new_cards.keys())
+            self._cards_by_id.update(new_cards)
 
         proj_epic_names = set()
         if spec.projective_query:
@@ -233,12 +233,12 @@ class Importer:
                 self.jira, spec.projective_query, self._all_issues_by_name,
                 self._parents_child_keymap)
             new_names = proj_epic_names.difference(retro_epic_names)
-            new_targets = self.export_jira_epic_chain_to_targets(new_names)
+            new_cards = self.export_jira_epic_chain_to_cards(new_names)
             known_names = proj_epic_names.intersection(retro_epic_names)
-            known_targets = self.export_jira_epic_chain_to_targets(known_names)
-            self._targets_by_id.update(new_targets)
-            self._projective_targets.update(new_targets.keys())
-            self._projective_targets.update(known_targets.keys())
+            known_cards = self.export_jira_epic_chain_to_cards(known_names)
+            self._cards_by_id.update(new_cards)
+            self._projective_cards.update(new_cards.keys())
+            self._projective_cards.update(known_cards.keys())
 
         self.resolve_inheritance(proj_epic_names.union(retro_epic_names))
 
@@ -246,56 +246,56 @@ class Importer:
             new_events = get_task_events(self._all_issues_by_name[name], spec.cutoff_date)
             self._all_events.extend(new_events)
 
-    def find_targets(self, target_names: typing.Iterable[str]):
-        target_ids_sequence = ", ".join(target_names)
-        query = f"id in ({target_ids_sequence})"
-        targets = self.jira.search_issues(query, expand="renderedFields")
-        targets_by_id = {t.key: t for t in targets}
-        return [targets_by_id[name] for name in target_names]
+    def find_cards(self, card_names: typing.Iterable[str]):
+        card_ids_sequence = ", ".join(card_names)
+        query = f"id in ({card_ids_sequence})"
+        cards = self.jira.search_issues(query, expand="renderedFields")
+        cards_by_id = {t.key: t for t in cards}
+        return [cards_by_id[name] for name in card_names]
 
-    def find_target(self, name: str):
+    def find_card(self, name: str):
         query = f"id = {name}"
-        target = self.jira.search_issues(query)
-        if not target:
+        card = self.jira.search_issues(query)
+        if not card:
             msg = (
-                f"{target} not found"
+                f"{card} not found"
             )
             raise ValueError(msg)
-        return target[0]
+        return card[0]
 
-    def refresh_targets(self, real_targets: typing.Iterable[target.BaseTarget], io_cls):
-        if not real_targets:
+    def refresh_cards(self, real_cards: typing.Iterable[card.BaseCard], io_cls):
+        if not real_cards:
             return
-        fresh = self.find_targets([t.name for t in real_targets])
-        refreshed = [self._apply_refresh(real, jira) for real, jira in zip(real_targets, fresh)]
+        fresh = self.find_cards([t.name for t in real_cards])
+        refreshed = [self._apply_refresh(real, jira) for real, jira in zip(real_cards, fresh)]
         io_cls.bulk_save_metadata(refreshed)
 
-    def _get_refreshed_target(self, real_target: target.BaseTarget):
-        jira_target = self.jira.issue(real_target.name, expand="renderedFields")
-        return self._apply_refresh(real_target, jira_target)
+    def _get_refreshed_card(self, real_card: card.BaseCard):
+        jira_card = self.jira.issue(real_card.name, expand="renderedFields")
+        return self._apply_refresh(real_card, jira_card)
 
-    def _apply_refresh(self, real_target: target.BaseTarget, jira_target):
-        fresh_target = self.merge_jira_item_without_children(jira_target)
-        fresh_target.children = real_target.children
-        return fresh_target
+    def _apply_refresh(self, real_card: card.BaseCard, jira_card):
+        fresh_card = self.merge_jira_item_without_children(jira_card)
+        fresh_card.children = real_card.children
+        return fresh_card
 
-    def export_jira_epic_chain_to_targets(self, root_names: typing.Iterable[str]) -> dict[str, target.BaseTarget]:
-        exported_targets_by_id = dict()
+    def export_jira_epic_chain_to_cards(self, root_names: typing.Iterable[str]) -> dict[str, card.BaseCard]:
+        exported_cards_by_id = dict()
         for name in root_names:
             issue = self._all_issues_by_name[name]
-            target = self.merge_jira_item_without_children(issue)
-            exported_targets_by_id[name] = target
+            card = self.merge_jira_item_without_children(issue)
+            exported_cards_by_id[name] = card
             children = self._parents_child_keymap[name]
             if not children:
                 continue
-            chain = self.export_jira_epic_chain_to_targets(children)
-            exported_targets_by_id.update(chain)
-        return exported_targets_by_id
+            chain = self.export_jira_epic_chain_to_cards(children)
+            exported_cards_by_id.update(chain)
+        return exported_cards_by_id
 
     def resolve_inheritance(self, root_names: typing.Iterable[str]):
         for root_name in root_names:
             resolve_inheritance_of_attributes(
-                root_name, self._targets_by_id, self._parents_child_keymap)
+                root_name, self._cards_by_id, self._parents_child_keymap)
 
     def _get_contents_of_rendered_field(self, item, field_name):
         ret = ""
@@ -315,7 +315,7 @@ class Importer:
 
     @classmethod
     def _status_to_state(cls, item, jira_string):
-        return JIRA_STATUS_TO_STATE.get(jira_string, target.State.unknown)
+        return JIRA_STATUS_TO_STATE.get(jira_string, card.State.unknown)
 
     def merge_jira_item_without_children(self, item):
         result = self.item_class(item.key)
@@ -323,9 +323,9 @@ class Importer:
         result.loading_plugin = "jira"
         result.title = item.get_field("summary") or ""
         result.description = self._get_contents_of_rendered_field(item, "description")
-        result.state = self.status_to_state(item)
-        if item.fields.issuetype.name == "Epic" and result.state == target.State.abandoned:
-            result.state = target.State.done
+        result.status = self.status_to_state(item)
+        if item.fields.issuetype.name == "Epic" and result.status == card.State.abandoned:
+            result.status = card.State.done
         result.priority = JIRA_PRIORITY_TO_VALUE.get(item.get_field("priority").name, 0)
         result.tags = {f"label:{value}" for value in (item.get_field("labels") or [])}
 
@@ -334,13 +334,13 @@ class Importer:
 
         return result
 
-    def save(self, retro_target_io_class, proj_target_io_class, event_manager_class):
-        if self._retro_targets:
-            retro_target_io_class.forget_all()
-            save_exported_jira_tasks(self._targets_by_id, self._retro_targets, retro_target_io_class)
-        if self._projective_targets:
-            proj_target_io_class.forget_all()
-            save_exported_jira_tasks(self._targets_by_id, self._projective_targets, proj_target_io_class)
+    def save(self, retro_card_io_class, proj_card_io_class, event_manager_class):
+        if self._retro_cards:
+            retro_card_io_class.forget_all()
+            save_exported_jira_tasks(self._cards_by_id, self._retro_cards, retro_card_io_class)
+        if self._projective_cards:
+            proj_card_io_class.forget_all()
+            save_exported_jira_tasks(self._cards_by_id, self._projective_cards, proj_card_io_class)
 
         storer = event_manager_class()
         for e in self._all_events:
@@ -349,8 +349,8 @@ class Importer:
 
     def get_collected_stats(self):
         ret = Collected(
-            Retrospective=len(self._retro_targets),
-            Projective=len(self._projective_targets),
+            Retrospective=len(self._retro_cards),
+            Projective=len(self._projective_cards),
             Events=len(self._all_events),
         )
         return ret

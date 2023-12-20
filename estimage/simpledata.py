@@ -8,8 +8,8 @@ import flask
 
 from . import data
 from . import inidata
-from .persistence import entrydef, pollster, event
-from .persistence.entrydef import ini
+from .persistence import card, pollster, event
+from .persistence.card import ini
 
 
 class IniInDirMixin:
@@ -27,14 +27,14 @@ class IniInDirMixin:
         return ret
 
 
-class RetroTargetIO(IniInDirMixin):
+class RetroCardIO(IniInDirMixin):
     CONFIG_BASENAME = "retrospective.ini"
-    WHAT_IS_THIS = "retrospective target"
+    WHAT_IS_THIS = "retrospective card"
 
 
-class ProjTargetIO(IniInDirMixin):
+class ProjCardIO(IniInDirMixin):
     CONFIG_BASENAME = "projective.ini"
-    WHAT_IS_THIS = "projective target"
+    WHAT_IS_THIS = "projective card"
 
 
 class UserPollsterBase(data.Pollster):
@@ -72,7 +72,7 @@ class Context:
     own_estimation_exists: bool = False
     global_estimation_exists: bool = False
 
-    def __init__(self, of_task: data.BaseTarget):
+    def __init__(self, of_task: data.BaseCard):
         self.task_name = of_task.name
         self.task_point_cost = of_task.point_cost
         self._own_estimate = None
@@ -182,13 +182,13 @@ class AppData(inidata.IniAppdata):
         return ""
 
 
-def get_model(targets_tree_without_duplicates, cls=None):
+def get_model(cards_tree_without_duplicates, cls=None):
     model = data.EstiModel()
-    if not targets_tree_without_duplicates:
+    if not cards_tree_without_duplicates:
         return model
     if cls is None:
-        cls = targets_tree_without_duplicates[0].__class__
-    main_composition = cls.to_tree(targets_tree_without_duplicates)
+        cls = cards_tree_without_duplicates[0].__class__
+    main_composition = cls.to_tree(cards_tree_without_duplicates)
     model.use_composition(main_composition)
     return model
 

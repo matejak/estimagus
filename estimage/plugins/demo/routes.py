@@ -17,7 +17,7 @@ def next_day():
     user_id = user.get_id()
 
     cls, loader = web_utils.get_retro_loader()
-    targets_by_id, model = web_utils.get_all_tasks_by_id_and_user_model("retro", user_id)
+    cards_by_id, model = web_utils.get_all_tasks_by_id_and_user_model("retro", user_id)
 
     start_date = flask.current_app.config["RETROSPECTIVE_PERIOD"][0]
     doer = demo.Demo(loader, start_date)

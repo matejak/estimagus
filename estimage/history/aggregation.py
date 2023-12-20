@@ -7,7 +7,7 @@ import numpy as np
 
 from .. import data
 from .. import utilities
-from ..entities import target
+from ..entities import card
 
 from . import progress
 
@@ -65,13 +65,13 @@ def apply_span_to_timeline(timeline, span, start, end):
         timeline.set_gradient_values(span[1], end_remainder, end, end_remainder)
 
 
-def convert_target_to_representation(
-        source: target.BaseTarget,
+def convert_card_to_representation(
+        source: card.BaseCard,
         start: datetime.datetime, end: datetime.datetime) -> progress.Progress:
     repre = progress.Progress(start, end)
     repre.task_name = source.name
     repre.points_timeline.set_value_at(end, source.point_cost)
-    repre.status_timeline.set_value_at(end, source.state)
+    repre.status_timeline.set_value_at(end, source.status)
     if work_span := source.work_span:
         work_span = produce_meaningful_span(work_span, start, end)
         if work_span[1] < work_span[0]:
@@ -98,29 +98,29 @@ def propagate_span_to_children(parent_span, child, start, end):
     child.work_span = produce_meaningful_span(parent_span, start, end)
 
 
-def convert_target_to_representations_of_leaves(
-        source: target.BaseTarget,
+def convert_card_to_representations_of_leaves(
+        source: card.BaseCard,
         start: datetime.datetime, end: datetime.datetime) -> typing.List[progress.Progress]:
     ret = []
 
     if source.children:
         for d in source.children:
             propagate_span_to_children(source.work_span, d, start, end)
-            ret.extend(convert_target_to_representations_of_leaves(d, start, end))
+            ret.extend(convert_card_to_representations_of_leaves(d, start, end))
     else:
-        ret = [convert_target_to_representation(source, start, end)]
+        ret = [convert_card_to_representation(source, start, end)]
     return ret
 
 
-def produce_tiered_aggregations(all_targets, all_events, start, end):
-    targets_by_tiers = collections.defaultdict(list)
-    for t in all_targets.values():
-        targets_by_tiers[t.tier].append(t)
+def produce_tiered_aggregations(all_cards, all_events, start, end):
+    cards_by_tiers = collections.defaultdict(list)
+    for t in all_cards.values():
+        cards_by_tiers[t.tier].append(t)
 
     aggregations = []
-    for tier in range(max(targets_by_tiers.keys()) + 1):
-        target_tree = utilities.reduce_subsets_from_sets(targets_by_tiers[tier])
-        a = Aggregation.from_targets(target_tree, start, end)
+    for tier in range(max(cards_by_tiers.keys()) + 1):
+        card_tree = utilities.reduce_subsets_from_sets(cards_by_tiers[tier])
+        a = Aggregation.from_cards(card_tree, start, end)
         a.process_event_manager(all_events)
         aggregations.append(a)
     return aggregations
@@ -133,18 +133,18 @@ class Aggregation:
         self.repres = []
 
     @classmethod
-    def from_target(
-            cls, source: target.BaseTarget,
+    def from_card(
+            cls, source: card.BaseCard,
             start: datetime.datetime, end: datetime.datetime) -> "Aggregation":
-        return cls.from_targets([source], start, end)
+        return cls.from_cards([source], start, end)
 
     @classmethod
-    def from_targets(
-            cls, sources: target.BaseTarget,
+    def from_cards(
+            cls, sources: card.BaseCard,
             start: datetime.datetime, end: datetime.datetime) -> "Aggregation":
         ret = cls()
         for s in sources:
-            for r in convert_target_to_representations_of_leaves(s, start, end):
+            for r in convert_card_to_representations_of_leaves(s, start, end):
                 ret.add_repre(r)
         return ret
 

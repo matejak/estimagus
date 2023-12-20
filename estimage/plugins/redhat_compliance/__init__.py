@@ -5,13 +5,13 @@ import dateutil.relativedelta
 import typing
 
 from ... import simpledata, data, persistence
-from ...entities import target
+from ...entities import card
 from .. import jira
 from .forms import AuthoritativeForm
 
 
 EXPORTS = dict(
-    BaseTarget="BaseTarget",
+    BaseCard="BaseCard",
     AuthoritativeForm="AuthoritativeForm",
     Workloads="Workloads",
 )
@@ -29,17 +29,17 @@ TEMPLATE_OVERRIDES = {
 
 
 RHELPLAN_STATUS_TO_STATE = {
-    "New": target.State.todo,
-    "Verified": target.State.done,
-    "Closed": target.State.done,
-    "In Progress": target.State.in_progress,
-    "ASSIGNED": target.State.in_progress,
-    "ON_DEV": target.State.in_progress,
-    "POST": target.State.in_progress,
-    "MODIFIED": target.State.in_progress,
-    "Review": target.State.review,
-    "ON_QA": target.State.review,
-    "To Do": target.State.todo,
+    "New": card.State.todo,
+    "Verified": card.State.done,
+    "Closed": card.State.done,
+    "In Progress": card.State.in_progress,
+    "ASSIGNED": card.State.in_progress,
+    "ON_DEV": card.State.in_progress,
+    "POST": card.State.in_progress,
+    "MODIFIED": card.State.in_progress,
+    "Review": card.State.review,
+    "ON_QA": card.State.review,
+    "To Do": card.State.todo,
 }
 
 
@@ -59,7 +59,7 @@ class InputSpec(jira.InputSpec):
         proj_narrowing = f"sprint = {planning_epoch}"
         ret.retrospective_query = " ".join((query_lead, retro_narrowing))
         ret.projective_query = " ".join((query_lead, proj_narrowing))
-        ret.item_class = app.get_final_class("BaseTarget")
+        ret.item_class = app.get_final_class("BaseCard")
         return ret
 
 
@@ -188,7 +188,7 @@ class Importer(jira.Importer):
             result.work_span = tuple(work_span)
 
     def update_points_of(self, our_task, points):
-        jira_task = self.find_target(our_task.name)
+        jira_task = self.find_card(our_task.name)
         remote_points = self._get_points_of(jira_task)
         if remote_points == points:
             our_task.point_cost = points
@@ -204,9 +204,9 @@ class Importer(jira.Importer):
         jira_task.find(jira_task.key)
         return self.merge_jira_item_without_children(jira_task)
 
-    def save(self, retro_target_io_class, proj_target_io_class, event_manager_class):
-        apply_some_events_into_issues(self._targets_by_id, self._all_events)
-        return super().save(retro_target_io_class, proj_target_io_class, event_manager_class)
+    def save(self, retro_card_io_class, proj_card_io_class, event_manager_class):
+        apply_some_events_into_issues(self._cards_by_id, self._all_events)
+        return super().save(retro_card_io_class, proj_card_io_class, event_manager_class)
 
     @classmethod
     def _status_to_state(cls, item, jira_string):
@@ -215,9 +215,9 @@ class Importer(jira.Importer):
         if item_name.startswith("OPENSCAP"):
             return super()._status_to_state(item, jira_string)
         elif item_name.startswith("RHELPLAN"):
-            return RHELPLAN_STATUS_TO_STATE.get(jira_string, target.State.unknown)
+            return RHELPLAN_STATUS_TO_STATE.get(jira_string, card.State.unknown)
         else:
-            return RHELPLAN_STATUS_TO_STATE.get(jira_string, target.State.unknown)
+            return RHELPLAN_STATUS_TO_STATE.get(jira_string, card.State.unknown)
 
 
 def _get_simple_spec(token):
@@ -225,15 +225,15 @@ def _get_simple_spec(token):
     spec = Spec(
         server_url="https://issues.redhat.com",
         token=token,
-        item_class = app.get_final_class("BaseTarget"))
+        item_class = app.get_final_class("BaseCard"))
     return spec
 
 
-def refresh_targets(names, io_cls, token):
+def refresh_cards(names, io_cls, token):
     spec = _get_simple_spec(token)
-    real_targets = [data.BaseTarget.load_metadata(name, io_cls) for name in names]
+    real_cards = [data.BaseCard.load_metadata(name, io_cls) for name in names]
     importer = Importer(spec)
-    importer.refresh_targets(real_targets, io_cls)
+    importer.refresh_cards(real_cards, io_cls)
 
 
 def write_some_points(form, io_cls):
@@ -243,9 +243,9 @@ def write_some_points(form, io_cls):
 def write_points_to_task(io_cls, name, token, points):
     spec = _get_simple_spec(token)
     importer = Importer(spec)
-    our_target = data.BaseTarget.load_metadata(name, io_cls)
-    updated_target = importer.update_points_of(our_target, points)
-    updated_target.save_metadata(io_cls)
+    our_card = data.BaseCard.load_metadata(name, io_cls)
+    updated_card = importer.update_points_of(our_card, points)
+    updated_card.save_metadata(io_cls)
 
 
 def do_stuff(spec, retro_loader, proj_loader):
@@ -255,7 +255,7 @@ def do_stuff(spec, retro_loader, proj_loader):
     return importer.get_collected_stats()
 
 
-class BaseTarget:
+class BaseCard:
     status_summary: str
     status_summary_time: datetime.datetime
 
@@ -274,8 +274,8 @@ class BaseTarget:
         loader.load_status_update(self)
 
 
-@persistence.loader_of(BaseTarget, "ini")
-class IniTargetStateLoader:
+@persistence.loader_of(BaseCard, "ini")
+class IniCardStateLoader:
     def load_status_update(self, t):
         t.status_summary = self._get_our(t, "status_summary")
         time_str = self._get_our(t, "status_summary_time")
@@ -283,8 +283,8 @@ class IniTargetStateLoader:
             t.status_summary_time = datetime.datetime.fromisoformat(time_str)
 
 
-@persistence.saver_of(BaseTarget, "ini")
-class IniTargetStateSaver:
+@persistence.saver_of(BaseCard, "ini")
+class IniCardStateSaver:
     def save_status_update(self, t):
         self._store_our(t, "status_summary")
         if t.status_summary_time:
@@ -293,8 +293,8 @@ class IniTargetStateSaver:
 
 class Workloads:
     def __init__(self,
-                 targets: typing.Iterable[data.BaseTarget],
+                 cards: typing.Iterable[data.BaseCard],
                  model: data.EstiModel,
                  * args, ** kwargs):
-        targets = [t for t in targets if t.tier == 0]
-        super().__init__(* args, model=model, targets=targets, ** kwargs)
+        cards = [t for t in cards if t.tier == 0]
+        super().__init__(* args, model=model, cards=cards, ** kwargs)

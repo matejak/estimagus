@@ -35,7 +35,7 @@
     Proportion of the work: {{ "%.2g" % workload.points }}
     </p>
     <ul>
-    {% for epic in (workload.targets | sort(attribute="name")) %}
+    {% for epic in (workload.cards | sort(attribute="name")) %}
     <li>{{ render_epic_workload(epic, workload.point_parts[epic.name], 100 * workload.proportions[epic.name]) }}</li>
     {% endfor %}
     </ul>
@@ -48,7 +48,7 @@
     Proportion of the work: {{ "%.2g" % workload.points }}
     </p>
     <ul>
-    {% for epic in (workload.targets | sort(attribute="name")) %}
+    {% for epic in (workload.cards | sort(attribute="name")) %}
     <li>{{ render_epic_workload(epic, workload.point_parts[epic.name], 100 * workload.proportions[epic.name]) }}</li>
     {% endfor %}
     </ul>

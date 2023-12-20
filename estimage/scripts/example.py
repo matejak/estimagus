@@ -15,7 +15,7 @@ OUR_INPUT = dict(
 )
 
 
-class MemoryTarget(data.BaseTarget):
+class MemoryCard(data.BaseCard):
     def __init__(self, name):
         self.name = name
 
@@ -43,33 +43,33 @@ class MemoryPollster(data.Pollster):
 
 
 class SimpleModel(data.EstiModel):
-    def __init__(self, target_list):
+    def __init__(self, card_list):
         super().__init__()
-        for t in target_list:
+        for t in card_list:
             self.new_element(t.name)
 
 
 def demo():
     names = AUTHORITATIVE_STORAGE.keys()
 
-    targets = {name: MemoryTarget(name) for name in names}
-    for name, t in targets.items():
+    cards = {name: MemoryCard(name) for name in names}
+    for name, t in cards.items():
         t.load()
 
-    # view targets
+    # view cards
     # estimate them
     pollster = MemoryPollster()
 
-    estimator = SimpleModel(targets.values())
+    estimator = SimpleModel(cards.values())
 
     for name in names:
         estimate = pollster.ask_points(name)
         estimator.estimate_points_of(name, estimate)
         expected = estimator.point_estimate_of(name).expected
         print(f"{name}: Most likely: {estimate.most_likely}, expected: {expected}")
-        targets[name].save_point_cost()
+        cards[name].save_point_cost()
 
-    for name, t in targets.items():
+    for name, t in cards.items():
         t.load()
         print(f"{name}: {t.point_cost=}")
 

@@ -4,22 +4,22 @@ import datetime
 from ... import data, inidata, persistence
 
 
-class IniTargetSaverBase(inidata.IniSaverBase, persistence.entrydef.Saver):
+class IniCardSaverBase(inidata.IniSaverBase, persistence.card.Saver):
     def _store_our(self, t, attribute, value=None):
         if value is None and hasattr(t, attribute):
             value = getattr(t, attribute)
         return self._write_items_attribute(t.name, attribute, value)
 
 
-class IniTargetLoaderBase(inidata.IniLoaderBase, persistence.entrydef.Loader):
+class IniCardLoaderBase(inidata.IniLoaderBase, persistence.card.Loader):
     def _get_our(self, t, attribute, fallback=None):
         if fallback is None and hasattr(t, attribute):
             fallback = getattr(t, attribute)
         return self._read_items_attribute(t.name, attribute, fallback)
 
 
-@persistence.saver_of(data.BaseTarget, "ini")
-class IniTargetSaver(IniTargetSaverBase):
+@persistence.saver_of(data.BaseCard, "ini")
+class IniCardSaver(IniCardSaverBase):
     def save_title_and_desc(self, t):
         self._store_our(t, "title")
         self._store_our(t, "description")
@@ -41,7 +41,7 @@ class IniTargetSaver(IniTargetSaverBase):
         self._store_our(t, "collaborators", collabs_str)
 
     def save_priority_and_state(self, t):
-        self._store_our(t, "state", str(int(t.state)))
+        self._store_our(t, "state", str(int(t.status)))
         self._store_our(t, "priority", str(float(t.priority)))
 
     def save_tier(self, t):
@@ -62,9 +62,9 @@ class IniTargetSaver(IniTargetSaverBase):
         self._store_our(t, "uri")
 
     @classmethod
-    def bulk_save_metadata(cls, targets: typing.Iterable[data.BaseTarget]):
+    def bulk_save_metadata(cls, cards: typing.Iterable[data.BaseCard]):
         with cls.get_saver() as saver:
-            for t in targets:
+            for t in cards:
                 t.pass_data_to_saver(saver)
 
     @classmethod
@@ -72,8 +72,8 @@ class IniTargetSaver(IniTargetSaverBase):
         cls.erase()
 
 
-@persistence.loader_of(data.BaseTarget, "ini")
-class IniTargetLoader(IniTargetLoaderBase):
+@persistence.loader_of(data.BaseCard, "ini")
+class IniCardLoader(IniCardLoaderBase):
     def load_title_and_desc(self, t):
         t.title = self._get_our(t, "title")
         t.description = self._get_our(t, "description")
@@ -86,14 +86,14 @@ class IniTargetLoader(IniTargetLoaderBase):
         for n in self._unpack_list(all_deps):
             if not n:
                 continue
-            new = data.BaseTarget(n)
+            new = data.BaseCard(n)
             new.parent = t
             new.load_data_by_loader(self)
             t.add_element(new)
         parent_id = self._get_our(t, "parent", "")
         parent_known_notyet_fetched = parent_id and t.parent is None
         if parent_known_notyet_fetched:
-            parent = data.BaseTarget(parent_id)
+            parent = data.BaseCard(parent_id)
             parent.load_data_by_loader(self)
             t.parent = parent
 
@@ -103,7 +103,7 @@ class IniTargetLoader(IniTargetLoaderBase):
 
     def load_priority_and_state(self, t):
         state = self._get_our(t, "state")
-        t.state = data.State(int(state))
+        t.status = data.State(int(state))
         t.priority = float(self._get_our(t, "priority"))
 
     def load_tier(self, t):
@@ -127,18 +127,18 @@ class IniTargetLoader(IniTargetLoaderBase):
         t.uri = self._get_our(t, "uri")
 
     @classmethod
-    def get_all_target_names(cls):
+    def get_all_card_names(cls):
         config = cls._load_existing_config(cls.CONFIG_FILENAME)
         return set(config.sections())
 
     @classmethod
-    def get_loaded_targets_by_id(cls, target_class=data.BaseTarget):
+    def get_loaded_cards_by_id(cls, card_class=data.BaseCard):
         ret = dict()
         with cls.get_loader() as loader:
-            for name in cls.get_all_target_names():
-                target = target_class(name)
-                target.load_data_by_loader(loader)
-                ret[name] = target
+            for name in cls.get_all_card_names():
+                card = card_class(name)
+                card.load_data_by_loader(loader)
+                ret[name] = card
         return ret
 
     @classmethod
@@ -148,16 +148,16 @@ class IniTargetLoader(IniTargetLoaderBase):
             cls.denormalize(child)
 
     @classmethod
-    def load_all_targets(cls, target_class=data.BaseTarget):
+    def load_all_cards(cls, card_class=data.BaseCard):
         config = cls._load_existing_config(cls.CONFIG_FILENAME)
         ret = []
         with cls.get_loader() as loader:
             for name in config.sections():
-                target = target_class(name)
-                target.load_data_by_loader(loader)
-                ret.append(target)
+                card = card_class(name)
+                card.load_data_by_loader(loader)
+                ret.append(card)
         return ret
 
 
-class IniTargetIO(IniTargetSaver, IniTargetLoader):
+class IniCardIO(IniCardSaver, IniCardLoader):
     pass
