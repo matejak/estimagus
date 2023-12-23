@@ -22,11 +22,11 @@ class IniEventsSaver(inidata.IniSaverBase):
         )
         if (val := event.value_before) is not None:
             if event.quantity == "state":
-                val = int(val)
+                val = val.name
             to_save["value_before"] = str(val)
         if (val := event.value_after) is not None:
             if event.quantity == "state":
-                val = int(val)
+                val = val.name
             to_save["value_after"] = str(val)
 
         return to_save
@@ -57,13 +57,13 @@ class IniEventsLoader(inidata.IniLoaderBase):
             if ret.quantity in ("points",):
                 ret.value_before = float(ret.value_before)
             elif ret.quantity == "state":
-                ret.value_before = data.State(int(ret.value_before))
+                ret.value_before = data.STATUSES.get(ret.value_before)
         if "value_after" in data_dict:
             ret.value_after = data_dict["value_after"]
             if ret.quantity in ("points",):
                 ret.value_after = float(ret.value_after)
             elif ret.quantity == "state":
-                ret.value_after = data.State(int(ret.value_after))
+                ret.value_after = data.STATUSES.get(ret.value_after)
         return ret
 
 

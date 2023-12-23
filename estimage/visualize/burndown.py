@@ -3,13 +3,13 @@ import typing
 
 import numpy as np
 
-from ..entities.card import State
+from ..entities.card import STATUSES, Status
 from . import utils
 from .. import history, PluginResolver
 
 
 class StatusStyle(typing.NamedTuple):
-    status: State
+    status: Status
     color: tuple
     label: str
 
@@ -17,9 +17,9 @@ class StatusStyle(typing.NamedTuple):
 @PluginResolver.class_is_extendable("MPLPointPlot")
 class MPLPointPlot:
     STYLES = (
-        StatusStyle(status=State.todo, color=(0.1, 0.1, 0.5, 1), label="To Do"),
-        StatusStyle(status=State.in_progress, color=(0.1, 0.1, 0.6, 0.8), label="In Progress"),
-        StatusStyle(status=State.review, color=(0.1, 0.2, 0.7, 0.6), label="Needs Review"),
+        StatusStyle(status=STATUSES.int("todo"), color=(0.1, 0.1, 0.5, 1), label="To Do"),
+        StatusStyle(status=STATUSES.int("in_progress"), color=(0.1, 0.1, 0.6, 0.8), label="In Progress"),
+        StatusStyle(status=STATUSES.int("review"), color=(0.1, 0.2, 0.7, 0.6), label="Needs Review"),
     )
     DDAY_LABEL = "today"
 
@@ -66,8 +66,9 @@ class MPLPointPlot:
             array = utils.insert_element_into_array_after(array[up_until_dday], dday, 0)
             bottom = utils.insert_element_into_array_after(bottom[up_until_dday], dday, 0)
             days = utils.insert_element_into_array_after(days[up_until_dday], dday, dday)
-        ax.fill_between(days, array + bottom, bottom, label=style.label,
-                        color=style.color, edgecolor="white", linewidth=self.width * 0.5)
+        if array.sum() > 0:
+            ax.fill_between(days, array + bottom, bottom, label=style.label,
+                            color=style.color, edgecolor="white", linewidth=self.width * 0.5)
 
     def get_figure(self):
         plt = utils.get_standard_pyplot()

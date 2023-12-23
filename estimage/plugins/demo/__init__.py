@@ -86,7 +86,7 @@ class Demo:
 
     def get_not_finished_cards(self):
         cards = self.cards_by_id.values()
-        ret = [t for t in cards if t.status in (data.State.todo, data.State.in_progress)]
+        ret = [t for t in cards if t.status in (data.STATUSES.get("todo"), data.STATUSES.get("in_progress"))]
         ret = [t for t in ret if not t.children]
         return ret
 
@@ -134,11 +134,11 @@ def start(cards, loader, start_date):
     mgr = simpledata.EventManager()
     for t in cards:
         evt = data.Event(t.name, "state", date)
-        evt.value_before = data.State.unknown
-        evt.value_after = data.State.todo
+        evt.value_before = data.STATUSES.get("irrelevant")
+        evt.value_after = data.STATUSES.get("todo")
         mgr.add_event(evt)
 
-        t.status = data.State.todo
+        t.status = data.STATUSES.get("todo")
         t.save_metadata(loader)
     mgr.save()
 
@@ -149,12 +149,12 @@ def begin_card(card, loader, start_date, day_index):
     mgr.load()
     if len(mgr.get_chronological_task_events_by_type(card.name)["state"]) < 2:
         evt = data.Event(card.name, "state", date)
-        evt.value_before = data.State.todo
-        evt.value_after = data.State.in_progress
+        evt.value_before = data.STATUSES.get("todo")
+        evt.value_after = data.STATUSES.get("in_progress")
         mgr.add_event(evt)
         mgr.save()
 
-    card.status = data.State.in_progress
+    card.status = data.STATUSES.get("in_progress")
     card.save_metadata(loader)
 
 
@@ -163,12 +163,12 @@ def conclude_card(card, loader, start_date, day_index):
     mgr = simpledata.EventManager()
     mgr.load()
     evt = data.Event(card.name, "state", date)
-    evt.value_before = data.State.in_progress
-    evt.value_after = data.State.done
+    evt.value_before = data.STATUSES.get("in_progress")
+    evt.value_after = data.STATUSES.get("done")
     mgr.add_event(evt)
     mgr.save()
 
-    card.status = data.State.done
+    card.status = data.STATUSES.get("done")
     card.save_metadata(loader)
 
 

@@ -32,7 +32,7 @@ def test_aggregation(repre):
     someday = datetime.datetime(2022, 10, 10)
     day_after = someday + ONE_DAY
 
-    repre.update(day_after, points=6, status=card.State.review)
+    repre.update(day_after, points=6, status=card.STATUSES.get("review"))
 
     aggregation = tm.Aggregation()
     aggregation.add_repre(repre)
@@ -150,7 +150,7 @@ def test_aggregation_plan(twoday_repre_done_in_day):
 
     another_points = 8
     another_repre = history.Progress(a.start, a.end)
-    another_repre.status_timeline.set_value_at(a.start, card.State.todo)
+    another_repre.status_timeline.set_value_at(a.start, card.STATUSES.get("todo"))
     another_repre.points_timeline.set_value_at(PERIOD_START, another_points)
     a.add_repre(another_repre)
 
@@ -327,20 +327,20 @@ def test_aggregation_and_event_manager(mgr, simple_long_period_aggregation, simp
 
 
 def get_wip_aggregation(simple_card, mgr):
-    simple_card.status = data.State.in_progress
+    simple_card.status = data.STATUSES.get("in_progress")
     add_status_event_days_after_start(
-        mgr, simple_card, 10, data.State.todo, data.State.in_progress)
+        mgr, simple_card, 10, data.STATUSES.get("todo"), data.STATUSES.get("in_progress"))
     aggregation = tm.Aggregation.from_card(simple_card, PERIOD_START, LONG_PERIOD_END)
     aggregation.process_event_manager(mgr)
     return aggregation
 
 
 def get_done_aggregation(simple_card, mgr, was_underway_for_days):
-    simple_card.status = data.State.done
+    simple_card.status = data.STATUSES.get("done")
     add_status_event_days_after_start(
-        mgr, simple_card, 10, data.State.todo, data.State.in_progress)
+        mgr, simple_card, 10, data.STATUSES.get("todo"), data.STATUSES.get("in_progress"))
     add_status_event_days_after_start(
-        mgr, simple_card, 10 + was_underway_for_days, data.State.in_progress, data.State.done)
+        mgr, simple_card, 10 + was_underway_for_days, data.STATUSES.get("in_progress"), data.STATUSES.get("done"))
     aggregation = tm.Aggregation.from_card(simple_card, PERIOD_START, LONG_PERIOD_END)
     aggregation.process_event_manager(mgr)
     return aggregation

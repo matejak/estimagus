@@ -29,17 +29,17 @@ TEMPLATE_OVERRIDES = {
 
 
 RHELPLAN_STATUS_TO_STATE = {
-    "New": card.State.todo,
-    "Verified": card.State.done,
-    "Closed": card.State.done,
-    "In Progress": card.State.in_progress,
-    "ASSIGNED": card.State.in_progress,
-    "ON_DEV": card.State.in_progress,
-    "POST": card.State.in_progress,
-    "MODIFIED": card.State.in_progress,
-    "Review": card.State.review,
-    "ON_QA": card.State.review,
-    "To Do": card.State.todo,
+    "New": card.STATUSES.get("todo"),
+    "Verified": card.STATUSES.get("done"),
+    "Closed": card.STATUSES.get("done"),
+    "In Progress": card.STATUSES.get("in_progress"),
+    "ASSIGNED": card.STATUSES.get("in_progress"),
+    "ON_DEV": card.STATUSES.get("in_progress"),
+    "POST": card.STATUSES.get("in_progress"),
+    "MODIFIED": card.STATUSES.get("in_progress"),
+    "Review": card.STATUSES.get("review"),
+    "ON_QA": card.STATUSES.get("review"),
+    "To Do": card.STATUSES.get("todo"),
 }
 
 
@@ -215,9 +215,9 @@ class Importer(jira.Importer):
         if item_name.startswith("OPENSCAP"):
             return super()._status_to_state(item, jira_string)
         elif item_name.startswith("RHELPLAN"):
-            return RHELPLAN_STATUS_TO_STATE.get(jira_string, card.State.unknown)
+            return RHELPLAN_STATUS_TO_STATE.get(jira_string, card.STATUSES.get("irrelevant"))
         else:
-            return RHELPLAN_STATUS_TO_STATE.get(jira_string, card.State.unknown)
+            return RHELPLAN_STATUS_TO_STATE.get(jira_string, card.STATUSES.get("irrelevant"))
 
 
 def _get_simple_spec(token):

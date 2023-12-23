@@ -59,8 +59,8 @@ def test_leaf_properties(leaf_card):
 
 def test_finished_card_is_masked(leaf_card):
     done_states = (
-        card.State.abandoned,
-        card.State.done,
+        card.STATUSES.get("abandoned"),
+        card.STATUSES.get("done"),
     )
     for state in done_states:
         leaf_card.status = state
@@ -146,7 +146,7 @@ def test_card_load_all(card_io):
 def fill_card_instance_with_stuff(t):
     t.point_cost = 5
     t.title = "Issue One"
-    t.status = card.State.in_progress
+    t.status = card.STATUSES.get("in_progress")
     t.collaborators = ["a", "b"]
     t.assignee = "trubador"
     t.priority = 20

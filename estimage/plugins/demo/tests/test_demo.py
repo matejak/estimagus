@@ -24,13 +24,13 @@ def loader():
 @pytest.fixture
 def some_cards(loader):
     a = BaseCard("a")
-    a.status = data.State.todo
+    a.status = data.STATUSES.get("todo")
     a.title = "Proud A"
     b = BaseCard("b")
-    b.status = data.State.in_progress
+    b.status = data.STATUSES.get("in_progress")
     c = BaseCard("c")
     d = BaseCard("d")
-    d.status = data.State.done
+    d.status = data.STATUSES.get("done")
     d.title = "Proud D"
     cards = [a, b, c, d]
     loader.bulk_save_metadata(cards)

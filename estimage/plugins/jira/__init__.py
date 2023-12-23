@@ -11,23 +11,26 @@ from ...entities import event as evts
 from ... import simpledata
 
 
+card.STATUSES.add(card.Status("review", wip=False, started=True))
+
+
 JIRA_STATUS_TO_STATE = {
-    "Backlog": card.State.todo,
-    "Refinement": card.State.todo,
-    "New": card.State.todo,
-    "Done": card.State.done,
-    "Verified": card.State.done,
-    "Abandoned": card.State.abandoned,
-    "Closed": card.State.abandoned,
-    "In Progress": card.State.in_progress,
-    "ASSIGNED": card.State.in_progress,
-    "ON_DEV": card.State.in_progress,
-    "POST": card.State.in_progress,
-    "MODIFIED": card.State.in_progress,
-    "Needs Peer Review": card.State.review,
-    "Review": card.State.review,
-    "ON_QA": card.State.review,
-    "To Do": card.State.todo,
+    "Backlog": card.STATUSES.get("todo"),
+    "Refinement": card.STATUSES.get("todo"),
+    "New": card.STATUSES.get("todo"),
+    "Done": card.STATUSES.get("done"),
+    "Verified": card.STATUSES.get("done"),
+    "Abandoned": card.STATUSES.get("irrelevant"),
+    "Closed": card.STATUSES.get("irrelevant"),
+    "In Progress": card.STATUSES.get("in_progress"),
+    "ASSIGNED": card.STATUSES.get("in_progress"),
+    "ON_DEV": card.STATUSES.get("in_progress"),
+    "POST": card.STATUSES.get("in_progress"),
+    "MODIFIED": card.STATUSES.get("in_progress"),
+    "Needs Peer Review": card.STATUSES.get("review"),
+    "Review": card.STATUSES.get("review"),
+    "ON_QA": card.STATUSES.get("review"),
+    "To Do": card.STATUSES.get("todo"),
 }
 
 
@@ -315,7 +318,7 @@ class Importer:
 
     @classmethod
     def _status_to_state(cls, item, jira_string):
-        return JIRA_STATUS_TO_STATE.get(jira_string, card.State.unknown)
+        return JIRA_STATUS_TO_STATE.get(jira_string, card.STATUSES.get("irrelevant"))
 
     def merge_jira_item_without_children(self, item):
         result = self.item_class(item.key)
@@ -324,8 +327,8 @@ class Importer:
         result.title = item.get_field("summary") or ""
         result.description = self._get_contents_of_rendered_field(item, "description")
         result.status = self.status_to_state(item)
-        if item.fields.issuetype.name == "Epic" and result.status == card.State.abandoned:
-            result.status = card.State.done
+        if item.fields.issuetype.name == "Epic" and result.status == card.STATUSES.get("abandoned"):
+            result.status = card.STATUSES.get("done")
         result.priority = JIRA_PRIORITY_TO_VALUE.get(item.get_field("priority").name, 0)
         result.tags = {f"label:{value}" for value in (item.get_field("labels") or [])}
 

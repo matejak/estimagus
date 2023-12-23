@@ -45,15 +45,15 @@ def oneday_repre():
     end = PERIOD_START
 
     progress = tm.Progress(start, end)
-    # representation.status_timeline.set_value_at(end, card.State.in_progress)
+    # representation.status_timeline.set_value_at(end, card.STATUSES.get("in_progress"))
     # representation.fill_history_from(end)
     return progress
 
 
 @pytest.fixture
 def twoday_repre_done_in_day(twoday_repre):
-    twoday_repre.update(PERIOD_START, card.State.in_progress, points=2)
-    twoday_repre.update(PERIOD_START + ONE_DAY, card.State.done, points=2)
+    twoday_repre.update(PERIOD_START, card.STATUSES.get("in_progress"), points=2)
+    twoday_repre.update(PERIOD_START + ONE_DAY, card.STATUSES.get("done"), points=2)
     return twoday_repre
 
 
@@ -66,7 +66,7 @@ def test_repre_velocity_not_touched(oneday_repre):
 
 @pytest.mark.dependency()
 def test_repre_velocity_not_done(oneday_repre):
-    oneday_repre.update(PERIOD_START, card.State.in_progress, points=1)
+    oneday_repre.update(PERIOD_START, card.STATUSES.get("in_progress"), points=1)
     assert oneday_repre.average_daily_velocity == 0
     assert oneday_repre.get_day_of_completion() is None
     assert np.all(oneday_repre.get_velocity_array() == 0)
@@ -85,32 +85,32 @@ def test_repre(repre):
     someday = LATER
     day_after = someday + ONE_DAY
 
-    repre.update(someday, points=5, status=card.State.in_progress)
+    repre.update(someday, points=5, status=card.STATUSES.get("in_progress"))
 
     assert repre.get_points_at(someday) == 5
-    assert repre.get_status_at(someday) == card.State.in_progress
+    assert repre.get_status_at(someday) == card.STATUSES.get("in_progress")
 
     assert repre.get_points_at(someday - ONE_DAY) == 0
-    assert repre.get_status_at(someday + ONE_DAY) == card.State.unknown
-    assert repre.get_status_at(someday - ONE_DAY) == card.State.unknown
+    assert repre.get_status_at(someday + ONE_DAY) == card.STATUSES.get("irrelevant")
+    assert repre.get_status_at(someday - ONE_DAY) == card.STATUSES.get("irrelevant")
 
     repre.fill_history_from(someday)
 
     assert repre.get_points_at(someday - ONE_DAY) == 5
-    assert repre.get_status_at(someday - ONE_DAY) == card.State.in_progress
+    assert repre.get_status_at(someday - ONE_DAY) == card.STATUSES.get("in_progress")
 
-    repre.update(day_after, points=6, status=card.State.review)
+    repre.update(day_after, points=6, status=card.STATUSES.get("review"))
 
     assert repre.get_points_at(someday) == 5
-    assert repre.get_status_at(someday) == card.State.in_progress
+    assert repre.get_status_at(someday) == card.STATUSES.get("in_progress")
     assert repre.get_points_at(day_after) == 6
-    assert repre.get_status_at(day_after) == card.State.review
+    assert repre.get_status_at(day_after) == card.STATUSES.get("review")
 
-    assert sum(repre.status_is(card.State.review)) == 1
-    assert repre.points_of_status(card.State.review).max() == 6
+    assert sum(repre.status_is(card.STATUSES.get("review"))) == 1
+    assert repre.points_of_status(card.STATUSES.get("review")).max() == 6
 
-    assert sum(repre.status_is(card.State.in_progress)) == 10
-    assert repre.points_of_status(card.State.in_progress).max() == 5
+    assert sum(repre.status_is(card.STATUSES.get("in_progress"))) == 10
+    assert repre.points_of_status(card.STATUSES.get("in_progress")).max() == 5
 
 
 def test_repre_get_last_point_value():
@@ -141,19 +141,19 @@ def test_irrelevant_repre():
     r = tm.Progress(PERIOD_START, LONG_PERIOD_END)
     assert r.always_was_irrelevant()
 
-    r.status_timeline.set_value_at(PERIOD_START, card.State.todo)
+    r.status_timeline.set_value_at(PERIOD_START, card.STATUSES.get("todo"))
     assert not r.always_was_irrelevant()
 
-    r.status_timeline.set_value_at(PERIOD_START + ONE_DAY, card.State.in_progress)
+    r.status_timeline.set_value_at(PERIOD_START + ONE_DAY, card.STATUSES.get("in_progress"))
     assert not r.always_was_irrelevant()
 
-    r.status_timeline.set_value_at(PERIOD_START, card.State.abandoned)
+    r.status_timeline.set_value_at(PERIOD_START, card.STATUSES.get("abandoned"))
     assert not r.always_was_irrelevant()
 
-    r.status_timeline.set_value_at(PERIOD_START + ONE_DAY, card.State.done)
+    r.status_timeline.set_value_at(PERIOD_START + ONE_DAY, card.STATUSES.get("done"))
     assert r.always_was_irrelevant()
 
-    r.status_timeline.set_value_at(PERIOD_START, card.State.review)
+    r.status_timeline.set_value_at(PERIOD_START, card.STATUSES.get("review"))
     assert not r.always_was_irrelevant()
 
 
@@ -163,8 +163,8 @@ def test_project_events(repre, early_event, late_event):
     points_event.value_after = 5
 
     status_event = data.Event("", "state", PERIOD_START)
-    status_event.value_before = data.State.backlog
-    status_event.value_after = data.State.todo
+    status_event.value_before = data.STATUSES.get("backlog")
+    status_event.value_after = data.STATUSES.get("todo")
 
     early_event.quantity = "project"
     early_event.value_before = 0
@@ -176,11 +176,11 @@ def test_project_events(repre, early_event, late_event):
 
     repre.process_events([points_event, status_event, late_event, early_event])
     assert repre.get_points_at(PERIOD_START) == 0
-    assert repre.get_status_at(PERIOD_START) == data.State.unknown
+    assert repre.get_status_at(PERIOD_START) == data.STATUSES.get("irrelevant")
     assert repre.get_points_at(early_event.time + ONE_DAY) == 5
-    assert repre.get_status_at(early_event.time + ONE_DAY) == data.State.todo
+    assert repre.get_status_at(early_event.time + ONE_DAY) == data.STATUSES.get("todo")
     assert repre.get_points_at(late_event.time + ONE_DAY) == 0
-    assert repre.get_status_at(late_event.time + ONE_DAY) == data.State.unknown
+    assert repre.get_status_at(late_event.time + ONE_DAY) == data.STATUSES.get("irrelevant")
 
 
 def test_repre_has_sane_plan(oneday_repre, twoday_repre, fiveday_repre):
@@ -261,41 +261,41 @@ def test_repre_velocity_done_in_day(twoday_repre_done_in_day):
 
 
 def test_repre_zero_velocity_when_done_before_start(repre):
-    repre.update(repre.end, points=5, status=card.State.done)
+    repre.update(repre.end, points=5, status=card.STATUSES.get("done"))
     repre.fill_history_from(repre.end)
     assert repre.get_velocity_array().max() == 0
 
 
 @pytest.mark.dependency(depends=["test_repre_velocity_not_done"])
 def test_repre_velocity_done_real_quick(twoday_repre):
-    twoday_repre.update(PERIOD_START, card.State.done, points=2)
-    twoday_repre.update(PERIOD_START + ONE_DAY, card.State.done, points=2)
+    twoday_repre.update(PERIOD_START, card.STATUSES.get("done"), points=2)
+    twoday_repre.update(PERIOD_START + ONE_DAY, card.STATUSES.get("done"), points=2)
     assert twoday_repre.average_daily_velocity == 2
     assert twoday_repre.get_day_of_completion() == PERIOD_START
 
 
 @pytest.mark.dependency(depends=["test_repre_velocity_done_real_quick"])
 def test_repre_velocity_done_real_quick_array(twoday_repre):
-    twoday_repre.update(PERIOD_START, card.State.todo, points=2)
-    twoday_repre.update(PERIOD_START + ONE_DAY, card.State.done, points=2)
+    twoday_repre.update(PERIOD_START, card.STATUSES.get("todo"), points=2)
+    twoday_repre.update(PERIOD_START + ONE_DAY, card.STATUSES.get("done"), points=2)
     velocity_array = twoday_repre.get_velocity_array()
     assert velocity_array.sum() == 2
     assert (velocity_array > 0).sum() == 1
 
 
 def update_repre_with_casual_task_schedule(repre, start):
-    repre.update(start, card.State.todo)
-    repre.update(start + 1 * ONE_DAY, card.State.in_progress)
-    repre.update(start + 2 * ONE_DAY, card.State.in_progress)
-    repre.update(start + 3 * ONE_DAY, card.State.in_progress)
-    repre.update(start + 4 * ONE_DAY, card.State.review)
-    repre.update(start + 5 * ONE_DAY, card.State.review)
+    repre.update(start, card.STATUSES.get("todo"))
+    repre.update(start + 1 * ONE_DAY, card.STATUSES.get("in_progress"))
+    repre.update(start + 2 * ONE_DAY, card.STATUSES.get("in_progress"))
+    repre.update(start + 3 * ONE_DAY, card.STATUSES.get("in_progress"))
+    repre.update(start + 4 * ONE_DAY, card.STATUSES.get("review"))
+    repre.update(start + 5 * ONE_DAY, card.STATUSES.get("review"))
 
 
 @pytest.mark.dependency(depends=["test_repre_velocity_done_in_day"])
 def test_full_repre_velocity_done_in_three_days(repre):
     period_end = repre.end
-    repre.update(period_end, card.State.done, points=9)
+    repre.update(period_end, card.STATUSES.get("done"), points=9)
     repre.fill_history_from(period_end)
     update_repre_with_casual_task_schedule(repre, PERIOD_START)
     assert repre.average_daily_velocity == 3
@@ -304,7 +304,7 @@ def test_full_repre_velocity_done_in_three_days(repre):
 @pytest.mark.dependency(depends=["test_repre_velocity_not_done"])
 def test_task_done_retroactively(repre):
     update_repre_with_casual_task_schedule(repre, PERIOD_START)
-    repre.update(PERIOD_START + 6 * ONE_DAY, card.State.done, points=9)
+    repre.update(PERIOD_START + 6 * ONE_DAY, card.STATUSES.get("done"), points=9)
     for day in range(6):
         assert not repre.is_done(PERIOD_START + day * ONE_DAY)
     assert not repre.is_done(PERIOD_START - day * ONE_DAY)
@@ -316,7 +316,7 @@ def test_task_done_retroactively(repre):
 @pytest.mark.dependency(depends=["test_full_repre_velocity_done_in_three_days"])
 def test_unknown_repre_velocity_done_in_three_days(repre):
     update_repre_with_casual_task_schedule(repre, PERIOD_START)
-    repre.update(PERIOD_START + 6 * ONE_DAY, card.State.done, points=9)
+    repre.update(PERIOD_START + 6 * ONE_DAY, card.STATUSES.get("done"), points=9)
     assert repre.average_daily_velocity == 3
 
 
@@ -345,9 +345,9 @@ def test_general_events(repre):
     day_before = someday - ONE_DAY
 
     assert repre.get_points_at(someday) == 0
-    assert repre.get_status_at(someday) == card.State.unknown
+    assert repre.get_status_at(someday) == card.STATUSES.get("irrelevant")
     assert repre.get_points_at(day_after) == 0
-    assert repre.get_status_at(day_after) == card.State.unknown
+    assert repre.get_status_at(day_after) == card.STATUSES.get("irrelevant")
 
     last_measurement_points = data.Event.last_points_measurement("task_name", someday, 5)
     repre.process_events([last_measurement_points])
@@ -365,21 +365,21 @@ def test_solution_progress():
     issue_done_at = PERIOD_START + ONE_DAY * 2
     t = card.BaseCard("T")
     t.point_cost = 5
-    t.status = card.State.done
+    t.status = card.STATUSES.get("done")
     r = history.aggregation.convert_card_to_representation(t, PERIOD_START, end)
 
     event_start = data.Event("T", "state", issue_started_at)
-    event_start.value_before = card.State.todo
-    event_start.value_after = card.State.in_progress
+    event_start.value_before = card.STATUSES.get("todo")
+    event_start.value_after = card.STATUSES.get("in_progress")
 
     event_end = data.Event("T", "state", issue_done_at)
-    event_end.value_before = card.State.in_progress
-    event_end.value_after = card.State.done
+    event_end.value_before = card.STATUSES.get("in_progress")
+    event_end.value_after = card.STATUSES.get("done")
 
     events = dict(state=[event_start, event_end])
     r.process_events_by_type(events)
     status_array = r.status_timeline.get_array()
-    assert status_array[0] == card.State.todo
-    assert status_array[1] == card.State.in_progress
-    assert status_array[2] == card.State.done
-    assert status_array[3] == card.State.done
+    assert status_array[0] == card.STATUSES.get("todo")
+    assert status_array[1] == card.STATUSES.get("in_progress")
+    assert status_array[2] == card.STATUSES.get("done")
+    assert status_array[3] == card.STATUSES.get("done")

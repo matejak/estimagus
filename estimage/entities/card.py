@@ -10,7 +10,7 @@ from .composition import Composition
 from .. import utilities, PluginResolver
 
 
-class State(enum.IntEnum):
+class Statee(enum.IntEnum):
     unknown = enum.auto()
     backlog = enum.auto()
     todo = enum.auto()
@@ -18,6 +18,62 @@ class State(enum.IntEnum):
     review = enum.auto()
     done = enum.auto()
     abandoned = enum.auto()
+
+
+@dataclasses.dataclass(init=False)
+class Status:
+    name: str
+    wip: bool
+    started: bool
+    done: bool
+
+    def __init__(self, name, ** kwargs):
+        self.name = name
+
+        # Abandoned, in backlog, invalid, duplicate etc.
+        self.relevant = kwargs.get("relevant", True)
+        # In progress, work is being delivered
+        self.wip = kwargs.get("wip", False)
+        # In progress, but also stalled, in review etc.
+        self.started = kwargs.get("started", self.wip)
+        # not done
+        self.done = kwargs.get("done", False)
+
+    @property
+    def relevant_and_not_done_yet(self):
+        return self.relevant and not self.done
+
+    @property
+    def underway(self):
+        return self.relevant and self.started and not self.done
+
+
+@PluginResolver.class_is_extendable("Statuses")
+class STATUSES:
+    statuses = [
+        Status("irrelevant", relevant=False),
+        Status("todo", wip=False),
+        Status("in_progress", relevant=True, wip=True),
+        Status("done", wip=False, done=True),
+    ]
+
+    @classmethod
+    def add(cls, status: Status):
+        # TODO: test double appends etc.
+        cls.statuses.append(status)
+
+    @classmethod
+    def get(cls, name):
+        idx = cls.int(name)
+        if idx is None:
+            raise KeyError()
+        return cls.statuses[idx]
+
+    @classmethod
+    def int(cls, name):
+        for idx, status in enumerate(cls.statuses):
+            if status.name == name:
+                return idx
 
 
 @PluginResolver.class_is_extendable("BaseCard")
@@ -31,7 +87,7 @@ class BaseCard:
     parent: "BaseCard"
     depends_on: typing.List["BaseCard"]
     prerequisite_of: typing.List["BaseCard"]
-    state: State
+    state: Status
     collaborators: typing.List[str]
     assignee: str
     priority: float
@@ -52,7 +108,7 @@ class BaseCard:
         self.parent = None
         self.depends_on = []
         self.prerequisite_of = []
-        self.status = State.unknown
+        self.status = STATUSES.get("irrelevant")
         self.collaborators = []
         self.assignee = ""
         self.priority = 50.0
@@ -75,7 +131,7 @@ class BaseCard:
         ret = TaskModel(self.name)
         if self.point_cost:
             ret.point_estimate = Estimate(self.point_cost, 0)
-        if self.status in (State.abandoned, State.done):
+        if not self.status.relevant_and_not_done_yet:
             ret.mask()
         return ret
 

@@ -71,7 +71,7 @@ def convert_card_to_representation(
     repre = progress.Progress(start, end)
     repre.task_name = source.name
     repre.points_timeline.set_value_at(end, source.point_cost)
-    repre.status_timeline.set_value_at(end, source.status)
+    repre.status_timeline.set_value_at(end, card.STATUSES.int(source.status.name))
     if work_span := source.work_span:
         work_span = produce_meaningful_span(work_span, start, end)
         if work_span[1] < work_span[0]:
@@ -226,14 +226,12 @@ class Aggregation:
 
     def summarize(self, when: datetime.datetime):
         ret = Summary()
-        ret.total_days_in_period=(self.end - self.start).days
+        ret.total_days_in_period = (self.end - self.start).days
         for r in self.repres:
             repre_points = r.get_points_at(self.start)
-            if r.get_status_at(self.start) not in (
-                    data.State.done, data.State.abandoned):
+            if r.get_status_at(self.start).relevant_and_not_done_yet:
                 ret.initial_todo += repre_points
-            if r.get_status_at(when) in (
-                    data.State.in_progress, data.State.review):
+            if r.get_status_at(when).underway:
                 ret.now_underway += repre_points
         return ret
 
@@ -270,13 +268,12 @@ class Summary:
 
     def _process_repre(self, r):
         repre_points = r.get_points_at(self._start)
-        if r.get_status_at(self._start) not in (
-                data.State.done, data.State.abandoned):
+        if r.get_status_at(self._start).relevant_and_not_done_yet:
             self.initial_todo += repre_points
         status_at_cutoff = r.get_status_at(self._cutoff)
-        if status_at_cutoff in (data.State.in_progress, data.State.review):
+        if status_at_cutoff.underway:
             self.cutoff_underway += repre_points
-        elif status_at_cutoff == data.State.todo:
+        elif status_at_cutoff.relevant and not status_at_cutoff.started:
             self.cutoff_todo += repre_points
-        elif status_at_cutoff == data.State.done:
+        elif status_at_cutoff.relevant and status_at_cutoff.done:
             self.cutoff_done += repre_points
