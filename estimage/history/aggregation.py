@@ -71,7 +71,9 @@ def convert_card_to_representation(
     repre = progress.Progress(start, end)
     repre.task_name = source.name
     repre.points_timeline.set_value_at(end, source.point_cost)
-    repre.status_timeline.set_value_at(end, card.STATUSES.int(source.status.name))
+    # TODO: We should get the correct Statuses class
+    statuses = card.Statuses()
+    repre.status_timeline.set_value_at(end, statuses.int(source.status.name))
     if work_span := source.work_span:
         work_span = produce_meaningful_span(work_span, start, end)
         if work_span[1] < work_span[0]:
