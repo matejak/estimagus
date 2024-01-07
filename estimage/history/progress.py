@@ -5,7 +5,7 @@ import collections
 import numpy as np
 
 from .. import data
-from ..entities import card
+from ..entities import status
 from . import timeline
 
 
@@ -31,7 +31,7 @@ class Progress:
         self.start = start
         self.end = end
 
-        self.statuses = card.Statuses()
+        self.statuses = status.Statuses()
         self.points_timeline = timeline.Timeline(start, end)
         self.status_timeline = timeline.Timeline(start, end)
         self.status_timeline.recreate_with_value(self.statuses.int("irrelevant"), int)
@@ -53,7 +53,7 @@ class Progress:
         if points is not None:
             self.points_timeline.set_value_at(when, points)
         if status is not None:
-            self.status_timeline.set_value_at(when, self.statuses.int(status.name))
+            self.status_timeline.set_value_at(when, self.statuses.int(status))
         if time is not None:
             self.time_timeline.set_value_at(when, status)
 
@@ -78,12 +78,18 @@ class Progress:
         return ret
 
     def get_status_at(self, when):
+        # TODO: Add a test for a legit Abandoned status
         if not self.relevancy_timeline.value_at(when):
-            return self.statuses.get("irrelevant")
+            return self.statuses.get("irrelevant").name
         index = self.status_timeline.value_at(when)
-        return self.statuses.statuses[index]
+        return self.statuses.statuses[index].name
 
-    def status_is(self, status: card.Status):
+    def set_status_at(self, when, status):
+        status_meaning = self.statuses.get(status)
+        self.relevancy_timeline.set_value_at(when, status_meaning.relevant)
+        self.status_timeline.set_value_at(when, self.statuses.int(status))
+
+    def status_is(self, status: status.Status):
         return self.status_timeline.get_value_mask(status)
 
     def points_of_status(self, status):

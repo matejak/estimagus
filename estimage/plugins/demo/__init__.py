@@ -87,7 +87,7 @@ class Demo:
 
     def get_not_finished_cards(self):
         cards = self.cards_by_id.values()
-        ret = [t for t in cards if self.statuses.get(t.status).relevant_and_not_done_yet()]
+        ret = [t for t in cards if self.statuses.get(t.status).relevant_and_not_done_yet]
         ret = [t for t in ret if not t.children]
         return ret
 

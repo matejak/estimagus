@@ -15,7 +15,7 @@ class Composition:
     name: str
     masked: bool
 
-    def __init__(self, name):
+    def __init__(self, name, state_context=None):
         self.elements = []
         self.compositions = []
         self.name = name

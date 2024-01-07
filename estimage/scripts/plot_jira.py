@@ -14,15 +14,15 @@ import con
 
 
 JIRA_STATUS_TO_STATE = {
-    "Backlog": card.STATUSES.get("todo"),
-    "Refinement": card.STATUSES.get("todo"),
-    "New": card.STATUSES.get("todo"),
-    "Done": card.STATUSES.get("done"),
-    "Abandoned": card.STATUSES.get("abandoned"),
-    "Closed": card.STATUSES.get("abandoned"),
-    "In Progress": card.STATUSES.get("in_progress"),
-    "Needs Peer Review": card.STATUSES.get("review"),
-    "To Do": card.STATUSES.get("todo"),
+    "Backlog": card.Statuses().get("todo"),
+    "Refinement": card.Statuses().get("todo"),
+    "New": card.Statuses().get("todo"),
+    "Done": card.Statuses().get("done"),
+    "Abandoned": card.Statuses().get("abandoned"),
+    "Closed": card.Statuses().get("abandoned"),
+    "In Progress": card.Statuses().get("in_progress"),
+    "Needs Peer Review": card.Statuses().get("review"),
+    "To Do": card.Statuses().get("todo"),
 }
 
 
@@ -66,7 +66,7 @@ def export_jira_item(cls, item, exported_items_by_name):
     ret.title = item.get_field("summary") or ""
     ret.description = item.get_field("description") or ""
     ret.point_cost = float(item.get_field(STORY_POINTS) or 0)
-    ret.status = JIRA_STATUS_TO_STATE.get(str(item.get_field("status")), card.STATUSES.get("irrelevant"))
+    ret.status = JIRA_STATUS_TO_STATE.get(str(item.get_field("status")), card.Statuses().get("irrelevant"))
     ret.labels = item.get_field("labels") or []
 
     return ret

@@ -39,14 +39,16 @@ def some_cards(loader):
 @pytest.fixture
 def doer(some_cards, loader):
     someday = datetime.datetime(2024, 2, 3)
-    ret = tm.Demo(loader, someday)
+    statuses = data.Statuses()
+    ret = tm.Demo(loader, someday, statuses)
     return ret
 
 
 @pytest.fixture
 def empty_doer(loader):
     someday = datetime.datetime(2024, 2, 3)
-    ret = tm.Demo(loader, someday)
+    statuses = data.Statuses()
+    ret = tm.Demo(loader, someday, statuses)
     return ret
 
 

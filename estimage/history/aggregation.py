@@ -71,9 +71,7 @@ def convert_card_to_representation(
     repre = progress.Progress(start, end)
     repre.task_name = source.name
     repre.points_timeline.set_value_at(end, source.point_cost)
-    # TODO: We should get the correct Statuses class
-    statuses = card.Statuses()
-    repre.status_timeline.set_value_at(end, statuses.int(source.status.name))
+    repre.set_status_at(end, source.status)
     if work_span := source.work_span:
         work_span = produce_meaningful_span(work_span, start, end)
         if work_span[1] < work_span[0]:
@@ -191,7 +189,7 @@ class Aggregation:
             raise ValueError(msg)
         self.repres.append(repre)
 
-    def states_on(self, when):
+    def statuses_on(self, when):
         states = set()
         for r in self.repres:
             states.add(r.get_status_at(when))

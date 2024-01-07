@@ -164,8 +164,8 @@ def test_eventmgr_storage_float(eventmgr_relevant_io, early_event):
 
 def test_eventmgr_storage_state(eventmgr_relevant_io, early_event):
     mgr_one = data.EventManager(eventmgr_relevant_io)
-    early_event.value_after = data.STATUSES.get("abandoned")
-    early_event.value_before = data.STATUSES.get("in_progress")
+    early_event.value_after = "abandoned"
+    early_event.value_before = "in_progress"
     early_event.quantity = "state"
     mgr_one.add_event(early_event)
     mgr_one.save()

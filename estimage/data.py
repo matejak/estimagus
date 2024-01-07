@@ -2,7 +2,8 @@ import math
 
 import numpy as np
 
-from .entities.card import BaseCard, Statuses
+from .entities.card import BaseCard
+from .entities.status import Statuses
 from .entities.estimate import Estimate, EstimInput
 from .entities.task import TaskModel, MemoryTaskModel
 from .entities.composition import Composition, MemoryComposition
