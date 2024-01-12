@@ -204,7 +204,7 @@
 
 
 {% macro state_to_string(state) -%}
-    {{ states_table.get(state.name, "Unknown") }}
+    {{ states_table.get(state, "Unknown") }}
 {%- endmacro %}
 
 

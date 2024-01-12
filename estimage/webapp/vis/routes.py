@@ -254,7 +254,8 @@ def output_burndown(card_tree, size):
     all_events = webdata.EventManager()
     all_events.load()
 
-    aggregation = history.Aggregation.from_cards(card_tree, start, end)
+    statuses = flask.current_app.get_final_class("Statuses")()
+    aggregation = history.Aggregation.from_cards(card_tree, start, end, statuses)
     aggregation.process_event_manager(all_events)
 
     burndown_class = flask.current_app.get_final_class("MPLPointPlot")

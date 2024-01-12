@@ -383,7 +383,7 @@ def test_solution_progress():
     t = card.BaseCard("T")
     t.point_cost = 5
     t.status = "done"
-    r = history.aggregation.convert_card_to_representation(t, PERIOD_START, end)
+    r = history.aggregation.convert_card_to_representation(t, PERIOD_START, end, ExtendedStatuses())
 
     event_start = data.Event("T", "state", issue_started_at)
     event_start.value_before = "todo"

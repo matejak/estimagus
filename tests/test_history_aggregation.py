@@ -9,7 +9,7 @@ import estimage.history.aggregation as tm
 import estimage.entities.card as card
 
 from test_events import mgr, early_event, ONE_DAY, PERIOD_START, LONG_PERIOD_END
-from test_history_progress import simple_card, repre, oneday_repre, twoday_repre, twoday_repre_done_in_day
+from test_history_progress import simple_card, repre, oneday_repre, twoday_repre, twoday_repre_done_in_day, ExtendedStatuses
 
 
 @pytest.fixture
@@ -175,39 +175,45 @@ def test_card_span_propagates_to_children():
     child = card.BaseCard("c")
     parent.add_element(child)
 
-    r = tm.convert_card_to_representations_of_leaves(parent, PERIOD_START, END)[0]
+    r = get_standard_span_progress(parent, END)
     assert r.remainder_timeline.value_at(PERIOD_START + ONE_DAY) == 1
 
     parent.work_span = (None, END - ONE_DAY)
-    r = tm.convert_card_to_representations_of_leaves(parent, PERIOD_START, END)[0]
+    r = get_standard_span_progress(parent, END)
     assert r.remainder_timeline.value_at(PERIOD_START + ONE_DAY) == 0.75
     assert r.remainder_timeline.value_at(END - ONE_DAY) == 0
 
     parent.work_span = (PERIOD_START + ONE_DAY, None)
-    r = tm.convert_card_to_representations_of_leaves(parent, PERIOD_START, END)[0]
+    r = get_standard_span_progress(parent, END)
     assert r.remainder_timeline.value_at(PERIOD_START + ONE_DAY) == 1.0
     assert r.remainder_timeline.value_at(END) == 0
+
+
+def get_standard_span_progress(card, end):
+    statuses = ExtendedStatuses()
+    ret = tm.convert_card_to_representations_of_leaves(card, PERIOD_START, end, statuses)[0]
+    return ret
 
 
 def test_card_span_incomplete_works():
     END = PERIOD_START + 5 * ONE_DAY
     t = card.BaseCard("")
     t.work_span = (None, END - ONE_DAY)
-    r = tm.convert_card_to_representations_of_leaves(t, PERIOD_START, END)[0]
+    r = get_standard_span_progress(t, END)
     assert r.remainder_timeline.value_at(PERIOD_START + ONE_DAY) == 0.75
     assert r.remainder_timeline.value_at(END - ONE_DAY) == 0
 
     t.work_span = (None, PERIOD_START - ONE_DAY)
-    r = tm.convert_card_to_representations_of_leaves(t, PERIOD_START, END)[0]
+    r = get_standard_span_progress(t, END)
 
     t.work_span = (END + ONE_DAY, END + ONE_DAY)
-    r = tm.convert_card_to_representations_of_leaves(t, PERIOD_START, END)[0]
+    r = get_standard_span_progress(t, END)
     assert r.remainder_timeline.value_at(PERIOD_START) == 1
     assert r.remainder_timeline.value_at(END - ONE_DAY) == 1
     assert r.remainder_timeline.value_at(END) == 1
 
     t.work_span = (PERIOD_START - 5 * ONE_DAY, END + 5 * ONE_DAY)
-    r = tm.convert_card_to_representations_of_leaves(t, PERIOD_START, END)[0]
+    r = get_standard_span_progress(t, END)
     assert r.remainder_timeline.value_at(PERIOD_START) == pytest.approx(2 / 3)
     assert r.remainder_timeline.value_at(END) == pytest.approx(1 / 3)
 
@@ -217,12 +223,12 @@ def test_card_span_not_started_works():
     t = card.BaseCard("")
 
     t.work_span = (PERIOD_START - ONE_DAY, PERIOD_START - ONE_DAY)
-    r = tm.convert_card_to_representations_of_leaves(t, PERIOD_START, END)[0]
+    r = get_standard_span_progress(t, END)
     assert r.remainder_timeline.value_at(END) == 0
     assert r.remainder_timeline.value_at(PERIOD_START) == 0
 
     t.work_span = (PERIOD_START - ONE_DAY, PERIOD_START + ONE_DAY)
-    r = tm.convert_card_to_representations_of_leaves(t, PERIOD_START, END)[0]
+    r = get_standard_span_progress(t, END)
     assert r.remainder_timeline.value_at(PERIOD_START + ONE_DAY) == 0
     assert r.remainder_timeline.value_at(PERIOD_START) == 0.5
 
@@ -230,13 +236,13 @@ def test_card_span_not_started_works():
 def test_card_span_propagates():
     END = PERIOD_START + 5 * ONE_DAY
     t = card.BaseCard("")
-    r = tm.convert_card_to_representations_of_leaves(t, PERIOD_START, END)[0]
+    r = get_standard_span_progress(t, END)
 
     assert r.remainder_timeline.value_at(PERIOD_START) == 1
     assert r.remainder_timeline.value_at(END) == 0
 
     t.work_span = (PERIOD_START + 2 * ONE_DAY, END - ONE_DAY)
-    r = tm.convert_card_to_representations_of_leaves(t, PERIOD_START, END)[0]
+    r = get_standard_span_progress(t, END)
 
     assert r.remainder_timeline.value_at(PERIOD_START) == 1
     assert r.remainder_timeline.value_at(END) == 0
@@ -252,7 +258,7 @@ def test_card_span_starting_before_is_correctly_recalculated():
     END = PERIOD_START + 5 * ONE_DAY
     t = card.BaseCard("")
     t.work_span = (PERIOD_START - ONE_DAY, END - ONE_DAY)
-    r = tm.convert_card_to_representations_of_leaves(t, PERIOD_START, END)[0]
+    r = get_standard_span_progress(t, END)
     assert r.remainder_timeline.value_at(PERIOD_START) == 0.8
 
 
@@ -260,7 +266,7 @@ def test_card_span_ending_after_is_recalculated():
     END = PERIOD_START + 5 * ONE_DAY
     t = card.BaseCard("")
     t.work_span = (PERIOD_START + ONE_DAY, END + ONE_DAY)
-    r = tm.convert_card_to_representations_of_leaves(t, PERIOD_START, END)[0]
+    r = get_standard_span_progress(t, END)
     overflowing_ratio = ONE_DAY / (t.work_span[1] - t.work_span[0])
     assert r.remainder_timeline.value_at(END) == pytest.approx(overflowing_ratio)
 

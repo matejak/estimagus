@@ -341,7 +341,8 @@ def executive_summary_of_points_and_velocity(cards, cls=history.Summary):
 
     start, end = flask.current_app.get_config_option("RETROSPECTIVE_PERIOD")
     cutoff_date = min(datetime.datetime.today(), end)
-    aggregation = history.Aggregation.from_cards(cards, start, end)
+    statuses = flask.current_app.get_final_class("Statuses")()
+    aggregation = history.Aggregation.from_cards(cards, start, end, statuses)
     aggregation.process_event_manager(all_events)
     summary = cls(aggregation, cutoff_date)
 

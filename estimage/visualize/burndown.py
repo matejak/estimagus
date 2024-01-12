@@ -4,7 +4,7 @@ import typing
 
 import numpy as np
 
-from ..entities.card import Status
+from ..entities import status
 from . import utils
 from .. import history, PluginResolver
 
@@ -12,6 +12,7 @@ from .. import history, PluginResolver
 class StatusStyle(typing.NamedTuple):
     color: tuple
     label: str
+    weight: float
 
 
 @PluginResolver.class_is_extendable("MPLPointPlot")
@@ -24,19 +25,23 @@ class MPLPointPlot:
         self.end = a.end
         self.width = 1.0
         super().__init__(* args, ** kwargs)
-        self.styles = get_styles()
+        self.styles = self.get_sorted_styles()
         self.status_arrays = np.zeros((len(self.styles), a.days))
         dday_date = self.get_date_of_dday()
         self.index_of_dday = history.days_between(self.start, dday_date)
 
-
     def get_styles(self):
-        ret = collections.OrderedDict(
-            todo=StatusStyle(color=(0.1, 0.1, 0.5, 1), label="To Do"),
-            in_progress=StatusStyle(color=(0.1, 0.1, 0.6, 0.8), label="In Progress"),
-            #review=StatusStyle(color=(0.1, 0.2, 0.7, 0.6), label="Needs Review"),
+        ret = dict(
+            todo=StatusStyle(color=(0.1, 0.1, 0.5, 1), label="To Do", weight=1),
+            in_progress=StatusStyle(color=(0.1, 0.1, 0.6, 0.8), label="In Progress", weight=50),
         )
         return ret
+
+    def get_sorted_styles(self):
+        styles = self.get_styles()
+        items = styles.items()
+        sorted_items = sorted(items, key=lambda x: x[1].weight)
+        return {key: val for key, val in sorted_items}
 
     def get_date_of_dday(self):
         return datetime.datetime.today()

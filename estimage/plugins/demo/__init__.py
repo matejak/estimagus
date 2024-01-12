@@ -26,10 +26,12 @@ def load_data():
 #  - auto-assignment of tasks (according to selection, all at once, sequential, n at a time)
 #  - jump a day, jump to the end
 class Demo:
-    def __init__(self, loader, start_date, statuses):
+    def __init__(self, loader, start_date, statuses=None):
         self.cards_by_id = loader.get_loaded_cards_by_id()
         self.loader = loader
         self.start_date = start_date
+        if not statuses:
+            statuses = data.Statuses()
         self.statuses = statuses
 
     def start_if_on_start(self):

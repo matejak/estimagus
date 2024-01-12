@@ -67,8 +67,10 @@ def apply_span_to_timeline(timeline, span, start, end):
 
 def convert_card_to_representation(
         source: card.BaseCard,
-        start: datetime.datetime, end: datetime.datetime) -> progress.Progress:
+        start: datetime.datetime, end: datetime.datetime,
+        statuses: status.Statuses) -> progress.Progress:
     repre = progress.Progress(start, end)
+    repre.statuses = statuses
     repre.task_name = source.name
     repre.points_timeline.set_value_at(end, source.point_cost)
     repre.set_status_at(end, source.status)
@@ -100,15 +102,16 @@ def propagate_span_to_children(parent_span, child, start, end):
 
 def convert_card_to_representations_of_leaves(
         source: card.BaseCard,
-        start: datetime.datetime, end: datetime.datetime) -> typing.List[progress.Progress]:
+        start: datetime.datetime, end: datetime.datetime,
+        statuses: status.Statuses) -> typing.List[progress.Progress]:
     ret = []
 
     if source.children:
         for d in source.children:
             propagate_span_to_children(source.work_span, d, start, end)
-            ret.extend(convert_card_to_representations_of_leaves(d, start, end))
+            ret.extend(convert_card_to_representations_of_leaves(d, start, end, statuses))
     else:
-        ret = [convert_card_to_representation(source, start, end)]
+        ret = [convert_card_to_representation(source, start, end, statuses)]
     return ret
 
 
@@ -138,16 +141,18 @@ class Aggregation:
     @classmethod
     def from_card(
             cls, source: card.BaseCard,
-            start: datetime.datetime, end: datetime.datetime) -> "Aggregation":
-        return cls.from_cards([source], start, end)
+            start: datetime.datetime, end: datetime.datetime,
+            statuses: status.Statuses=None) -> "Aggregation":
+        return cls.from_cards([source], start, end, statuses)
 
     @classmethod
     def from_cards(
             cls, sources: card.BaseCard,
-            start: datetime.datetime, end: datetime.datetime) -> "Aggregation":
-        ret = cls()
+            start: datetime.datetime, end: datetime.datetime,
+            statuses: status.Statuses=None) -> "Aggregation":
+        ret = cls(statuses)
         for s in sources:
-            for r in convert_card_to_representations_of_leaves(s, start, end):
+            for r in convert_card_to_representations_of_leaves(s, start, end, ret.statuses):
                 ret.add_repre(r)
         return ret
 

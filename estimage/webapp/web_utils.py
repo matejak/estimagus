@@ -59,7 +59,8 @@ def get_all_tasks_by_id_and_user_model(spec, user_id):
 def get_user_model(user_id, cards_tree_without_duplicates):
     authoritative_pollster = webdata.AuthoritativePollster()
     user_pollster = webdata.UserPollster(user_id)
-    model = webdata.get_model(cards_tree_without_duplicates)
+    statuses = flask.current_app.get_final_class("Statuses")()
+    model = webdata.get_model(cards_tree_without_duplicates, None, statuses)
     try:
         authoritative_pollster.supply_valid_estimations_to_tasks(model.get_all_task_models())
     except ValueError as exc:
