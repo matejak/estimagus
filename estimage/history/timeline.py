@@ -64,7 +64,9 @@ class Timeline:
             return
         events_from_oldest = sorted(events, key=lambda x: x.time)
         events_from_newest = events_from_oldest[::-1]
-        self._data[:] = events_from_newest[0].value_after
+        newest_event = events_from_newest[0]
+        if (filler_value := newest_event.value_after) is not None:
+            self._data[:] = filler_value
         indices_from_newest = np.empty(len(events_from_newest), dtype=int)
         for i, e in enumerate(events_from_newest):
             index = self._localize_date(e.time)

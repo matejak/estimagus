@@ -7,7 +7,7 @@ import numpy as np
 
 from .. import data
 from .. import utilities
-from ..entities import card
+from ..entities import card, status
 
 from . import progress
 
@@ -129,8 +129,11 @@ def produce_tiered_aggregations(all_cards, all_events, start, end):
 class Aggregation:
     repres: typing.List[progress.Progress]
 
-    def __init__(self):
+    def __init__(self, statuses=None):
         self.repres = []
+        self.statuses = statuses
+        if not self.statuses:
+            self.statuses = status.Statuses()
 
     @classmethod
     def from_card(

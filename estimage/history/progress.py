@@ -78,19 +78,20 @@ class Progress:
         return ret
 
     def get_status_at(self, when):
-        # TODO: Add a test for a legit Abandoned status
-        if not self.relevancy_timeline.value_at(when):
-            return self.statuses.get("irrelevant").name
         index = self.status_timeline.value_at(when)
-        return self.statuses.statuses[index].name
+        status = self.statuses.statuses[index]
+        if not self.relevancy_timeline.value_at(when) and status.relevant:
+            return self.statuses.get("irrelevant")
+        return status
 
     def set_status_at(self, when, status):
         status_meaning = self.statuses.get(status)
         self.relevancy_timeline.set_value_at(when, status_meaning.relevant)
         self.status_timeline.set_value_at(when, self.statuses.int(status))
 
-    def status_is(self, status: status.Status):
-        return self.status_timeline.get_value_mask(status)
+    def status_is(self, status: str):
+        status_int = self.statuses.int(status)
+        return self.status_timeline.get_value_mask(status_int)
 
     def points_of_status(self, status):
         mask = self.status_is(status)
@@ -104,11 +105,11 @@ class Progress:
         self.points_timeline.process_events([init_event])
         self.points_timeline.set_value_at(when, value)
 
-        index = self.status_timeline.value_at(when)
-        init_event.value_after = index
-        init_event.value_before = init_event.value_after
+        status_int = self.status_timeline.value_at(when)
+        init_event.value_after = None
+        init_event.value_before = status_int
         self.status_timeline.process_events([init_event])
-        self.status_timeline.set_value_at(when, index)
+        self.status_timeline.set_value_at(when, status_int)
 
     def is_done(self, latest_at=None):
         relevant_slice = slice(0, None)
@@ -181,9 +182,9 @@ class Progress:
         }
         for status_event in events_by_type.get("state", frozenset()):
             val = status_event.value_before
-            status_event.value_before = self.statuses.int(val.name)
+            status_event.value_before = self.statuses.int(val)
             val = status_event.value_after
-            status_event.value_after = self.statuses.int(val.name)
+            status_event.value_after = self.statuses.int(val)
 
         for event_type, tline in TYPES_TO_TIMELINE.items():
             events = events_by_type.get(event_type, [])

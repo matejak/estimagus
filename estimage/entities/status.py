@@ -3,7 +3,7 @@ import dataclasses
 from .. import PluginResolver
 
 
-@dataclasses.dataclass(init=False)
+@dataclasses.dataclass(frozen=True)
 class Status:
     name: str
     relevant: bool
@@ -11,17 +11,18 @@ class Status:
     started: bool
     done: bool
 
-    def __init__(self, name, ** kwargs):
-        self.name = name
-
+    @classmethod
+    def create(cls, name, ** kwargs):
         # Abandoned, in backlog, invalid, duplicate etc.
-        self.relevant = kwargs.get("relevant", True)
+        relevant = kwargs.get("relevant", True)
         # In progress, work is being delivered
-        self.wip = kwargs.get("wip", False)
+        wip = kwargs.get("wip", False)
         # In progress, but also stalled, in review etc.
-        self.started = kwargs.get("started", self.wip)
+        started = kwargs.get("started", wip)
         # not done
-        self.done = kwargs.get("done", False)
+        done = kwargs.get("done", False)
+
+        return cls(name=name, relevant=relevant, wip=wip, started=started, done=done)
 
     @property
     def relevant_and_not_done_yet(self):
@@ -32,7 +33,7 @@ class Status:
         return self.relevant and self.started and not self.done
 
 
-IRRELEVANT_STATUS = Status("irrelevant", relevant=False)
+IRRELEVANT_STATUS = Status.create("irrelevant", relevant=False)
 
 
 @PluginResolver.class_is_extendable("Statuses")
@@ -40,9 +41,9 @@ class Statuses:
     def __init__(self):
         self.statuses = [
             IRRELEVANT_STATUS,
-            Status("todo", wip=False),
-            Status("in_progress", relevant=True, wip=True),
-            Status("done", wip=False, done=True),
+            Status.create("todo", wip=False),
+            Status.create("in_progress", wip=True),
+            Status.create("done", wip=False, done=True),
         ]
 
     def get(self, name):

@@ -72,7 +72,7 @@ def check_repre_against_card(card, repre, start, end):
     assert repre.end == end
     assert repre.task_name == card.name
     assert repre.get_points_at(start) == card.point_cost
-    assert repre.get_status_at(start) == card.status
+    assert repre.get_status_at(start).name == card.status
 
 
 def test_simple_card_to_aggregation(simple_card):
@@ -329,16 +329,16 @@ def test_aggregation_and_event_manager(mgr, simple_long_period_aggregation, simp
 def get_wip_aggregation(simple_card, mgr):
     simple_card.status = "in_progress"
     add_status_event_days_after_start(
-        mgr, simple_card, 10, data.Statuses().get("todo"), "in_progress")
+        mgr, simple_card, 10, "todo", "in_progress")
     aggregation = tm.Aggregation.from_card(simple_card, PERIOD_START, LONG_PERIOD_END)
     aggregation.process_event_manager(mgr)
     return aggregation
 
 
 def get_done_aggregation(simple_card, mgr, was_underway_for_days):
-    simple_card.status = data.Statuses().get("done")
+    simple_card.status = "done"
     add_status_event_days_after_start(
-        mgr, simple_card, 10, data.Statuses().get("todo"), "in_progress")
+        mgr, simple_card, 10, "todo", "in_progress")
     add_status_event_days_after_start(
         mgr, simple_card, 10 + was_underway_for_days, "in_progress", "done")
     aggregation = tm.Aggregation.from_card(simple_card, PERIOD_START, LONG_PERIOD_END)
