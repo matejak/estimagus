@@ -69,8 +69,7 @@ def convert_card_to_representation(
         source: card.BaseCard,
         start: datetime.datetime, end: datetime.datetime,
         statuses: status.Statuses) -> progress.Progress:
-    repre = progress.Progress(start, end)
-    repre.statuses = statuses
+    repre = progress.Progress(start, end, statuses)
     repre.task_name = source.name
     repre.points_timeline.set_value_at(end, source.point_cost)
     repre.set_status_at(end, source.status)

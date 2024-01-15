@@ -24,6 +24,25 @@ class ExtendedStatuses(status.Statuses):
         ])
 
 
+def test_irrelevant_statuses():
+    statuses = ExtendedStatuses()
+    wip_statuses = statuses.that_have_properties(wip=True)
+    assert len(wip_statuses) == 1
+    assert wip_statuses[0].name == "in_progress"
+
+    irrelevant_statuses = statuses.that_have_properties(relevant=False)
+    assert len(irrelevant_statuses) == 3
+    assert irrelevant_statuses[0].name == "irrelevant"
+    assert irrelevant_statuses[1].name == "backlog"
+    assert statuses.get_ints(irrelevant_statuses) == [0, 4, 5]
+
+    incomplete_statuses = statuses.that_have_properties(started=True, done=False)
+    assert len(incomplete_statuses) == 3
+    assert incomplete_statuses[0].name == "in_progress"
+    assert incomplete_statuses[1].name == "abandoned"
+    assert incomplete_statuses[2].name == "review"
+
+
 @pytest.fixture
 def simple_card():
     ret = card.BaseCard("task")

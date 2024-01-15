@@ -27,11 +27,13 @@ class Progress:
     relevancy_timeline: timeline.Timeline
     task_name: str
 
-    def __init__(self, start, end):
+    def __init__(self, start, end, statuses=None):
         self.start = start
         self.end = end
 
-        self.statuses = status.Statuses()
+        self.statuses = statuses
+        if self.statuses is None:
+            self.statuses = status.Statuses()
         self.points_timeline = timeline.Timeline(start, end)
         self.status_timeline = timeline.Timeline(start, end)
         self.status_timeline.recreate_with_value(self.statuses.int("irrelevant"), int)
@@ -63,9 +65,11 @@ class Progress:
         return self.points_timeline.value_at(when)
 
     def always_was_irrelevant(self):
-        relevant_mask = self.status_timeline.get_value_mask(self.statuses.int("todo"))
-        relevant_mask |= self.status_timeline.get_value_mask(self.statuses.int("in_progress"))
-        relevant_mask |= self.status_timeline.get_value_mask(self.statuses.int("review"))
+        relevant_statuses = self.statuses.that_have_properties(relevant=True, done=False)
+        codes = self.statuses.get_ints(relevant_statuses)
+        relevant_mask = self.status_timeline.get_value_mask(codes[0])
+        for code in codes[1:]:
+            relevant_mask |= self.status_timeline.get_value_mask(code)
         if sum(relevant_mask):
             return False
         return True
@@ -132,7 +136,7 @@ class Progress:
 
     @property
     def average_daily_velocity(self):
-        in_progress_mask = self.status_timeline.get_value_mask(self.statuses.int("in_progress"))
+        in_progress_mask = self._get_value_mask_of_in_progress()
         time_taken = in_progress_mask.sum() or 1
         return self.points_completed() / time_taken
 
@@ -150,10 +154,18 @@ class Progress:
             points_multiplier *= 0
         return self.remainder_timeline.get_array() * points_multiplier
 
+    def _get_value_mask_of_in_progress(self):
+        relevant_statuses = self.statuses.that_have_properties(relevant=True, wip=True)
+        codes = self.statuses.get_ints(relevant_statuses)
+        relevant_mask = self.status_timeline.get_value_mask(codes[0])
+        for code in codes[1:]:
+            relevant_mask |= self.status_timeline.get_value_mask(code)
+        return relevant_mask
+
     def get_velocity_array(self):
         if not self.is_done():
             return self.status_timeline.get_value_mask(self.statuses.int("done")).astype(float)
-        velocity_array = self.status_timeline.get_value_mask(self.statuses.int("in_progress")).astype(float)
+        velocity_array = self._get_value_mask_of_in_progress().astype(float)
         if velocity_array.sum() == 0:
             index_of_completion = days_between(self.start, self.get_day_of_completion())
             if index_of_completion == 0:

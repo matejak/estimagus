@@ -101,9 +101,26 @@ class IniCardLoader(IniCardLoaderBase):
         t.assignee = self._get_our(t, "assignee")
         t.collaborators = self._unpack_list(self._get_our(t, "collaborators"))
 
+    def _load_status(self, t, state_name):
+        LEGACY_TABLE = [
+            "irrelevant",
+            "irrelevant",
+            "todo",
+            "in_progress",
+            "in_progress",
+            "done",
+            "irrelevant",
+        ]
+        try:
+            index = int(state_name)
+            state_name = LEGACY_TABLE[index]
+        except ValueError:
+            pass
+        t.status = state_name
+
     def load_priority_and_status(self, t):
         state_name = self._get_our(t, "state")
-        t.status = state_name
+        self._load_status(t, state_name)
         t.priority = float(self._get_our(t, "priority"))
 
     def load_tier(self, t):

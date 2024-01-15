@@ -57,3 +57,21 @@ class Statuses:
         for idx, status in enumerate(self.statuses):
             if status.name == name:
                 return idx
+
+    def _statuses_have_property(self, statuses, name, value):
+        ret = []
+        for s in statuses:
+            if getattr(s, name) == value:
+                ret.append(s)
+        return ret
+
+    def that_have_properties(self, ** kwargs):
+        ret = self.statuses
+        for prop_name, value in kwargs.items():
+            ret = self._statuses_have_property(ret, prop_name, value)
+        return ret
+
+    def get_ints(self, statuses):
+        names = [s.name for s in statuses]
+        ints = [self.int(n) for n in names]
+        return ints

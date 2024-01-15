@@ -66,8 +66,14 @@ class BaseCard:
         ret = TaskModel(self.name)
         if self.point_cost:
             ret.point_estimate = Estimate(self.point_cost, 0)
-        if not statuses.get(self.status).relevant_and_not_done_yet:
-            ret.mask()
+
+        try:
+            if not statuses.get(self.status).relevant_and_not_done_yet:
+                ret.mask()
+        except KeyError as exc:
+            msg = f"Card {self.name} features unknown status {self.status}"
+            raise ValueError(msg)
+
         return ret
 
     def add_element(self, what: "BaseCard"):
