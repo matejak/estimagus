@@ -24,13 +24,13 @@ def loader():
 @pytest.fixture
 def some_cards(loader):
     a = BaseCard("a")
-    a.status = data.State.todo
+    a.status = "todo"
     a.title = "Proud A"
     b = BaseCard("b")
-    b.status = data.State.in_progress
+    b.status = "in_progress"
     c = BaseCard("c")
     d = BaseCard("d")
-    d.status = data.State.done
+    d.status = "done"
     d.title = "Proud D"
     cards = [a, b, c, d]
     loader.bulk_save_metadata(cards)
@@ -39,14 +39,16 @@ def some_cards(loader):
 @pytest.fixture
 def doer(some_cards, loader):
     someday = datetime.datetime(2024, 2, 3)
-    ret = tm.Demo(loader, someday)
+    statuses = data.Statuses()
+    ret = tm.Demo(loader, someday, statuses)
     return ret
 
 
 @pytest.fixture
 def empty_doer(loader):
     someday = datetime.datetime(2024, 2, 3)
-    ret = tm.Demo(loader, someday)
+    statuses = data.Statuses()
+    ret = tm.Demo(loader, someday, statuses)
     return ret
 
 

@@ -26,10 +26,13 @@ def load_data():
 #  - auto-assignment of tasks (according to selection, all at once, sequential, n at a time)
 #  - jump a day, jump to the end
 class Demo:
-    def __init__(self, loader, start_date):
+    def __init__(self, loader, start_date, statuses=None):
         self.cards_by_id = loader.get_loaded_cards_by_id()
         self.loader = loader
         self.start_date = start_date
+        if not statuses:
+            statuses = data.Statuses()
+        self.statuses = statuses
 
     def start_if_on_start(self):
         plugin_data = load_data()
@@ -86,7 +89,7 @@ class Demo:
 
     def get_not_finished_cards(self):
         cards = self.cards_by_id.values()
-        ret = [t for t in cards if t.status in (data.State.todo, data.State.in_progress)]
+        ret = [t for t in cards if self.statuses.get(t.status).relevant_and_not_done_yet]
         ret = [t for t in ret if not t.children]
         return ret
 
@@ -134,11 +137,11 @@ def start(cards, loader, start_date):
     mgr = simpledata.EventManager()
     for t in cards:
         evt = data.Event(t.name, "state", date)
-        evt.value_before = data.State.unknown
-        evt.value_after = data.State.todo
+        evt.value_before = "irrelevant"
+        evt.value_after = "todo"
         mgr.add_event(evt)
 
-        t.status = data.State.todo
+        t.status = "todo"
         t.save_metadata(loader)
     mgr.save()
 
@@ -149,12 +152,12 @@ def begin_card(card, loader, start_date, day_index):
     mgr.load()
     if len(mgr.get_chronological_task_events_by_type(card.name)["state"]) < 2:
         evt = data.Event(card.name, "state", date)
-        evt.value_before = data.State.todo
-        evt.value_after = data.State.in_progress
+        evt.value_before = "todo"
+        evt.value_after = "in_progress"
         mgr.add_event(evt)
         mgr.save()
 
-    card.status = data.State.in_progress
+    card.status = "in_progress"
     card.save_metadata(loader)
 
 
@@ -163,12 +166,12 @@ def conclude_card(card, loader, start_date, day_index):
     mgr = simpledata.EventManager()
     mgr.load()
     evt = data.Event(card.name, "state", date)
-    evt.value_before = data.State.in_progress
-    evt.value_after = data.State.done
+    evt.value_before = "in_progress"
+    evt.value_after = "done"
     mgr.add_event(evt)
     mgr.save()
 
-    card.status = data.State.done
+    card.status = "done"
     card.save_metadata(loader)
 
 

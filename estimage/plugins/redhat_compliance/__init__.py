@@ -5,14 +5,17 @@ import dateutil.relativedelta
 import typing
 
 from ... import simpledata, data, persistence
-from ...entities import card
+from ...entities import status
+from ...visualize.burndown import StatusStyle
 from .. import jira
 from .forms import AuthoritativeForm
 
 
 EXPORTS = dict(
-    BaseCard="BaseCard",
     AuthoritativeForm="AuthoritativeForm",
+    BaseCard="BaseCard",
+    MPLPointPlot="MPLPointPlot",
+    Statuses="Statuses",
     Workloads="Workloads",
 )
 # TEMPLATE_EXPORTS = dict(base="rhc-base.html")
@@ -28,18 +31,40 @@ TEMPLATE_OVERRIDES = {
 }
 
 
+RHEL_STATUS_TO_STATE = {
+    "New": "todo",
+    "Planned": "todo",
+    "Verified": "done",
+    "Closed": "done",
+    "In Progress": "rhel-in_progress",
+    "Integration": "rhel-integration",
+    "To Do": "todo",
+}
+
+
 RHELPLAN_STATUS_TO_STATE = {
-    "New": card.State.todo,
-    "Verified": card.State.done,
-    "Closed": card.State.done,
-    "In Progress": card.State.in_progress,
-    "ASSIGNED": card.State.in_progress,
-    "ON_DEV": card.State.in_progress,
-    "POST": card.State.in_progress,
-    "MODIFIED": card.State.in_progress,
-    "Review": card.State.review,
-    "ON_QA": card.State.review,
-    "To Do": card.State.todo,
+    "New": "todo",
+    "Verified": "done",
+    "Closed": "done",
+    "Abandoned": "irrelevant",
+    "ASSIGNED": "rhel-in_progress",
+    "ON_DEV": "rhel-in_progress",
+    "POST": "rhel-in_progress",
+    "MODIFIED": "rhel-integration",
+    "ON_QA": "rhel-integration",
+}
+
+
+JIRA_STATUS_TO_STATE = {
+    "Backlog": "todo",
+    "Refinement": "todo",
+    "New": "todo",
+    "Done": "done",
+    "Abandoned": "irrelevant",
+    "Closed": "irrelevant",
+    "In Progress": "in_progress",
+    "Needs Peer Review": "review",
+    "To Do": "todo",
 }
 
 
@@ -215,9 +240,11 @@ class Importer(jira.Importer):
         if item_name.startswith("OPENSCAP"):
             return super()._status_to_state(item, jira_string)
         elif item_name.startswith("RHELPLAN"):
-            return RHELPLAN_STATUS_TO_STATE.get(jira_string, card.State.unknown)
+            return RHELPLAN_STATUS_TO_STATE.get(jira_string, "irrelevant")
+        elif item_name.startswith("RHEL"):
+            return RHEL_STATUS_TO_STATE.get(jira_string, "irrelevant")
         else:
-            return RHELPLAN_STATUS_TO_STATE.get(jira_string, card.State.unknown)
+            return JIRA_STATUS_TO_STATE.get(jira_string, "irrelevant")
 
 
 def _get_simple_spec(token):
@@ -253,6 +280,25 @@ def do_stuff(spec, retro_loader, proj_loader):
     importer.import_data(spec)
     importer.save(retro_loader, proj_loader, simpledata.EventManager)
     return importer.get_collected_stats()
+
+
+class Statuses:
+    def __init__(self):
+        super().__init__()
+        self.statuses.extend([
+            status.Status.create("review", started=True, wip=False, done=False),
+            status.Status.create("rhel-in_progress", started=True, wip=True, done=False),
+            status.Status.create("rhel-integration", started=True, wip=False, done=False),
+        ])
+
+
+class MPLPointPlot:
+    def get_styles(self):
+        ret = super().get_styles()
+        ret["review"] = StatusStyle(color=(0.1, 0.2, 0.7, 0.6), label="Needs Review", weight=80)
+        ret["rhel-in_progress"] = StatusStyle(color=(0.1, 0.2, 0.5, 0.4), label="BZ In Progress", weight=60)
+        ret["rhel-integration"] = StatusStyle(color=(0.2, 0.4, 0.7, 0.6), label="BZ Integration", weight=61)
+        return ret
 
 
 class BaseCard:

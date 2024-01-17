@@ -195,16 +195,16 @@
 
 
 {% set states_table = {
-    State.todo: "To Do",
-    State.in_progress: "In Progress",
-    State.review: "Needs Peer Review",
-    State.done: "Done",
-    State.abandoned: "Abandoned",
+    "todo": "To Do",
+    "in_progress": "In Progress",
+    "review": "Needs Peer Review",
+    "done": "Done",
+    "abandoned": "Abandoned",
 } %}
 
 
 {% macro state_to_string(state) -%}
-    {{ states_table.get(state, "Unknown") }}
+    {{ states_table.get(state, state) }}
 {%- endmacro %}
 
 

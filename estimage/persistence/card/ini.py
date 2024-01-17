@@ -40,8 +40,8 @@ class IniCardSaver(IniCardSaverBase):
         collabs_str = self._pack_list(t.collaborators)
         self._store_our(t, "collaborators", collabs_str)
 
-    def save_priority_and_state(self, t):
-        self._store_our(t, "state", str(int(t.status)))
+    def save_priority_and_status(self, t):
+        self._store_our(t, "state", str(t.status))
         self._store_our(t, "priority", str(float(t.priority)))
 
     def save_tier(self, t):
@@ -101,9 +101,26 @@ class IniCardLoader(IniCardLoaderBase):
         t.assignee = self._get_our(t, "assignee")
         t.collaborators = self._unpack_list(self._get_our(t, "collaborators"))
 
-    def load_priority_and_state(self, t):
-        state = self._get_our(t, "state")
-        t.status = data.State(int(state))
+    def _load_status(self, t, state_name):
+        LEGACY_TABLE = [
+            "irrelevant",
+            "irrelevant",
+            "todo",
+            "in_progress",
+            "in_progress",
+            "done",
+            "irrelevant",
+        ]
+        try:
+            index = int(state_name)
+            state_name = LEGACY_TABLE[index]
+        except ValueError:
+            pass
+        t.status = state_name
+
+    def load_priority_and_status(self, t):
+        state_name = self._get_our(t, "state")
+        self._load_status(t, state_name)
         t.priority = float(self._get_our(t, "priority"))
 
     def load_tier(self, t):

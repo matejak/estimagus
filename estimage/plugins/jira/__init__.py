@@ -12,22 +12,20 @@ from ... import simpledata
 
 
 JIRA_STATUS_TO_STATE = {
-    "Backlog": card.State.todo,
-    "Refinement": card.State.todo,
-    "New": card.State.todo,
-    "Done": card.State.done,
-    "Verified": card.State.done,
-    "Abandoned": card.State.abandoned,
-    "Closed": card.State.abandoned,
-    "In Progress": card.State.in_progress,
-    "ASSIGNED": card.State.in_progress,
-    "ON_DEV": card.State.in_progress,
-    "POST": card.State.in_progress,
-    "MODIFIED": card.State.in_progress,
-    "Needs Peer Review": card.State.review,
-    "Review": card.State.review,
-    "ON_QA": card.State.review,
-    "To Do": card.State.todo,
+    "Backlog": "todo",
+    "Refinement": "todo",
+    "New": "todo",
+    "Done": "done",
+    "Verified": "done",
+    "Abandoned": "irrelevant",
+    "Closed": "irrelevant",
+    "In Progress": "in_progress",
+    "ASSIGNED": "in_progress",
+    "ON_DEV": "in_progress",
+    "POST": "in_progress",
+    "MODIFIED": "in_progress",
+    "Needs Peer Review": "review",
+    "To Do": "todo",
 }
 
 
@@ -134,63 +132,70 @@ def jira_date_to_datetime(jira_date):
     return datetime.datetime.strptime(jira_date, "%Y-%m-%d")
 
 
-def import_event(event, date, related_task):
+class EventExtractor:
     STORY_POINTS = "customfield_12310243"
 
-    field_name = event.field
-    former_value = event.fromString
-    new_value = event.toString
-    related_task_name = related_task.key
+    def __init__(self, task, cutoff_date=None):
+        self.task = task
+        self.cutoff_datetime = None
+        if cutoff_date:
+            self.cutoff_datetime = datetime.datetime(
+                cutoff_date.year, cutoff_date.month, cutoff_date.day)
+        self.importer = Importer
 
-    evt = None
-    if field_name == "status":
-        evt = evts.Event(related_task_name, "state", date)
-        evt.value_before = Importer.status_to_state(related_task, former_value)
-        evt.value_after = Importer.status_to_state(related_task, new_value)
-        evt.msg = f"Status changed from '{former_value}' to '{new_value}'"
-    elif field_name == STORY_POINTS:
-        evt = evts.Event(related_task_name, "points", date)
-        evt.value_before = float(former_value or 0)
-        evt.value_after = float(new_value or 0)
-        evt.msg = f"Points changed from {former_value} to {new_value}"
-    elif field_name in ("Latest Status Summary", "Status Summary"):
-        evt = evts.Event(related_task_name, "status_summary", date)
-        evt.value_before = former_value
-        evt.value_after = new_value
-        evt.msg = f"Event summary changed to {new_value}"
+    def get_histories(self):
+        return [
+            history for history in self.task.changelog.histories
+            if jira_datetime_to_datetime(history.created) >= self.cutoff_datetime
+        ]
 
-    return evt
+    def import_event(self, event, date):
 
+        field_name = event.field
+        former_value = event.fromString
+        new_value = event.toString
+        related_task_name = self.task.key
 
-def append_event_entry(events, event, date, related_task):
-    event = import_event(event, date, related_task)
-    if event is not None:
-        events.append(event)
-    return events
+        evt = None
+        if field_name == "status":
+            evt = evts.Event(related_task_name, "state", date)
+            evt.value_before = self.importer.status_to_state(self.task, former_value)
+            evt.value_after = self.importer.status_to_state(self.task, new_value)
+            evt.msg = f"Status changed from '{former_value}' to '{new_value}'"
+        elif field_name == self.STORY_POINTS:
+            evt = evts.Event(related_task_name, "points", date)
+            evt.value_before = float(former_value or 0)
+            evt.value_after = float(new_value or 0)
+            evt.msg = f"Points changed from {former_value} to {new_value}"
+        elif field_name in ("Latest Status Summary", "Status Summary"):
+            evt = evts.Event(related_task_name, "status_summary", date)
+            evt.value_before = former_value
+            evt.value_after = new_value
+            evt.msg = f"Event summary changed to {new_value}"
 
+        return evt
 
-def get_events_from_relevant_task_histories(histories, task):
-    events = []
-    for history in histories:
-        date = jira_datetime_to_datetime(history.created)
+    def append_event_entry(self, events, event, date):
+        event = self.import_event(event, date)
+        if event is not None:
+            events.append(event)
+        return events
 
-        for event in history.items:
-            append_event_entry(events, event, date, task)
-    return events
+    def get_events_from_task_histories(self, histories):
+        events = []
+        for history in histories:
+            date = jira_datetime_to_datetime(history.created)
 
+            for event in history.items:
+                self.append_event_entry(events, event, date)
+        return events
 
-def get_task_events(task, cutoff_date):
-    cutoff_datetime = None
-    if cutoff_date:
-        cutoff_datetime = datetime.datetime(cutoff_date.year, cutoff_date.month, cutoff_date.day)
-
-    recent_enough_histories = [
-        history for history in task.changelog.histories
-        if jira_datetime_to_datetime(history.created) >= cutoff_datetime
-    ]
-
-    events = get_events_from_relevant_task_histories(recent_enough_histories, task)
-    return events
+    def get_task_events(self, importer=None):
+        if importer:
+            self.importer = importer
+        recent_enough_histories = self.get_histories()
+        events = self.get_events_from_task_histories(recent_enough_histories)
+        return events
 
 
 class Importer:
@@ -243,7 +248,8 @@ class Importer:
         self.resolve_inheritance(proj_epic_names.union(retro_epic_names))
 
         for name in issue_names_requiring_events:
-            new_events = get_task_events(self._all_issues_by_name[name], spec.cutoff_date)
+            extractor = EventExtractor(self._all_issues_by_name[name], spec.cutoff_date)
+            new_events = extractor.get_task_events(self)
             self._all_events.extend(new_events)
 
     def find_cards(self, card_names: typing.Iterable[str]):
@@ -315,7 +321,7 @@ class Importer:
 
     @classmethod
     def _status_to_state(cls, item, jira_string):
-        return JIRA_STATUS_TO_STATE.get(jira_string, card.State.unknown)
+        return JIRA_STATUS_TO_STATE.get(jira_string, "irrelevant")
 
     def merge_jira_item_without_children(self, item):
         result = self.item_class(item.key)
@@ -324,8 +330,8 @@ class Importer:
         result.title = item.get_field("summary") or ""
         result.description = self._get_contents_of_rendered_field(item, "description")
         result.status = self.status_to_state(item)
-        if item.fields.issuetype.name == "Epic" and result.status == card.State.abandoned:
-            result.status = card.State.done
+        if item.fields.issuetype.name == "Epic" and result.status == "abandoned":
+            result.status = "done"
         result.priority = JIRA_PRIORITY_TO_VALUE.get(item.get_field("priority").name, 0)
         result.tags = {f"label:{value}" for value in (item.get_field("labels") or [])}
 

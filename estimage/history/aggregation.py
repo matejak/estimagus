@@ -7,7 +7,7 @@ import numpy as np
 
 from .. import data
 from .. import utilities
-from ..entities import card
+from ..entities import card, status
 
 from . import progress
 
@@ -67,11 +67,12 @@ def apply_span_to_timeline(timeline, span, start, end):
 
 def convert_card_to_representation(
         source: card.BaseCard,
-        start: datetime.datetime, end: datetime.datetime) -> progress.Progress:
-    repre = progress.Progress(start, end)
+        start: datetime.datetime, end: datetime.datetime,
+        statuses: status.Statuses) -> progress.Progress:
+    repre = progress.Progress(start, end, statuses)
     repre.task_name = source.name
     repre.points_timeline.set_value_at(end, source.point_cost)
-    repre.status_timeline.set_value_at(end, source.status)
+    repre.set_status_at(end, source.status)
     if work_span := source.work_span:
         work_span = produce_meaningful_span(work_span, start, end)
         if work_span[1] < work_span[0]:
@@ -100,15 +101,16 @@ def propagate_span_to_children(parent_span, child, start, end):
 
 def convert_card_to_representations_of_leaves(
         source: card.BaseCard,
-        start: datetime.datetime, end: datetime.datetime) -> typing.List[progress.Progress]:
+        start: datetime.datetime, end: datetime.datetime,
+        statuses: status.Statuses) -> typing.List[progress.Progress]:
     ret = []
 
     if source.children:
         for d in source.children:
             propagate_span_to_children(source.work_span, d, start, end)
-            ret.extend(convert_card_to_representations_of_leaves(d, start, end))
+            ret.extend(convert_card_to_representations_of_leaves(d, start, end, statuses))
     else:
-        ret = [convert_card_to_representation(source, start, end)]
+        ret = [convert_card_to_representation(source, start, end, statuses)]
     return ret
 
 
@@ -129,22 +131,27 @@ def produce_tiered_aggregations(all_cards, all_events, start, end):
 class Aggregation:
     repres: typing.List[progress.Progress]
 
-    def __init__(self):
+    def __init__(self, statuses=None):
         self.repres = []
+        self.statuses = statuses
+        if not self.statuses:
+            self.statuses = status.Statuses()
 
     @classmethod
     def from_card(
             cls, source: card.BaseCard,
-            start: datetime.datetime, end: datetime.datetime) -> "Aggregation":
-        return cls.from_cards([source], start, end)
+            start: datetime.datetime, end: datetime.datetime,
+            statuses: status.Statuses=None) -> "Aggregation":
+        return cls.from_cards([source], start, end, statuses)
 
     @classmethod
     def from_cards(
             cls, sources: card.BaseCard,
-            start: datetime.datetime, end: datetime.datetime) -> "Aggregation":
-        ret = cls()
+            start: datetime.datetime, end: datetime.datetime,
+            statuses: status.Statuses=None) -> "Aggregation":
+        ret = cls(statuses)
         for s in sources:
-            for r in convert_card_to_representations_of_leaves(s, start, end):
+            for r in convert_card_to_representations_of_leaves(s, start, end, ret.statuses):
                 ret.add_repre(r)
         return ret
 
@@ -189,7 +196,7 @@ class Aggregation:
             raise ValueError(msg)
         self.repres.append(repre)
 
-    def states_on(self, when):
+    def statuses_on(self, when):
         states = set()
         for r in self.repres:
             states.add(r.get_status_at(when))
@@ -215,7 +222,9 @@ class Aggregation:
 
     @property
     def days(self):
-        return self.repres[0].points_timeline.days
+        if not self.repres:
+            return 0
+        return (self.end - self.start).days + 1
 
     def process_event_manager(self, manager: data.EventManager):
         events_by_taskname = dict()
@@ -223,19 +232,6 @@ class Aggregation:
             name = repre.task_name
             events_by_taskname[name] = manager.get_chronological_task_events_by_type(name)
         return self.process_events_by_taskname_and_type(events_by_taskname)
-
-    def summarize(self, when: datetime.datetime):
-        ret = Summary()
-        ret.total_days_in_period=(self.end - self.start).days
-        for r in self.repres:
-            repre_points = r.get_points_at(self.start)
-            if r.get_status_at(self.start) not in (
-                    data.State.done, data.State.abandoned):
-                ret.initial_todo += repre_points
-            if r.get_status_at(when) in (
-                    data.State.in_progress, data.State.review):
-                ret.now_underway += repre_points
-        return ret
 
 
 ZERO_ESTIMATE_FIELD = dataclasses.field(default_factory=lambda: data.Estimate.from_triple(0, 0, 0))
@@ -255,7 +251,7 @@ class Summary:
     achieved_since_start: data.Estimate = ZERO_ESTIMATE_FIELD
 
     def __init__(self, a: Aggregation, cutoff: datetime.datetime):
-        self.total_days_in_period = (a.end - a.start).days
+        self.total_days_in_period = a.days
         self._start = a.start
         self._cutoff = cutoff
         for r in a.repres:
@@ -270,13 +266,12 @@ class Summary:
 
     def _process_repre(self, r):
         repre_points = r.get_points_at(self._start)
-        if r.get_status_at(self._start) not in (
-                data.State.done, data.State.abandoned):
+        if r.get_status_at(self._start).relevant_and_not_done_yet:
             self.initial_todo += repre_points
         status_at_cutoff = r.get_status_at(self._cutoff)
-        if status_at_cutoff in (data.State.in_progress, data.State.review):
+        if status_at_cutoff.underway:
             self.cutoff_underway += repre_points
-        elif status_at_cutoff == data.State.todo:
+        elif status_at_cutoff.relevant and not status_at_cutoff.started:
             self.cutoff_todo += repre_points
-        elif status_at_cutoff == data.State.done:
+        elif status_at_cutoff.relevant and status_at_cutoff.done:
             self.cutoff_done += repre_points

@@ -1,26 +1,22 @@
 import datetime
+import collections
 import typing
 
 import numpy as np
 
-from ..entities.card import State
+from ..entities import status
 from . import utils
 from .. import history, PluginResolver
 
 
 class StatusStyle(typing.NamedTuple):
-    status: State
     color: tuple
     label: str
+    weight: float
 
 
 @PluginResolver.class_is_extendable("MPLPointPlot")
 class MPLPointPlot:
-    STYLES = (
-        StatusStyle(status=State.todo, color=(0.1, 0.1, 0.5, 1), label="To Do"),
-        StatusStyle(status=State.in_progress, color=(0.1, 0.1, 0.6, 0.8), label="In Progress"),
-        StatusStyle(status=State.review, color=(0.1, 0.2, 0.7, 0.6), label="Needs Review"),
-    )
     DDAY_LABEL = "today"
 
     def __init__(self, a: history.Aggregation, * args, ** kwargs):
@@ -29,18 +25,32 @@ class MPLPointPlot:
         self.end = a.end
         self.width = 1.0
         super().__init__(* args, ** kwargs)
-        self.status_arrays = np.zeros((len(self.STYLES), a.days))
+        self.styles = self.get_sorted_styles()
+        self.status_arrays = np.zeros((len(self.styles), a.days))
         dday_date = self.get_date_of_dday()
         self.index_of_dday = history.days_between(self.start, dday_date)
+
+    def get_styles(self):
+        ret = dict(
+            todo=StatusStyle(color=(0.1, 0.1, 0.5, 1), label="To Do", weight=1),
+            in_progress=StatusStyle(color=(0.1, 0.1, 0.6, 0.8), label="In Progress", weight=50),
+        )
+        return ret
+
+    def get_sorted_styles(self):
+        styles = self.get_styles()
+        items = styles.items()
+        sorted_items = sorted(items, key=lambda x: x[1].weight)
+        return {key: val for key, val in sorted_items}
 
     def get_date_of_dday(self):
         return datetime.datetime.today()
 
     def _prepare_plots(self):
-        for index, style in enumerate(self.STYLES):
+        for index, status_name in enumerate(self.styles):
             for r in self.aggregation.repres:
                 array = self.status_arrays[index]
-                array[r.status_is(style.status)] += r.points_of_status(style.status)
+                array[r.status_is(status_name)] += r.points_of_status(status_name)
 
     def _show_plan(self, ax):
         ax.plot(self.aggregation.get_plan_array(), color="orange",
@@ -53,7 +63,7 @@ class MPLPointPlot:
     def _plot_prepared_arrays(self, ax):
         days = np.arange(self.aggregation.days)
         bottom = np.zeros_like(days, dtype=float)
-        for index, style in enumerate(self.STYLES):
+        for index, style in enumerate(self.styles.values()):
             array = self.status_arrays[index]
             self._plot_data_with_termination(ax, array, bottom, style)
             bottom += array
@@ -66,8 +76,9 @@ class MPLPointPlot:
             array = utils.insert_element_into_array_after(array[up_until_dday], dday, 0)
             bottom = utils.insert_element_into_array_after(bottom[up_until_dday], dday, 0)
             days = utils.insert_element_into_array_after(days[up_until_dday], dday, dday)
-        ax.fill_between(days, array + bottom, bottom, label=style.label,
-                        color=style.color, edgecolor="white", linewidth=self.width * 0.5)
+        if array.sum() > 0:
+            ax.fill_between(days, array + bottom, bottom, label=style.label,
+                            color=style.color, edgecolor="white", linewidth=self.width * 0.5)
 
     def get_figure(self):
         plt = utils.get_standard_pyplot()

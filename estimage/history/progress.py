@@ -5,7 +5,7 @@ import collections
 import numpy as np
 
 from .. import data
-from ..entities import card
+from ..entities import status
 from . import timeline
 
 
@@ -27,13 +27,16 @@ class Progress:
     relevancy_timeline: timeline.Timeline
     task_name: str
 
-    def __init__(self, start, end):
+    def __init__(self, start, end, statuses=None):
         self.start = start
         self.end = end
 
+        self.statuses = statuses
+        if self.statuses is None:
+            self.statuses = status.Statuses()
         self.points_timeline = timeline.Timeline(start, end)
         self.status_timeline = timeline.Timeline(start, end)
-        self.status_timeline.recreate_with_value(card.State.unknown)
+        self.status_timeline.recreate_with_value(self.statuses.int("irrelevant"), int)
         self.time_timeline = timeline.Timeline(start, end)
 
         self.remainder_timeline = timeline.Timeline(start, end)
@@ -52,7 +55,7 @@ class Progress:
         if points is not None:
             self.points_timeline.set_value_at(when, points)
         if status is not None:
-            self.status_timeline.set_value_at(when, status)
+            self.status_timeline.set_value_at(when, self.statuses.int(status))
         if time is not None:
             self.time_timeline.set_value_at(when, status)
 
@@ -62,9 +65,11 @@ class Progress:
         return self.points_timeline.value_at(when)
 
     def always_was_irrelevant(self):
-        relevant_mask = self.status_timeline.get_value_mask(card.State.todo)
-        relevant_mask |= self.status_timeline.get_value_mask(card.State.in_progress)
-        relevant_mask |= self.status_timeline.get_value_mask(card.State.review)
+        relevant_statuses = self.statuses.that_have_properties(relevant=True, done=False)
+        codes = self.statuses.get_ints(relevant_statuses)
+        relevant_mask = self.status_timeline.get_value_mask(codes[0])
+        for code in codes[1:]:
+            relevant_mask |= self.status_timeline.get_value_mask(code)
         if sum(relevant_mask):
             return False
         return True
@@ -77,12 +82,20 @@ class Progress:
         return ret
 
     def get_status_at(self, when):
-        if not self.relevancy_timeline.value_at(when):
-            return card.State.unknown
-        return self.status_timeline.value_at(when)
+        index = self.status_timeline.value_at(when)
+        status = self.statuses.statuses[index]
+        if not self.relevancy_timeline.value_at(when) and status.relevant:
+            return self.statuses.get("irrelevant")
+        return status
 
-    def status_is(self, status: card.State):
-        return self.status_timeline.get_value_mask(status)
+    def set_status_at(self, when, status):
+        status_meaning = self.statuses.get(status)
+        self.relevancy_timeline.set_value_at(when, status_meaning.relevant)
+        self.status_timeline.set_value_at(when, self.statuses.int(status))
+
+    def status_is(self, status: str):
+        status_int = self.statuses.int(status)
+        return self.status_timeline.get_value_mask(status_int)
 
     def points_of_status(self, status):
         mask = self.status_is(status)
@@ -96,10 +109,11 @@ class Progress:
         self.points_timeline.process_events([init_event])
         self.points_timeline.set_value_at(when, value)
 
-        value = self.status_timeline.value_at(when)
-        init_event.value_before = value
+        status_int = self.status_timeline.value_at(when)
+        init_event.value_after = None
+        init_event.value_before = status_int
         self.status_timeline.process_events([init_event])
-        self.status_timeline.set_value_at(when, value)
+        self.status_timeline.set_value_at(when, status_int)
 
     def is_done(self, latest_at=None):
         relevant_slice = slice(0, None)
@@ -109,25 +123,25 @@ class Progress:
             elif latest_at < self.end:
                 deadline_index = days_between(self.start, latest_at)
                 relevant_slice = slice(0, deadline_index + 1)
-        done_mask = self.status_timeline.get_value_mask(card.State.done)[relevant_slice]
+        done_mask = self.status_timeline.get_value_mask(self.statuses.int("done"))[relevant_slice]
         task_done = done_mask.sum() > 0
         return task_done
 
     def points_completed(self, before=None):
         if not self.is_done(before):
             return 0
-        done_mask = self.status_timeline.get_value_mask(card.State.done)
+        done_mask = self.status_timeline.get_value_mask(self.statuses.int("done"))
         task_points = self.points_timeline.get_masked_values(done_mask)[-1]
         return task_points
 
     @property
     def average_daily_velocity(self):
-        in_progress_mask = self.status_timeline.get_value_mask(card.State.in_progress)
+        in_progress_mask = self._get_value_mask_of_in_progress()
         time_taken = in_progress_mask.sum() or 1
         return self.points_completed() / time_taken
 
     def get_day_of_completion(self):
-        done_mask = self.status_timeline.get_value_mask(card.State.done)
+        done_mask = self.status_timeline.get_value_mask(self.statuses.int("done"))
         if done_mask.sum() == 0:
             return None
         indices = np.arange(len(done_mask))
@@ -140,10 +154,18 @@ class Progress:
             points_multiplier *= 0
         return self.remainder_timeline.get_array() * points_multiplier
 
+    def _get_value_mask_of_in_progress(self):
+        relevant_statuses = self.statuses.that_have_properties(relevant=True, wip=True)
+        codes = self.statuses.get_ints(relevant_statuses)
+        relevant_mask = self.status_timeline.get_value_mask(codes[0])
+        for code in codes[1:]:
+            relevant_mask |= self.status_timeline.get_value_mask(code)
+        return relevant_mask
+
     def get_velocity_array(self):
         if not self.is_done():
-            return self.status_timeline.get_value_mask(card.State.done).astype(float)
-        velocity_array = self.status_timeline.get_value_mask(card.State.in_progress).astype(float)
+            return self.status_timeline.get_value_mask(self.statuses.int("done")).astype(float)
+        velocity_array = self._get_value_mask_of_in_progress().astype(float)
         if velocity_array.sum() == 0:
             index_of_completion = days_between(self.start, self.get_day_of_completion())
             if index_of_completion == 0:
@@ -170,10 +192,13 @@ class Progress:
             "state": self.status_timeline,
             "project": self.relevancy_timeline,
         }
+        for status_event in events_by_type.get("state", frozenset()):
+            val = status_event.value_before
+            status_event.value_before = self.statuses.int(val)
+            val = status_event.value_after
+            status_event.value_after = self.statuses.int(val)
+
         for event_type, tline in TYPES_TO_TIMELINE.items():
             events = events_by_type.get(event_type, [])
             events = self._extract_time_relevant_events(events)
             tline.process_events(events)
-
-
-

@@ -113,8 +113,9 @@ def visualize_velocity_fit():
     all_cards = list(all_cards_by_id.values())
     cards_tree_without_duplicates = utilities.reduce_subsets_from_sets([t for t in all_cards if t.tier == 0])
 
+    statuses = flask.current_app.get_final_class("Statuses")()
     start, end = flask.current_app.get_config_option("RETROSPECTIVE_PERIOD")
-    aggregation = history.Aggregation.from_cards(cards_tree_without_duplicates, start, end)
+    aggregation = history.Aggregation.from_cards(cards_tree_without_duplicates, start, end, statuses)
     aggregation.process_event_manager(all_events)
 
     velocity_array = aggregation.get_velocity_array()
@@ -141,6 +142,7 @@ def visualize_velocity(epic_name):
     all_events = webdata.EventManager()
     all_events.load()
 
+    statuses = flask.current_app.get_final_class("Statuses")()
     start, end = flask.current_app.get_config_option("RETROSPECTIVE_PERIOD")
     velocity_class = flask.current_app.get_final_class("MPLVelocityPlot")
 
@@ -149,13 +151,13 @@ def visualize_velocity(epic_name):
         model = web_utils.get_user_model(user_id, card_tree)
         model.update_cards_with_values(card_tree)
 
-        aggregation = history.Aggregation.from_cards(card_tree, start, end)
+        aggregation = history.Aggregation.from_cards(card_tree, start, end, statuses)
     else:
         epic = all_cards[epic_name]
         model = web_utils.get_user_model(user_id, [epic])
         model.update_cards_with_values([epic])
 
-        aggregation = history.Aggregation.from_card(epic, start, end)
+        aggregation = history.Aggregation.from_card(epic, start, end, statuses)
 
     aggregation.process_event_manager(all_events)
     cutoff_date = min(datetime.datetime.today(), end)
@@ -254,7 +256,8 @@ def output_burndown(card_tree, size):
     all_events = webdata.EventManager()
     all_events.load()
 
-    aggregation = history.Aggregation.from_cards(card_tree, start, end)
+    statuses = flask.current_app.get_final_class("Statuses")()
+    aggregation = history.Aggregation.from_cards(card_tree, start, end, statuses)
     aggregation.process_event_manager(all_events)
 
     burndown_class = flask.current_app.get_final_class("MPLPointPlot")

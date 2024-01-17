@@ -182,13 +182,13 @@ class AppData(inidata.IniAppdata):
         return ""
 
 
-def get_model(cards_tree_without_duplicates, cls=None):
+def get_model(cards_tree_without_duplicates, cls=None, statuses=None):
     model = data.EstiModel()
     if not cards_tree_without_duplicates:
         return model
     if cls is None:
         cls = cards_tree_without_duplicates[0].__class__
-    main_composition = cls.to_tree(cards_tree_without_duplicates)
+    main_composition = cls.to_tree(cards_tree_without_duplicates, statuses)
     model.use_composition(main_composition)
     return model
 

@@ -3,7 +3,7 @@ import datetime
 import pytest
 
 import estimage.data as tm
-import estimage.entities.card as card
+from estimage.entities import card, status
 from estimage.persistence.card import memory
 
 from tests.test_inidata import temp_filename, cardio_inifile_cls
@@ -12,6 +12,7 @@ from tests.test_inidata import temp_filename, cardio_inifile_cls
 @pytest.fixture
 def leaf_card():
     ret = tm.BaseCard("leaf")
+    ret.status = "todo"
     ret.point_cost = 4
     return ret
 
@@ -19,6 +20,7 @@ def leaf_card():
 @pytest.fixture
 def standalone_leaf_card():
     ret = tm.BaseCard("feal")
+    ret.status = "todo"
     ret.point_cost = 2
     return ret
 
@@ -59,8 +61,7 @@ def test_leaf_properties(leaf_card):
 
 def test_finished_card_is_masked(leaf_card):
     done_states = (
-        card.State.abandoned,
-        card.State.done,
+        "done",
     )
     for state in done_states:
         leaf_card.status = state
@@ -146,7 +147,7 @@ def test_card_load_all(card_io):
 def fill_card_instance_with_stuff(t):
     t.point_cost = 5
     t.title = "Issue One"
-    t.status = card.State.in_progress
+    t.status = "in_progress"
     t.collaborators = ["a", "b"]
     t.assignee = "trubador"
     t.priority = 20
@@ -161,7 +162,7 @@ def assert_cards_are_equal(lhs, rhs):
     assert lhs.name == rhs.name
     assert lhs.point_cost == rhs.point_cost
     assert lhs.title == rhs.title
-    assert lhs.status == rhs.state
+    assert lhs.status == rhs.status
     assert lhs.collaborators == rhs.collaborators
     assert lhs.priority == rhs.priority
     assert set(lhs.tags) == set(rhs.tags)

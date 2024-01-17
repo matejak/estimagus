@@ -66,6 +66,11 @@
         <div class="col">
         <img src="{{ head_url_for('vis.visualize_task', task_name=task.name, nominal_or_remaining='nominal') }}" alt="PERT prob density function for {{ task.name }}"/>
         </div>
+	{% if not forms %}
+        <div class="col">
+        <img src="{{ head_url_for('vis.visualize_epic_burndown', epic_name=task.name, size='normal') }}" alt="Burndown for {{ task.name }}"/>
+        </div>
+        {%- endif %}
     </div>
     {% if forms %}
     <div class="row">

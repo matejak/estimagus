@@ -27,8 +27,8 @@ class MemoryCardSaver(persistence.card.Saver):
         self._save(t, "assignee")
         self._save(t, "collaborators")
 
-    def save_priority_and_state(self, t):
-        self._save(t, "state")
+    def save_priority_and_status(self, t):
+        self._save(t, "status")
         self._save(t, "priority")
 
     def save_tier(self, t):
@@ -69,9 +69,9 @@ class MemoryCardLoader(persistence.card.Loader):
         self._load(t, "assignee")
         self._load(t, "collaborators")
 
-    def load_priority_and_state(self, t):
+    def load_priority_and_status(self, t):
         self._load(t, "priority")
-        self._load(t, "state")
+        self._load(t, "status")
 
     def load_tier(self, t):
         self._load(t, "tier")

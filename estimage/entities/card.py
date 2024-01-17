@@ -6,18 +6,9 @@ import datetime
 
 from .estimate import Estimate
 from .task import TaskModel
+from . import status
 from .composition import Composition
 from .. import utilities, PluginResolver
-
-
-class State(enum.IntEnum):
-    unknown = enum.auto()
-    backlog = enum.auto()
-    todo = enum.auto()
-    in_progress = enum.auto()
-    review = enum.auto()
-    done = enum.auto()
-    abandoned = enum.auto()
 
 
 @PluginResolver.class_is_extendable("BaseCard")
@@ -31,7 +22,7 @@ class BaseCard:
     parent: "BaseCard"
     depends_on: typing.List["BaseCard"]
     prerequisite_of: typing.List["BaseCard"]
-    state: State
+    status: status.Status
     collaborators: typing.List[str]
     assignee: str
     priority: float
@@ -52,7 +43,7 @@ class BaseCard:
         self.parent = None
         self.depends_on = []
         self.prerequisite_of = []
-        self.status = State.unknown
+        self.status = status.IRRELEVANT_STATUS.name
         self.collaborators = []
         self.assignee = ""
         self.priority = 50.0
@@ -62,21 +53,27 @@ class BaseCard:
         self.uri = ""
         self.loading_plugin = ""
 
-    def _convert_into_composition(self):
+    def _convert_into_composition(self, statuses):
         ret = Composition(self.name)
         for d in self.children:
             if d.children:
-                ret.add_composition(d._convert_into_composition())
+                ret.add_composition(d._convert_into_composition(statuses))
             else:
-                ret.add_element(d._convert_into_single_result())
+                ret.add_element(d._convert_into_single_result(statuses))
         return ret
 
-    def _convert_into_single_result(self):
+    def _convert_into_single_result(self, statuses):
         ret = TaskModel(self.name)
         if self.point_cost:
             ret.point_estimate = Estimate(self.point_cost, 0)
-        if self.status in (State.abandoned, State.done):
-            ret.mask()
+
+        try:
+            if not statuses.get(self.status).relevant_and_not_done_yet:
+                ret.mask()
+        except KeyError as exc:
+            msg = f"Card {self.name} features unknown status {self.status}"
+            raise ValueError(msg)
+
         return ret
 
     def add_element(self, what: "BaseCard"):
@@ -92,7 +89,7 @@ class BaseCard:
         saver.save_costs(self)
         saver.save_family_records(self)
         saver.save_assignee_and_collab(self)
-        saver.save_priority_and_state(self)
+        saver.save_priority_and_status(self)
         saver.save_tier(self)
         saver.save_tags(self)
         saver.save_work_span(self)
@@ -103,7 +100,7 @@ class BaseCard:
         loader.load_costs(self)
         loader.load_family_records(self)
         loader.load_assignee_and_collab(self)
-        loader.load_priority_and_state(self)
+        loader.load_priority_and_status(self)
         loader.load_tier(self)
         loader.load_tags(self)
         loader.load_work_span(self)
@@ -130,20 +127,18 @@ class BaseCard:
         return ret
 
     @classmethod
-    def to_tree(cls, cards: typing.List["BaseCard"]):
-        if not cards:
-            return Composition("")
+    def to_tree(cls, cards: typing.List["BaseCard"], statuses: status.Statuses=None):
+        if not statuses:
+            statuses = status.Statuses()
         cards = utilities.reduce_subsets_from_sets(cards)
+
         result = Composition("")
-        if len(cards) == 1 and (card := cards[0]).children:
-            result = card._convert_into_composition()
-            return result
         for t in cards:
             if t.children:
-                result.add_composition(t._convert_into_composition())
+                result.add_composition(t._convert_into_composition(statuses))
             else:
-                result.add_element(t._convert_into_single_result())
-        return result
+                result.add_element(t._convert_into_single_result(statuses))
+        return result.simplified()
 
-    def get_tree(self):
-        return self.to_tree([self])
+    def get_tree(self, statuses: status.Statuses=None):
+        return self.to_tree([self], statuses)
