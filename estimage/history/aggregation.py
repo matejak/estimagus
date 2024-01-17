@@ -222,7 +222,9 @@ class Aggregation:
 
     @property
     def days(self):
-        return self.repres[0].points_timeline.days
+        if not self.repres:
+            return 0
+        return (self.end - self.start).days + 1
 
     def process_event_manager(self, manager: data.EventManager):
         events_by_taskname = dict()
@@ -230,17 +232,6 @@ class Aggregation:
             name = repre.task_name
             events_by_taskname[name] = manager.get_chronological_task_events_by_type(name)
         return self.process_events_by_taskname_and_type(events_by_taskname)
-
-    def summarize(self, when: datetime.datetime):
-        ret = Summary()
-        ret.total_days_in_period = (self.end - self.start).days
-        for r in self.repres:
-            repre_points = r.get_points_at(self.start)
-            if r.get_status_at(self.start).relevant_and_not_done_yet:
-                ret.initial_todo += repre_points
-            if r.get_status_at(when).underway:
-                ret.now_underway += repre_points
-        return ret
 
 
 ZERO_ESTIMATE_FIELD = dataclasses.field(default_factory=lambda: data.Estimate.from_triple(0, 0, 0))
@@ -260,7 +251,7 @@ class Summary:
     achieved_since_start: data.Estimate = ZERO_ESTIMATE_FIELD
 
     def __init__(self, a: Aggregation, cutoff: datetime.datetime):
-        self.total_days_in_period = (a.end - a.start).days
+        self.total_days_in_period = a.days
         self._start = a.start
         self._cutoff = cutoff
         for r in a.repres:

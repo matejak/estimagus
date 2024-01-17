@@ -49,6 +49,7 @@ def test_aggregation_no_time_bounds():
     aggregation = tm.Aggregation()
     assert aggregation.start is None
     assert aggregation.end is None
+    assert aggregation.days == 0
 
 
 def test_aggregation_get_time_bounds(repre):
@@ -356,9 +357,10 @@ def test_aggregation_summary(simple_card, mgr):
     a = get_wip_aggregation(simple_card, mgr)
     summary = tm.Summary(a, LONG_PERIOD_END)
     assert summary.initial_todo == simple_card.point_cost
-    assert summary.total_days_in_period == (LONG_PERIOD_END - PERIOD_START).days
+    assert summary.total_days_in_period == (LONG_PERIOD_END - PERIOD_START).days + 1
     assert summary.cutoff_todo == 0
     assert summary.cutoff_underway == simple_card.point_cost
+
 
 def test_aggregation_velocity_summary(simple_card, mgr):
     a = get_done_aggregation(simple_card, mgr, 0)
