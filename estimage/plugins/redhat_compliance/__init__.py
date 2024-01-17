@@ -42,6 +42,32 @@ RHEL_STATUS_TO_STATE = {
 }
 
 
+RHELPLAN_STATUS_TO_STATE = {
+    "New": "todo",
+    "Verified": "done",
+    "Closed": "done",
+    "Abandoned": "irrelevant",
+    "ASSIGNED": "rhel-in_progress",
+    "ON_DEV": "rhel-in_progress",
+    "POST": "rhel-in_progress",
+    "MODIFIED": "rhel-integration",
+    "ON_QA": "rhel-integration",
+}
+
+
+JIRA_STATUS_TO_STATE = {
+    "Backlog": "todo",
+    "Refinement": "todo",
+    "New": "todo",
+    "Done": "done",
+    "Abandoned": "irrelevant",
+    "Closed": "irrelevant",
+    "In Progress": "in_progress",
+    "Needs Peer Review": "review",
+    "To Do": "todo",
+}
+
+
 class InputSpec(jira.InputSpec):
     @classmethod
     def from_form_and_app(cls, input_form, app) -> "InputSpec":
@@ -214,11 +240,11 @@ class Importer(jira.Importer):
         if item_name.startswith("OPENSCAP"):
             return super()._status_to_state(item, jira_string)
         elif item_name.startswith("RHELPLAN"):
-            return RHEL_STATUS_TO_STATE.get(jira_string, "irrelevant")
+            return RHELPLAN_STATUS_TO_STATE.get(jira_string, "irrelevant")
         elif item_name.startswith("RHEL"):
             return RHEL_STATUS_TO_STATE.get(jira_string, "irrelevant")
         else:
-            return RHELPLAN_STATUS_TO_STATE.get(jira_string, "irrelevant")
+            return JIRA_STATUS_TO_STATE.get(jira_string, "irrelevant")
 
 
 def _get_simple_spec(token):
@@ -270,6 +296,8 @@ class MPLPointPlot:
     def get_styles(self):
         ret = super().get_styles()
         ret["review"] = StatusStyle(color=(0.1, 0.2, 0.7, 0.6), label="Needs Review", weight=80)
+        ret["rhel-in_progress"] = StatusStyle(color=(0.1, 0.2, 0.5, 0.4), label="BZ In Progress", weight=80)
+        ret["rhel-integration"] = StatusStyle(color=(0.2, 0.4, 0.7, 0.6), label="BZ Integration", weight=80)
         return ret
 
 

@@ -111,6 +111,11 @@ class Composition:
             elements.extend(c.get_contained_elements())
         return elements
 
+    def simplified(self):
+        if not self.elements and len(self.compositions) == 1:
+            return self.compositions[0]
+        return self
+
 
 class MemoryComposition(Composition):
     COMPOSITIONS = dict()

@@ -128,21 +128,17 @@ class BaseCard:
 
     @classmethod
     def to_tree(cls, cards: typing.List["BaseCard"], statuses: status.Statuses=None):
-        if not cards:
-            return Composition("")
         if not statuses:
             statuses = status.Statuses()
         cards = utilities.reduce_subsets_from_sets(cards)
+
         result = Composition("")
-        if len(cards) == 1 and (card := cards[0]).children:
-            result = card._convert_into_composition(statuses)
-            return result
         for t in cards:
             if t.children:
                 result.add_composition(t._convert_into_composition(statuses))
             else:
                 result.add_element(t._convert_into_single_result(statuses))
-        return result
+        return result.simplified()
 
     def get_tree(self, statuses: status.Statuses=None):
         return self.to_tree([self], statuses)
