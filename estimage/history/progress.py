@@ -202,6 +202,3 @@ class Progress:
             events = events_by_type.get(event_type, [])
             events = self._extract_time_relevant_events(events)
             tline.process_events(events)
-
-
-
