@@ -168,6 +168,35 @@ def visualize_velocity(epic_name):
     return send_figure_as_svg(fig, epic_name)
 
 
+@bp.route('/all_tasks-<nominal_or_remaining>-pert.svg')
+@flask_login.login_required
+def visualize_all_projective_tasks(nominal_or_remaining):
+    allowed_modes = ("nominal", "remaining")
+    if nominal_or_remaining not in allowed_modes:
+        msg = (
+            f"Attempt to visualize all tasks "
+            "and not setting mode to one of {allowed_modes}, "
+            f"but to '{nominal_or_remaining}'."
+        )
+        flask.flash(msg)
+        raise ValueError(msg)
+
+    user = flask_login.current_user
+    user_id = user.get_id()
+
+    tasks, model = web_utils.get_all_tasks_by_id_and_user_model("proj", user_id)
+
+    if nominal_or_remaining == "nominal":
+        estimation = model.nominal_point_estimate
+    else:
+        estimation = model.remaining_point_estimate
+
+    matplotlib.use("svg")
+    fig = get_pert_in_figure(estimation, "all")
+
+    return send_figure_as_svg(fig, "all")
+
+
 @bp.route('/<task_name>-<nominal_or_remaining>-pert.svg')
 @flask_login.login_required
 def visualize_task(task_name, nominal_or_remaining):
@@ -190,16 +219,10 @@ def visualize_task(task_name, nominal_or_remaining):
     if task_name not in tasks:
         return (f"Unable to find task '{markupsafe.escape(task_name)}'", 500)
 
-    if task_name == ".":
-        if nominal_or_remaining == "nominal":
-            estimation = model.nominal_point_estimate
-        else:
-            estimation = model.remaining_point_estimate
+    if nominal_or_remaining == "nominal":
+        estimation = model.nominal_point_estimate_of(task_name)
     else:
-        if nominal_or_remaining == "nominal":
-            estimation = model.nominal_point_estimate_of(task_name)
-        else:
-            estimation = model.remaining_point_estimate_of(task_name)
+        estimation = model.remaining_point_estimate_of(task_name)
 
     matplotlib.use("svg")
     fig = get_pert_in_figure(estimation, task_name)
