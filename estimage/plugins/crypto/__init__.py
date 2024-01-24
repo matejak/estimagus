@@ -177,16 +177,26 @@ class Importer(jira.Importer):
         return self.merge_jira_item_without_children(jira_task)
 
     @classmethod
+    def _accepted(cls, jira_string, item):
+        if jira_string == "Closed" and "Accepted" in item.get_field("labels"):
+            return "Done"
+        return jira_string
+
+    @classmethod
     def _status_to_state(cls, item, jira_string):
         item_name = item.key
 
         if item_name.startswith(PROJECT_NAME):
+            jira_string = cls._accepted(jira_string, item)
             return super()._status_to_state(item, jira_string)
         elif item_name.startswith("RHELPLAN"):
+            jira_string = cls._accepted(jira_string, item)
             return redhat_compliance.RHELPLAN_STATUS_TO_STATE.get(jira_string, "irrelevant")
         elif item_name.startswith("RHEL"):
+            jira_string = cls._accepted(jira_string, item)
             return redhat_compliance.RHEL_STATUS_TO_STATE.get(jira_string, "irrelevant")
         else:
+            jira_string = cls._accepted(jira_string, item)
             return redhat_compliance.JIRA_STATUS_TO_STATE.get(jira_string, "irrelevant")
 
 
