@@ -31,23 +31,25 @@ def get_completion_pdf(velocity_dom, velocity_hom, numiter):
     return res_dom, res_hom
 
 
-def evaluate_completion_pdf(completion_dom, completion_hom, card):
-    ratio = completion_hom[completion_dom > card].sum()
+def evaluate_completion_pdf(completion_dom, completion_hom, remaining):
+    ratio = completion_hom[completion_dom > remaining].sum()
     return ratio / completion_hom.sum()
 
 
-def construct_evaluation(velocity_dom, velocity_hom, card, iter_limit=100):
-    if card == 0:
+def construct_evaluation(velocity_dom, velocity_hom, todo, iter_limit=100):
+    if todo == 0:
         return np.ones(1)
     res_dom = np.zeros(1)
     res_hom = np.ones(1)
     results = []
     for _ in range(iter_limit):
-        result = evaluate_completion_pdf(res_dom, res_hom, card)
+        result = evaluate_completion_pdf(res_dom, res_hom, todo)
         results.append(result)
         if result > 0.99:
             break
         res_dom, res_hom = utilities.eco_convolve(velocity_dom, velocity_hom, res_dom, res_hom)
+        # TODO: What is the cause of this instability? Where is the best place to norm?
+        res_hom /= res_hom.sum()
         res_hom[res_hom < res_hom.max() * 1e-4] = 0
     return np.array(results)
 

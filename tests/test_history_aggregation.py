@@ -362,6 +362,13 @@ def test_aggregation_summary(simple_card, mgr):
     assert summary.cutoff_underway == simple_card.point_cost
 
 
+def test_aggregation_done_summary(simple_card, mgr):
+    a = get_done_aggregation(simple_card, mgr, 1)
+    summary = tm.Summary(a, LONG_PERIOD_END)
+    assert summary.initial_todo == simple_card.point_cost
+    assert summary.total_points_done == simple_card.point_cost
+
+
 def test_aggregation_velocity_summary(simple_card, mgr):
     a = get_done_aggregation(simple_card, mgr, 0)
     summary = tm.Summary(a, LONG_PERIOD_END)

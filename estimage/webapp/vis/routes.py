@@ -58,8 +58,9 @@ def get_aggregation(cards_tree_without_duplicates):
 
     all_events = webdata.EventManager()
     all_events.load()
+    statuses = flask.current_app.get_final_class("Statuses")()
     start, end = flask.current_app.get_config_option("RETROSPECTIVE_PERIOD")
-    aggregation = history.Aggregation.from_cards(cards_tree_without_duplicates, start, end)
+    aggregation = history.Aggregation.from_cards(cards_tree_without_duplicates, start, end, statuses)
     aggregation.process_event_manager(all_events)
 
     return aggregation
@@ -88,9 +89,10 @@ def visualize_completion():
 
     samples = 300
     distro = dist.get_lognorm_given_mean_median(v_mean, v_median, samples)
-    dom = np.linspace(0, v_mean * 10, samples)
+    dom = np.linspace(0, v_mean, samples)
     velocity_pdf = distro.pdf(dom)
-    completion_projection = func.construct_evaluation(dom, velocity_pdf, todo.expected, 200)
+    dom *= 7
+    completion_projection = func.construct_evaluation(dom, velocity_pdf, todo.expected, 300)
 
     matplotlib.use("svg")
 

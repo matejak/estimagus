@@ -43,7 +43,7 @@ class Statuses:
             IRRELEVANT_STATUS,
             Status.create("todo", wip=False),
             Status.create("in_progress", wip=True),
-            Status.create("done", wip=False, done=True),
+            Status.create("done", wip=False, started=True, done=True),
         ]
 
     def get(self, name):

@@ -6,7 +6,7 @@
     <div class="row">
     <p>
         <ul>
-            <li>Velocity fit</li>
+	    <li>Velocity fit: {{ "%.02g, 𝜎 = %.02g" % (summary.velocity_mean * 7.0, summary.velocity_stdev * 7.0) }} </li>
         </ul>
     </p>
     <p>
