@@ -312,3 +312,20 @@ def test_lognorm_ops():
     new_mu, new_sigma = tm.func.get_lognorm_mu_sigma_from_lognorm_mean_variance(mean, variance)
     assert mu == pytest.approx(new_mu)
     assert sigma == pytest.approx(new_sigma)
+
+
+def test_eta_of_completion():
+    v_mean = 10
+    v_stdev = 0
+    std_confidence = 0.95
+    high__confidence = 0.99
+    assert tm.func.get_time_to_completion(v_mean, v_stdev, 0) == 0
+    assert tm.func.get_time_to_completion(v_mean, v_stdev, 1) == pytest.approx(0.1)
+    assert tm.func.get_time_to_completion(v_mean, v_stdev, 1, 0) == 0
+
+    v_stdev = 2
+    dst = 40
+    duration = tm.func.get_time_to_completion(v_mean, v_stdev, dst, std_confidence)
+    assert duration > dst / v_mean
+    assert pytest.approx(dst) == sp.stats.norm(loc=duration * v_mean, scale=v_stdev * np.sqrt(duration)).ppf(1 - std_confidence)
+    assert duration < func.get_time_to_completion(v_mean, v_stdev, dst, high__confidence)

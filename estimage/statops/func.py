@@ -136,3 +136,27 @@ class PdfMultiplicator:
 def multiply_two_pdfs(dom1, hom1, dom2, hom2):
     multiplicator = PdfMultiplicator(dom1, hom1, dom2, hom2)
     return multiplicator()
+
+
+def _get_time_to_completion_gauss(velocity_mean, velocity_stdev, distance, confidence):
+    # dst(p) = mu + sigma + probit(p)
+    quantile = 1 - confidence
+    # the sign of probit doesn't make a difference
+    # sqrt of 2 as per wikipedia is probably some norming not compatible with scipy
+    probit = sp.special.erfinv(2 * quantile - 1)
+
+    # n^2 mu^2 - 2n (mu todo + 2 stdev^2 probit^2) + todo^2 = 0
+    a = velocity_mean ** 2
+    b = - 2 * (velocity_mean * distance + velocity_stdev ** 2 * probit ** 2)
+    c = distance ** 2
+    solution = (- b + np.sqrt(b ** 2 - 4 * a * c)) / (2.0 * a)
+    return solution
+
+
+def get_time_to_completion(velocity_mean, velocity_stdev, distance, confidence=0.99):
+    if distance * confidence == 0:
+        return 0
+    if velocity_stdev == 0:
+        return distance / velocity_mean
+    else:
+        return _get_time_to_completion_gauss(velocity_mean, velocity_stdev, distance, confidence)
