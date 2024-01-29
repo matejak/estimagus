@@ -10,6 +10,7 @@ from . import forms
 bp = flask.Blueprint("crypto", __name__, template_folder="templates")
 
 
+@web_utils.is_primary_menu_of("crypto", bp, "Red Hat Crypto")
 @bp.route('/crypto', methods=("GET", "POST"))
 @flask_login.login_required
 def sync():

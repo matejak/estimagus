@@ -37,6 +37,7 @@ RHEL_STATUS_TO_STATE = {
     "Closed": "done",
     "In Progress": "rhel-in_progress",
     "Integration": "rhel-integration",
+    "Release Pending": "done",
     "To Do": "todo",
 }
 

@@ -19,6 +19,7 @@ from .forms import CryptoForm
 EXPORTS = dict(
     MPLPointPlot="MPLPointPlot",
     Statuses="Statuses",
+    Workloads="Workloads",
 )
 
 
@@ -55,6 +56,7 @@ class InputSpec(jira.InputSpec):
         ret.cutoff_date = app.config["RETROSPECTIVE_PERIOD"][0]
         query = f"project = {PROJECT_NAME} AND type = Task AND sprint in openSprints()"
         query = "filter = 12350823 AND Sprint in openSprints() AND labels = committed AND issuetype in (task, bug, Story)"
+        query = "filter = 12350823 AND Sprint in openSprints() AND issuetype in (task, bug, Story)"
         ret.retrospective_query = query
         ret.projective_query = ""
         ret.item_class = app.config["classes"]["BaseCard"]
@@ -178,8 +180,11 @@ class Importer(jira.Importer):
 
     @classmethod
     def _accepted(cls, jira_string, item):
-        if jira_string == "Closed" and "Accepted" in item.get_field("labels"):
-            return "Done"
+        if jira_string == "Closed":
+            if "Accepted" in item.get_field("labels"):
+                return "Done"
+            elif item.get_field("resolution") == "Done":
+                return "Done"
         return jira_string
 
     @classmethod
@@ -206,3 +211,12 @@ def do_stuff(spec):
     retro_io = web_utils.get_retro_loader()[1]
     proj_io = web_utils.get_proj_loader()[1]
     importer.save(retro_io, proj_io, simpledata.EventManager)
+
+
+class Workloads:
+    def __init__(self,
+                 cards: typing.Iterable[data.BaseCard],
+                 model: data.EstiModel,
+                 * args, ** kwargs):
+        cards = [t for t in cards if t.tier == 0]
+        super().__init__(* args, model=model, cards=cards, ** kwargs)
