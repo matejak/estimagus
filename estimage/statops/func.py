@@ -149,7 +149,8 @@ def _get_time_to_completion_gauss(velocity_mean, velocity_stdev, distance, confi
     a = velocity_mean ** 2
     b = - 2 * (velocity_mean * distance + velocity_stdev ** 2 * probit ** 2)
     c = distance ** 2
-    solution = (- b + np.sqrt(b ** 2 - 4 * a * c)) / (2.0 * a)
+    sign = 1 if confidence > 0.5 else -1
+    solution = (- b + sign * np.sqrt(b ** 2 - 4 * a * c)) / (2.0 * a)
     return solution
 
 
@@ -160,3 +161,104 @@ def get_time_to_completion(velocity_mean, velocity_stdev, distance, confidence=0
         return distance / velocity_mean
     else:
         return _get_time_to_completion_gauss(velocity_mean, velocity_stdev, distance, confidence)
+
+
+def get_prob_of_completion(velocity_mean, velocity_stdev, distance, time):
+    if distance == 0:
+        return 1
+    if velocity_stdev == 0:
+        return 0 if velocity_mean * time < distance else 1
+    if time == 0:
+        return 0
+    dist = sp.stats.norm(loc=velocity_mean * time, scale=np.sqrt(velocity_stdev ** 2 * time))
+    return 1 - dist.cdf(distance)
+
+
+def get_prob_of_completion_vector(velocity_mean, velocity_stdev, distance, time):
+    if distance == 0:
+        return np.ones_like(time, dtype=float)
+    if velocity_stdev == 0:
+        ret = np.zeros_like(time, dtype=float)
+        ret[velocity_mean * time > distance] = 1
+        return ret
+    dist = sp.stats.norm(loc=velocity_mean * time, scale=np.sqrt(velocity_stdev ** 2 * time))
+    ret = 1 - dist.cdf(distance)
+    ret[time == 0] = 0
+    return ret
+
+
+def custom_grid(array, callback, extra_rows=0):
+    if extra_rows == 0:
+        ret = np.meshgrid(array, 1.0)
+    elif extra_rows == 1:
+        ret = np.meshgrid(array, np.array((0.9, 1.0, 1.1)))
+    ret[1] *= callback(ret[0])
+    return ret
+
+
+def get_1d_lognorm_grid(lower_sigma, upper_sigma, mean, count=2, extra_rows=0):
+    mu = lambda sigma: np.log(mean) - sigma ** 2 / 2
+    sigmas = np.linspace(lower_sigma, upper_sigma, count)
+    ret = custom_grid(sigmas, mu, extra_rows)
+    return ret[::-1]
+
+
+def get_posterior(dom, prior, pdf):
+    posterior = prior * pdf(dom)
+    posterior /= posterior.sum()
+    return posterior
+
+
+def get_mu_pdf_lognorm(mu, sigma):
+    def pdf(x):
+        return sp.stats.lognorm.pdf(x, scale=np.exp(mu), s=sigma)
+    return pdf
+
+
+def apply_datapoint(doms, prior, datapoint, callback):
+    mus_, sigmas_ = doms
+    factors = np.ones_like(prior)
+    for idx in range(prior.size):
+        mu = mus_.flat[idx]
+        sigma = sigmas_.flat[idx]
+        factor = callback(mu, sigma)(datapoint)
+        factors.flat[idx] = factor
+    if False:
+        plt.imshow(factors)
+        plt.colorbar()
+        plt.show()
+    prior *= factors
+    prior /= prior.sum()
+    return prior
+
+
+def get_weighted_argmax(coords, array):
+    result = [0, 0]
+    for idx, el in enumerate(array.flat):
+        el /= array.sum()
+        result[0] += el * coords[0].flat[idx]
+        result[1] += el * coords[1].flat[idx]
+    return result
+
+
+def estimate_lognorm(grids, samples):
+    mus_, sigmas_ = grids
+    prior = np.ones(mus_.shape, float)
+    result = get_weighted_argmax((mus_, sigmas_), prior)
+    for s in samples:
+        prior = apply_datapoint((mus_, sigmas_), prior, s, get_mu_pdf_lognorm)
+        result = get_weighted_argmax((mus_, sigmas_), prior)
+    return result
+
+
+def autoestimate_lognorm(samples):
+    grids = get_1d_lognorm_grid(0.01, 5.0, samples.mean(), 10)
+    res = estimate_lognorm(grids, samples)
+
+    grids = get_1d_lognorm_grid(res[1] - 0.5, res[1] + 0.5, samples.mean(), 10, 1)
+    res2 = estimate_lognorm(grids, samples)
+
+    grids = get_1d_lognorm_grid(res2[1] - 0.2, res2[1] + 0.2, samples.mean(), 20, 0)
+    res3 = estimate_lognorm(grids, samples)
+
+    return res3

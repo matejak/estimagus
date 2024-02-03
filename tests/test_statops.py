@@ -329,3 +329,22 @@ def test_eta_of_completion():
     assert duration > dst / v_mean
     assert pytest.approx(dst) == sp.stats.norm(loc=duration * v_mean, scale=v_stdev * np.sqrt(duration)).ppf(1 - std_confidence)
     assert duration < func.get_time_to_completion(v_mean, v_stdev, dst, high__confidence)
+
+
+def test_prob_of_completion_trivial():
+    assert tm.func.get_prob_of_completion(0, 0, 0, 0) == 1
+    assert tm.func.get_prob_of_completion(1, 0, 1, 0.9) == 0
+    assert tm.func.get_prob_of_completion(1, 0, 1, 1.1) == 1
+
+
+def test_prob_of_completion_correspondence():
+    assert tm.func.get_prob_of_completion(1, 0.01, 1, 0) == 0
+    assert tm.func.get_prob_of_completion(1, 0.01, 1, 0.8) == 0
+    assert tm.func.get_prob_of_completion(1, 0.01, 1, 1.1) == 1
+    assert tm.func.get_prob_of_completion(1, 0.01, 1, 1) == 0.5
+    assert list(tm.func.get_prob_of_completion_vector(1, 0.01, 1, np.array([0, 1, 2]))) == [0, 0.5, 1]
+
+
+def test_prob_of_completion_variance_reduces_success():
+    assert tm.func.get_prob_of_completion(1, 0.1, 1, 1.1) == pytest.approx(0.83, rel=0.01)
+    assert tm.func.get_prob_of_completion(1, 0.1, 1, 0.9) == pytest.approx(0.146, rel=0.01)

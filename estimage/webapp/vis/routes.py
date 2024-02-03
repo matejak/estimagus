@@ -6,6 +6,7 @@ import flask_login
 import markupsafe
 
 import numpy as np
+import scipy as sp
 import matplotlib
 
 from . import bp
@@ -79,26 +80,38 @@ def visualize_completion():
     aggregation = get_aggregation(cards_tree_without_duplicates)
 
     model = web_utils.get_user_model(user_id, cards_tree_without_duplicates)
-    todo = model.remaining_point_estimate
+
+    # TODO: There may be inconsistencies when the data are newer than when the cutoff ends
+    todo = model.remaining_point_estimate.expected
+    summary = history.aggregation.Summary(aggregation, min(aggregation.end, datetime.datetime.today()))
+    todo = summary.cutoff_todo + summary.cutoff_underway
 
     velocity_array = aggregation.get_velocity_array()
     sl = func.get_pdf_bounds_slice(velocity_array)
     nonzero_daily_velocity = velocity_array[sl]
 
-    v_mean, v_median = func.get_mean_median_dissolving_outliers(nonzero_daily_velocity, -1)
+    mu, sigma = func.autoestimate_lognorm(nonzero_daily_velocity)
+    distro = sp.stats.lognorm(scale=np.exp(mu), s=sigma)
 
-    samples = 300
-    distro = dist.get_lognorm_given_mean_median(v_mean, v_median, samples)
-    dom = np.linspace(0, v_mean, samples)
-    velocity_pdf = distro.pdf(dom)
-    dom *= 7
-    completion_projection = func.construct_evaluation(dom, velocity_pdf, todo.expected, 300)
+    v_mean = distro.mean()
+    v_std = np.sqrt(distro.var())
+
+    time_dom = np.linspace(
+        func.get_time_to_completion(v_mean, v_std, todo, 0.01),
+        func.get_time_to_completion(v_mean, v_std, todo, 0.99) + 1,
+        80)
+    completion_cdf = func.get_prob_of_completion_vector(v_mean, v_std, todo, time_dom)
+
+    ppf = lambda x: func.get_time_to_completion(v_mean, v_std, todo, x)
+
+    time_dom = np.concatenate(([0, max(0, time_dom[0] - 1)], time_dom))
+    completion_cdf = np.concatenate(([0, 0], completion_cdf))
 
     matplotlib.use("svg")
 
     completion_class = flask.current_app.get_final_class("MPLCompletionPlot")
 
-    fig = completion_class(aggregation.start, completion_projection).get_figure()
+    fig = completion_class(aggregation.start, time_dom, completion_cdf, ppf).get_figure()
     fig.set_size_inches(* NORMAL_FIGURE_SIZE)
     return send_figure_as_svg(fig, "completion.svg")
 

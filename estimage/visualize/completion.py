@@ -12,11 +12,11 @@ class MPLCompletionPlot:
     DDAY_LABEL = "today"
     width = 2
 
-    def __init__(self, period_start, cdf):
-        self.dom = np.arange(len(cdf))
+    def __init__(self, period_start, dom, cdf, ppf_cb):
+        self.dom = dom
         self.cdf = cdf * 100
         self.start = period_start
-        self.ppf = sp.interpolate.interp1d(cdf, self.dom)
+        self.ppf = ppf_cb
 
     def _dom_to_days(self, dom_numbers):
         return dom_numbers - self.dom[0]
