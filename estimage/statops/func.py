@@ -16,6 +16,12 @@ def get_lognorm_variance(mu, sigma):
     return res
 
 
+def get_lognorm_mean_stdev(mu, sigma):
+    lognorm_var = get_lognorm_variance(mu, sigma)
+    mean = np.exp(mu + sigma ** 2 / 2)
+    return mean, np.sqrt(lognorm_var)
+
+
 def get_lognorm_mu_sigma_from_lognorm_mean_variance(mean, variance):
     # See https://en.wikipedia.org/wiki/Log-normal_distribution, Variance + Mean
     sigma = np.sqrt(np.log(variance / mean ** 2 + 1))
@@ -23,40 +29,9 @@ def get_lognorm_mu_sigma_from_lognorm_mean_variance(mean, variance):
     return mu, sigma
 
 
-def get_completion_pdf(velocity_dom, velocity_hom, numiter):
-    res_dom = np.zeros(1)
-    res_hom = np.ones(1)
-    for _ in range(numiter):
-        res_dom, res_hom = utilities.eco_convolve(velocity_dom, velocity_hom, res_dom, res_hom)
-    return res_dom, res_hom
-
-
-def evaluate_completion_pdf(completion_dom, completion_hom, remaining):
-    ratio = completion_hom[completion_dom > remaining].sum()
-    return ratio / completion_hom.sum()
-
-
-def construct_evaluation(velocity_dom, velocity_hom, todo, iter_limit=100):
-    if todo == 0:
-        return np.ones(1)
-    res_dom = np.zeros(1)
-    res_hom = np.ones(1)
-    results = []
-    for _ in range(iter_limit):
-        result = evaluate_completion_pdf(res_dom, res_hom, todo)
-        results.append(result)
-        if result > 0.99:
-            break
-        res_dom, res_hom = utilities.eco_convolve(velocity_dom, velocity_hom, res_dom, res_hom)
-        # TODO: What is the cause of this instability? Where is the best place to norm?
-        res_hom /= res_hom.sum()
-        res_hom[res_hom < res_hom.max() * 1e-4] = 0
-    return np.array(results)
-
-
-def lognorm_pdf(dom, mu, sigma):
-    dist = sp.stats.lognorm(s=sigma, scale=np.exp(mu))
-    return dist.pdf(dom)
+def get_lognorm_given_mean_median(mean, median, samples=200):
+    mu, sigma = get_lognorm_mu_sigma(mean, median)
+    return sp.stats.lognorm(scale=np.exp(mu), s=sigma)
 
 
 def get_lognorm_mu_sigma(mean, median):
@@ -174,39 +149,30 @@ def get_prob_of_completion(velocity_mean, velocity_stdev, distance, time):
     return 1 - dist.cdf(distance)
 
 
-def get_prob_of_completion_vector(velocity_mean, velocity_stdev, distance, time):
+def get_prob_of_completion_vector(velocity_mean, velocity_stdev, distance, times):
     if distance == 0:
-        return np.ones_like(time, dtype=float)
+        return np.ones_like(times, dtype=float)
     if velocity_stdev == 0:
-        ret = np.zeros_like(time, dtype=float)
-        ret[velocity_mean * time > distance] = 1
+        ret = np.zeros_like(times, dtype=float)
+        ret[velocity_mean * times > distance] = 1
         return ret
-    dist = sp.stats.norm(loc=velocity_mean * time, scale=np.sqrt(velocity_stdev ** 2 * time))
+    dist = sp.stats.norm(loc=velocity_mean * times, scale=np.sqrt(velocity_stdev ** 2 * times))
     ret = 1 - dist.cdf(distance)
-    ret[time == 0] = 0
+    ret[times == 0] = 0
     return ret
 
 
-def custom_grid(array, callback, extra_rows=0):
-    if extra_rows == 0:
-        ret = np.meshgrid(array, 1.0)
-    elif extra_rows == 1:
-        ret = np.meshgrid(array, np.array((0.9, 1.0, 1.1)))
+def _custom_grid(array, callback):
+    ret = np.meshgrid(array, 1.0)
     ret[1] *= callback(ret[0])
     return ret
 
 
-def get_1d_lognorm_grid(lower_sigma, upper_sigma, mean, count=2, extra_rows=0):
+def get_1d_lognorm_grid(lower_sigma, upper_sigma, mean, count=2):
     mu = lambda sigma: np.log(mean) - sigma ** 2 / 2
     sigmas = np.linspace(lower_sigma, upper_sigma, count)
-    ret = custom_grid(sigmas, mu, extra_rows)
+    ret = _custom_grid(sigmas, mu)
     return ret[::-1]
-
-
-def get_posterior(dom, prior, pdf):
-    posterior = prior * pdf(dom)
-    posterior /= posterior.sum()
-    return posterior
 
 
 def get_mu_pdf_lognorm(mu, sigma):
@@ -234,10 +200,11 @@ def apply_datapoint(doms, prior, datapoint, callback):
 
 def get_weighted_argmax(coords, array):
     result = [0, 0]
-    for idx, el in enumerate(array.flat):
-        el /= array.sum()
-        result[0] += el * coords[0].flat[idx]
-        result[1] += el * coords[1].flat[idx]
+    arr_sum = array.sum()
+    for idx, wgt in enumerate(array.flat):
+        rel_wgt = wgt / arr_sum
+        for dim in range(2):
+            result[dim] += rel_wgt * coords[dim].flat[idx]
     return result
 
 
@@ -255,10 +222,10 @@ def autoestimate_lognorm(samples):
     grids = get_1d_lognorm_grid(0.01, 5.0, samples.mean(), 10)
     res = estimate_lognorm(grids, samples)
 
-    grids = get_1d_lognorm_grid(res[1] - 0.5, res[1] + 0.5, samples.mean(), 10, 1)
+    grids = get_1d_lognorm_grid(res[1] - 0.5, res[1] + 0.5, samples.mean(), 10)
     res2 = estimate_lognorm(grids, samples)
 
-    grids = get_1d_lognorm_grid(res2[1] - 0.2, res2[1] + 0.2, samples.mean(), 20, 0)
+    grids = get_1d_lognorm_grid(res2[1] - 0.2, res2[1] + 0.2, samples.mean(), 20)
     res3 = estimate_lognorm(grids, samples)
 
     return res3

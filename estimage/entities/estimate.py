@@ -6,7 +6,7 @@ import scipy as sp
 import scipy.stats
 
 from .. import utilities
-from ..statops import dist, func
+from ..statops import func
 
 
 def calculate_o_p(m, E, V):

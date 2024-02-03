@@ -12,7 +12,7 @@ import matplotlib
 from . import bp
 from .. import web_utils
 from ... import history, utilities
-from ...statops import func, dist
+from ...statops import func
 from ... import simpledata as webdata
 from ...visualize import utils, velocity, burndown, pert, completion
 
@@ -91,10 +91,7 @@ def visualize_completion():
     nonzero_daily_velocity = velocity_array[sl]
 
     mu, sigma = func.autoestimate_lognorm(nonzero_daily_velocity)
-    distro = sp.stats.lognorm(scale=np.exp(mu), s=sigma)
-
-    v_mean = distro.mean()
-    v_std = np.sqrt(distro.var())
+    v_mean, v_std = func.get_lognorm_mean_stdev(mu, sigma)
 
     time_dom = np.linspace(
         func.get_time_to_completion(v_mean, v_std, todo, 0.01),

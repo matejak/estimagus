@@ -5,7 +5,7 @@ import scipy as sp
 
 from ..history import Summary, Aggregation
 from .. import utilities
-from . import func, dist
+from . import func
 
 
 class StatSummary(Summary):

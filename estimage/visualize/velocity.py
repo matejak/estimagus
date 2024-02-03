@@ -6,7 +6,7 @@ import scipy as sp
 
 from . import utils
 from .. import history, PluginResolver
-from ..statops import func, dist
+from ..statops import func
 
 
 DAYS_IN_WEEK = 7
@@ -111,7 +111,7 @@ class MPLVelocityFitPlot:
 
         mu, sigma = func.autoestimate_lognorm(self.velocity)
         bayesian_fit = sp.stats.lognorm(scale=np.exp(mu), s=sigma)
-        parametric_fit = dist.get_lognorm_given_mean_median(
+        parametric_fit = func.get_lognorm_given_mean_median(
             self.velocity.mean(), np.median(self.velocity))
         self.fit = bayesian_fit
 
