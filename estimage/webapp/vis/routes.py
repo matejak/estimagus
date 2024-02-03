@@ -108,7 +108,8 @@ def visualize_completion():
 
     completion_class = flask.current_app.get_final_class("MPLCompletionPlot")
 
-    fig = completion_class(aggregation.start, time_dom, completion_cdf, ppf).get_figure()
+    fig = completion_class(
+        (aggregation.start, aggregation.end), time_dom, completion_cdf, ppf).get_figure()
     fig.set_size_inches(* NORMAL_FIGURE_SIZE)
     return send_figure_as_svg(fig, "completion.svg")
 
