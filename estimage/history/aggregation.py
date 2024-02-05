@@ -269,7 +269,7 @@ class Summary:
         if r.get_status_at(self._start).relevant_and_not_done_yet:
             self.initial_todo += repre_points
         status_at_cutoff = r.get_status_at(self._cutoff)
-        if status_at_cutoff.underway:
+        if status_at_cutoff.relevant and status_at_cutoff.underway:
             self.cutoff_underway += repre_points
         elif status_at_cutoff.relevant and not status_at_cutoff.started:
             self.cutoff_todo += repre_points

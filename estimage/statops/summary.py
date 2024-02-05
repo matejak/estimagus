@@ -1,10 +1,11 @@
 import datetime
 
 import numpy as np
+import scipy as sp
 
 from ..history import Summary, Aggregation
 from .. import utilities
-from . import func, dist
+from . import func
 
 
 class StatSummary(Summary):
@@ -14,9 +15,9 @@ class StatSummary(Summary):
         super().__init__(a, cutoff)
         self._samples = samples
 
-        self.completion = (np.inf, np.inf)
-        self.velocity_mean = 0
-        self.velocity_stdev = 0
+        self.weekly_completion = (np.inf, np.inf)
+        self.weekly_velocity_mean = 0
+        self.weekly_velocity_stdev = 0
         self._projection_summary()
 
     def _projection_summary(self):
@@ -26,18 +27,16 @@ class StatSummary(Summary):
             sl = func.get_pdf_bounds_slice(self._velocity_array)
             nonzero_daily_velocity = self._velocity_array[sl]
 
-            v_mean, v_median = func.get_mean_median_dissolving_outliers(nonzero_daily_velocity, self.OUTLIER_THRESHOLD)
-            self.velocity_mean = v_mean
-            mu, sigma = func.get_lognorm_mu_sigma_from_lognorm_mean_variance(v_mean, v_median)
-            self.velocity_stdev = v_mean * np.sqrt(np.exp(sigma ** 2) - 1)
+            mu, sigma = func.autoestimate_lognorm(nonzero_daily_velocity)
+            distro = sp.stats.lognorm(scale=np.exp(mu), s=sigma)
 
-            distro = dist.get_lognorm_given_mean_median(v_mean, v_median, self._samples)
-            dom = np.linspace(0, v_mean, self._samples)
-            velocity_pdf = distro.pdf(dom)
-            dom *= 7
+            daily_velocity_mean = distro.mean()
+            daily_velocity_stdev = np.sqrt(distro.var())
 
-            completion_projection = func.construct_evaluation(dom, velocity_pdf, todo, 300)
-            self.completion = (
-                utilities.extent_index(completion_projection, 5),
-                utilities.extent_index(completion_projection, 95),
+            self.weekly_completion = (
+                func.get_time_to_completion(daily_velocity_mean, daily_velocity_stdev, todo, 0.05) / 7,
+                func.get_time_to_completion(daily_velocity_mean, daily_velocity_stdev, todo, 0.95) / 7,
             )
+
+            self.weekly_velocity_mean = 7 * daily_velocity_mean
+            self.weekly_velocity_stdev = np.sqrt(7) * daily_velocity_stdev

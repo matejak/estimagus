@@ -29,6 +29,16 @@ def x_axis_weeks_and_months(ax, start, end, week_index_start=0):
     ax.set_xlabel("time / weeks")
 
 
+def get_week_index(start, later_date):
+    time_in_between = later_date - start
+    res = time_in_between.days // 7
+    if start.weekday() > later_date.weekday():
+        res += 1
+    if later_date.weekday() == 0:
+        res -= 1
+    return res
+
+
 def set_week_ticks_to_mondays(ticks, start, end, week_index_start=0):
     week_index = week_index_start
     if start.weekday != 0:

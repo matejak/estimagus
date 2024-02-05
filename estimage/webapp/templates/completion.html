@@ -6,7 +6,7 @@
     <div class="row">
     <p>
         <ul>
-	    <li>Velocity fit: {{ "%.02g, 𝜎 = %.02g" % (summary.velocity_mean * 7.0, summary.velocity_stdev * 7.0) }} </li>
+	    <li>Velocity fit: {{ "%.02g, 𝜎 = %.02g" % (summary.weekly_velocity_mean, summary.weekly_velocity_stdev) }} </li>
         </ul>
     </p>
     <p>
@@ -21,7 +21,7 @@
     	Projection of completion
     </p>
     <p>
-    Estimated time of delivery - between {{ "%.2g" % (summary.completion[0] / 7.0) }} to {{ "%.2g" % (summary.completion[1] / 7.0) }} weeks from now.
+    Estimated time of delivery - between {{ "%.2g" % summary.weekly_completion[0] }} to {{ "%.2g" % summary.weekly_completion[1] }} weeks from now.
     </p>
     <p>
     <img src="{{ head_url_for('vis.visualize_completion') }}" alt="Completion projection"/>

@@ -72,3 +72,19 @@ def test_set_ticks():
     tm.utils.set_week_ticks_to_mondays(ticks, LATE_APRIL_TUE, LATE_APRIL_MON)
     assert len(ticks) == 1
     assert ticks[5] == "1"
+
+
+def test_week_index():
+    LATE_APRIL_TUE = datetime.datetime(2023, 4, 19)
+    LATE_APRIL_MON = datetime.datetime(2023, 4, 24)
+    FIRST_OF_MAY = datetime.datetime(2023, 5, 1)
+    ONE_DAY = datetime.timedelta(days=1)
+
+    assert tm.utils.get_week_index(LATE_APRIL_TUE, LATE_APRIL_TUE) == 0
+    assert tm.utils.get_week_index(LATE_APRIL_TUE, LATE_APRIL_MON - ONE_DAY) == 0
+    assert tm.utils.get_week_index(LATE_APRIL_MON - ONE_DAY, LATE_APRIL_MON) == 0
+    assert tm.utils.get_week_index(LATE_APRIL_MON - ONE_DAY, LATE_APRIL_MON + ONE_DAY) == 1
+    assert tm.utils.get_week_index(LATE_APRIL_MON, LATE_APRIL_MON + ONE_DAY) == 0
+    assert tm.utils.get_week_index(LATE_APRIL_TUE, LATE_APRIL_MON) == 0
+    assert tm.utils.get_week_index(LATE_APRIL_TUE, LATE_APRIL_TUE + ONE_DAY * 7) == 1
+    assert tm.utils.get_week_index(LATE_APRIL_TUE, LATE_APRIL_MON + ONE_DAY * 7) == 1
