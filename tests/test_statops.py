@@ -136,3 +136,15 @@ def test_lognorm_mean_variance():
 
     assert mu == pytest.approx(mu2)
     assert sigma == pytest.approx(sigma2)
+
+
+def test_nonzero_velocity():
+    velocity = np.ones(1)
+    np.testing.assert_array_equal(
+        tm.func.get_nonzero_velocity(velocity),
+        np.ones(1))
+
+    velocity = np.array([1, 2, 0, 4, 8 ,0])
+    np.testing.assert_array_equal(
+        tm.func.get_nonzero_velocity(velocity),
+        np.array([1, 2, 4, 8]))

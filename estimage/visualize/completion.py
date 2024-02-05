@@ -18,7 +18,7 @@ class MPLCompletionPlot:
         self.period_start = period_bounds[0]
         self.period_end = period_bounds[1]
         self.chart_days_before_dday = - min(int(self.dom[0]), (self.period_end - self.get_date_of_dday()).days)
-        self.chart_days_after_completion = max(0, (self.period_end - self.get_date_of_dday() + utils.ONE_DAY * self.dom[-1]).days)
+        self.chart_days_after_completion = min(0, (self.get_date_of_dday() + utils.ONE_DAY * self.dom[-1] - self.period_end).days)
         self.ppf = ppf_cb
         self._pad_dom_and_cdf()
 
@@ -36,7 +36,6 @@ class MPLCompletionPlot:
         return dom_numbers - self.dom[0]
 
     def get_date_of_dday(self):
-        return datetime.datetime(2024, 1, 28)
         return datetime.datetime.today()
 
     def _plot_plan_wrt_day(self, ax):
@@ -61,7 +60,8 @@ class MPLCompletionPlot:
     def _plot_period_end(self, ax):
         period_end_index = (self.period_end - self.get_date_of_dday()).days
         color = "blue"
-        if period_end_index < 0:
+        period_end_is_before_completion = self.chart_days_after_completion == 0
+        if period_end_is_before_completion:
             color = "red"
         ax.axvline(self._dom_to_days(period_end_index), label="period end", color=color, linewidth=2)
 

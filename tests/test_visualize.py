@@ -74,17 +74,26 @@ def test_set_ticks():
     assert ticks[5] == "1"
 
 
+def _assert_index_consistent(start1, start2, end, first_index):
+    ticks1 = dict()
+    ticks2 = dict()
+    tm.utils.set_week_ticks_to_mondays(ticks1, start1, end)
+    week_index = tm.utils.get_week_index(start1, start2)
+    tm.utils.set_week_ticks_to_mondays(ticks2, start2, end, week_index)
+    index_diff = (start2 - start1).days
+    assert ticks1[first_index] == ticks2[first_index - index_diff]
+
+
 def test_week_index():
-    LATE_APRIL_TUE = datetime.datetime(2023, 4, 19)
-    LATE_APRIL_MON = datetime.datetime(2023, 4, 24)
-    FIRST_OF_MAY = datetime.datetime(2023, 5, 1)
+    APRIL_MON = datetime.datetime(2023, 4, 24)
+    APRIL_TUE = datetime.datetime(2023, 4, 25)
+    MAY_MON = datetime.datetime(2023, 5, 8)
+    MAY_TUE = datetime.datetime(2023, 5, 9)
+    JUNE_MON = datetime.datetime(2023, 6, 5)
+    JUNE_TUE = datetime.datetime(2023, 6, 6)
     ONE_DAY = datetime.timedelta(days=1)
 
-    assert tm.utils.get_week_index(LATE_APRIL_TUE, LATE_APRIL_TUE) == 0
-    assert tm.utils.get_week_index(LATE_APRIL_TUE, LATE_APRIL_MON - ONE_DAY) == 0
-    assert tm.utils.get_week_index(LATE_APRIL_MON - ONE_DAY, LATE_APRIL_MON) == 0
-    assert tm.utils.get_week_index(LATE_APRIL_MON - ONE_DAY, LATE_APRIL_MON + ONE_DAY) == 1
-    assert tm.utils.get_week_index(LATE_APRIL_MON, LATE_APRIL_MON + ONE_DAY) == 0
-    assert tm.utils.get_week_index(LATE_APRIL_TUE, LATE_APRIL_MON) == 0
-    assert tm.utils.get_week_index(LATE_APRIL_TUE, LATE_APRIL_TUE + ONE_DAY * 7) == 1
-    assert tm.utils.get_week_index(LATE_APRIL_TUE, LATE_APRIL_MON + ONE_DAY * 7) == 1
+    _assert_index_consistent(APRIL_TUE, MAY_MON, JUNE_MON, 13)
+    _assert_index_consistent(APRIL_MON, MAY_MON, JUNE_MON, 14)
+    _assert_index_consistent(APRIL_TUE, MAY_TUE, JUNE_MON, 20)
+    _assert_index_consistent(APRIL_MON, MAY_TUE, JUNE_MON, 21)

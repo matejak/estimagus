@@ -24,8 +24,7 @@ class StatSummary(Summary):
         todo = self.cutoff_todo + self.cutoff_underway
 
         if self.daily_velocity > 0:
-            sl = func.get_pdf_bounds_slice(self._velocity_array)
-            nonzero_daily_velocity = self._velocity_array[sl]
+            nonzero_daily_velocity = func.get_nonzero_velocity(self._velocity_array)
 
             mu, sigma = func.autoestimate_lognorm(nonzero_daily_velocity)
             distro = sp.stats.lognorm(scale=np.exp(mu), s=sigma)

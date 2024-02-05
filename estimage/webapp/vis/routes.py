@@ -87,14 +87,13 @@ def visualize_completion():
     todo = summary.cutoff_todo + summary.cutoff_underway
 
     velocity_array = aggregation.get_velocity_array()
-    sl = func.get_pdf_bounds_slice(velocity_array)
-    nonzero_daily_velocity = velocity_array[sl]
+    nonzero_daily_velocity = func.get_nonzero_velocity(velocity_array)
 
     mu, sigma = func.autoestimate_lognorm(nonzero_daily_velocity)
     v_mean, v_std = func.get_lognorm_mean_stdev(mu, sigma)
 
     time_dom = np.linspace(
-        func.get_time_to_completion(v_mean, v_std, todo, 0.01),
+        func.get_time_to_completion(v_mean, v_std, todo, 0.001),
         func.get_time_to_completion(v_mean, v_std, todo, 0.99) + 1,
         80)
     completion_cdf = func.get_prob_of_completion_vector(v_mean, v_std, todo, time_dom)
@@ -132,8 +131,7 @@ def visualize_velocity_fit():
     aggregation.process_event_manager(all_events)
 
     velocity_array = aggregation.get_velocity_array()
-    sl = func.get_pdf_bounds_slice(velocity_array)
-    nonzero_weekly_velocity = velocity_array[sl] * 7
+    nonzero_weekly_velocity = func.get_nonzero_velocity(velocity_array) * 7
 
     matplotlib.use("svg")
 

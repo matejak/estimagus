@@ -4,12 +4,6 @@ import scipy as sp
 from .. import utilities
 
 
-def get_pdf_bounds_slice(sampled_pdf):
-    first = utilities.first_nonzero_index_of(sampled_pdf)
-    last_inclusive = utilities.last_nonzero_index_of(sampled_pdf)
-    return slice(first, last_inclusive + 1)
-
-
 def get_lognorm_variance(mu, sigma):
     res = np.exp(sigma ** 2) - 1
     res *= np.exp(2 * mu + sigma ** 2)
@@ -229,3 +223,7 @@ def autoestimate_lognorm(samples):
     res3 = estimate_lognorm(grids, samples)
 
     return res3
+
+
+def get_nonzero_velocity(velocity):
+    return velocity[velocity > 0]

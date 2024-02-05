@@ -36,6 +36,8 @@ def get_week_index(start, later_date):
         res += 1
     if later_date.weekday() == 0:
         res -= 1
+    if start.weekday() == 0:
+        res += 1
     return res
 
 
