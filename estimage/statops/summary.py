@@ -16,8 +16,8 @@ class StatSummary(Summary):
         self._samples = samples
 
         self.weekly_completion = (np.inf, np.inf)
-        self.velocity_mean = 0
-        self.velocity_stdev = 0
+        self.weekly_velocity_mean = 0
+        self.weekly_velocity_stdev = 0
         self._projection_summary()
 
     def _projection_summary(self):
@@ -27,13 +27,16 @@ class StatSummary(Summary):
             sl = func.get_pdf_bounds_slice(self._velocity_array)
             nonzero_daily_velocity = self._velocity_array[sl]
 
-            mu, sigma = func.autoestimate_lognorm(nonzero_daily_velocity * 7)
+            mu, sigma = func.autoestimate_lognorm(nonzero_daily_velocity)
             distro = sp.stats.lognorm(scale=np.exp(mu), s=sigma)
 
-            self.weekly_velocity_mean = distro.mean()
-            self.weekly_velocity_stdev = np.sqrt(distro.var())
+            daily_velocity_mean = distro.mean()
+            daily_velocity_stdev = np.sqrt(distro.var())
 
             self.weekly_completion = (
-                func.get_time_to_completion(self.weekly_velocity_mean, self.weekly_velocity_stdev, todo, 0.05),
-                func.get_time_to_completion(self.weekly_velocity_mean, self.weekly_velocity_stdev, todo, 0.95),
+                func.get_time_to_completion(daily_velocity_mean, daily_velocity_stdev, todo, 0.05) / 7,
+                func.get_time_to_completion(daily_velocity_mean, daily_velocity_stdev, todo, 0.95) / 7,
             )
+
+            self.weekly_velocity_mean = 7 * daily_velocity_mean
+            self.weekly_velocity_stdev = np.sqrt(7) * daily_velocity_stdev
