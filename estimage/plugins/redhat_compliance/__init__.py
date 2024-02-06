@@ -18,7 +18,6 @@ EXPORTS = dict(
     Statuses="Statuses",
     Workloads="Workloads",
 )
-# TEMPLATE_EXPORTS = dict(base="rhc-base.html")
 
 
 QUARTER_TO_MONTH_NUMBER = None

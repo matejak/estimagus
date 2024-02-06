@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% from 'bootstrap5/form.html' import render_form %}
+
+{% block navbar_common %}
+{% endblock %}
+
+{% block content %}
+    <h1>Available Heads</h1>
+    <div class="container">
+    {% for name, summary in summaries.items() -%}
+    <div class="row">
+	    <h1>{{ name }}</h1>
+	    {%- if summary %}
+	    <p>
+	    {{ summary }}
+	    </p>
+	    {% endif -%}
+	    <a href="{{ url_for(name ~ '.main.index') }}">link</a>
+    </div>
+    {% endfor -%}
+    </div>
+{% endblock %}
+

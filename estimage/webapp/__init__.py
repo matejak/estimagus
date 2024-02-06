@@ -106,9 +106,9 @@ class PluginFriendlyMultiheadFlask(PluginFriendlyFlask):
         self._populate_template_overrides_map(plugins_dict, self._template_overrides_maps[head])
 
     def translate_path(self, template_name):
-        head = self.current_head
-        maybe_overriden_path = self._template_overrides_maps[head].get(template_name, template_name)
-        return maybe_overriden_path
+        if self.current_head in self.NON_HEAD_BLUEPRINTS:
+            return template_name
+        return self._template_overrides_maps[self.current_head].get(template_name, template_name)
 
     def store_plugins_to_config(self, head):
         self.config["head"][head]["classes"] = self._plugin_resolvers[head].class_dict
