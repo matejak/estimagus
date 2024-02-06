@@ -33,6 +33,15 @@ class PluginFriendlyFlask(flask.Flask):
     def _plugin_template_location(plugin_name, template_name):
         return str(pathlib.PurePath(plugin_name) / "templates" / template_name)
 
+    def _populate_template_overrides_map(self, plugins_dict, overrides_map):
+        for plugin_name, plugin in plugins_dict.items():
+            if not hasattr(plugin, "TEMPLATE_OVERRIDES"):
+                continue
+            overrides = plugin.TEMPLATE_OVERRIDES
+            for overriden, overriding in overrides.items():
+                template_path = self._plugin_template_location(plugin_name, overriding)
+                overrides_map[overriden] = template_path
+
     def get_final_class(self, class_name):
         return self.get_config_option("classes").get(class_name)
 
@@ -45,6 +54,9 @@ class PluginFriendlyFlask(flask.Flask):
     def get_correct_context_endpoint(self, endpoint):
         return endpoint
 
+    def get_perhaps_overriden_path(self, path):
+        raise NotImplementedError()
+
 
 class PluginFriendlySingleheadFlask(PluginFriendlyFlask):
     def __init__(self, import_name, ** kwargs):
@@ -52,9 +64,16 @@ class PluginFriendlySingleheadFlask(PluginFriendlyFlask):
         self._plugin_resolver = PluginResolver()
         self._plugin_resolver.add_known_extendable_classes()
 
+        self._template_overrides_map = dict()
+
     def supply_with_plugins(self, plugins_dict):
         for plugin in plugins_dict.values():
             self._plugin_resolver.resolve_extension(plugin)
+        self._populate_template_overrides_map(plugins_dict, self._template_overrides_map)
+
+    def translate_path(self, template_name):
+        maybe_overriden_path = self._template_overrides_map.get(template_name, template_name)
+        return maybe_overriden_path
 
     def store_plugins_to_config(self):
         self.config["classes"] = self._plugin_resolver.class_dict
@@ -72,15 +91,24 @@ class PluginFriendlyMultiheadFlask(PluginFriendlyFlask):
     def __init__(self, import_name, ** kwargs):
         super().__init__(import_name, ** kwargs)
         self._plugin_resolvers = dict()
+        self._template_overrides_maps = dict()
 
     def _new_head(self, name):
         self._plugin_resolvers[name] = PluginResolver()
         self._plugin_resolvers[name].add_known_extendable_classes()
 
+        self._template_overrides_maps[name] = dict()
+
     def supply_with_plugins(self, head, plugins_dict):
         self._new_head(head)
         for plugin in plugins_dict.values():
             self._plugin_resolvers[head].resolve_extension(plugin)
+        self._populate_template_overrides_map(plugins_dict, self._template_overrides_maps[head])
+
+    def translate_path(self, template_name):
+        head = self.current_head
+        maybe_overriden_path = self._template_overrides_maps[head].get(template_name, template_name)
+        return maybe_overriden_path
 
     def store_plugins_to_config(self, head):
         self.config["head"][head]["classes"] = self._plugin_resolvers[head].class_dict

@@ -94,10 +94,10 @@ def render_template(path, title, **kwargs):
     authenticated_user = ""
     if flask_login.current_user.is_authenticated:
         authenticated_user = flask_login.current_user
-    # maybe_overriden_path = flask.current_app.config["plugins_templates_overrides"](path)
+    maybe_overriden_path = flask.current_app.translate_path(path)
     custom_menu_items = get_custom_items_dict()
     return flask.render_template(
-        path, get_head_absolute_endpoint=get_head_absolute_endpoint,
+        maybe_overriden_path, get_head_absolute_endpoint=get_head_absolute_endpoint,
         title=title, authenticated_user=authenticated_user, head_url_for=head_url_for,
         custom_items=custom_menu_items, ** kwargs)
 
