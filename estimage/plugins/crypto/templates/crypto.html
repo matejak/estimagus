@@ -7,7 +7,7 @@
 <div class="container">
     <div class="row">
     <h1>Crypto Plugin</h1>
-        {{ render_form(plugin_form, action=url_for("crypto.sync")) }}
+        {{ render_form(plugin_form, action=head_url_for("crypto.sync")) }}
     </div>
 </div>
 {% endblock %}

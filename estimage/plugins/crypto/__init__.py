@@ -53,13 +53,13 @@ class InputSpec(jira.InputSpec):
         ret = cls()
         ret.server_url = "https://issues.redhat.com"
         ret.token = form.token.data
-        ret.cutoff_date = app.config["RETROSPECTIVE_PERIOD"][0]
+        ret.cutoff_date = app.get_config_option("RETROSPECTIVE_PERIOD")[0]
         query = f"project = {PROJECT_NAME} AND type = Task AND sprint in openSprints()"
         query = "filter = 12350823 AND Sprint in openSprints() AND labels = committed AND issuetype in (task, bug, Story)"
         query = "filter = 12350823 AND Sprint in openSprints() AND issuetype in (task, bug, Story)"
         ret.retrospective_query = query
         ret.projective_query = ""
-        ret.item_class = app.config["classes"]["BaseCard"]
+        ret.item_class = app.get_final_class("BaseCard")
         return ret
 
 
