@@ -93,10 +93,23 @@ def produce_meaningful_span(candidate_span, start, end):
     return tuple(good_span)
 
 
+def recursively_propagate_span_to_children(current_card, start, end):
+    if current_card.children:
+        for d in current_card.children:
+            propagate_span_to_children(current_card.work_span, d, start, end)
+            recursively_propagate_span_to_children(d, start, end)
+
+
 def propagate_span_to_children(parent_span, child, start, end):
     if not parent_span:
         return
     child.work_span = produce_meaningful_span(parent_span, start, end)
+
+
+def propagate_span_from_parent(current_card, start, end):
+    if current_card.parent:
+        propagate_span_from_parent(current_card.parent, start, end)
+        propagate_span_to_children(current_card.parent.work_span, current_card, start, end)
 
 
 def convert_card_to_representations_of_leaves(
@@ -105,10 +118,11 @@ def convert_card_to_representations_of_leaves(
         statuses: status.Statuses) -> typing.List[progress.Progress]:
     ret = []
 
+    propagate_span_from_parent(source, start, end)
     if source.children:
         for d in source.children:
-            propagate_span_to_children(source.work_span, d, start, end)
             ret.extend(convert_card_to_representations_of_leaves(d, start, end, statuses))
+            recursively_propagate_span_to_children(source, start, end)
     else:
         ret = [convert_card_to_representation(source, start, end, statuses)]
     return ret

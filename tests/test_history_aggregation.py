@@ -169,12 +169,44 @@ def test_aggregation_point_velocity_trivial(twoday_repre_done_in_day):
     assert a.point_velocity.sigma == pytest.approx(1)
 
 
+def test_card_span_consistency():
+    END = PERIOD_START + 5 * ONE_DAY
+
+    parent = card.BaseCard("p")
+    parent.work_span = (PERIOD_START + ONE_DAY, END)
+    child = card.BaseCard("c")
+    parent.add_element(child)
+    grandchild = card.BaseCard("gc")
+    child.add_element(grandchild)
+
+    assert grandchild.work_span != parent.work_span
+    tm.propagate_span_from_parent(child, PERIOD_START, END)
+    assert grandchild.work_span is None
+    assert child.work_span == parent.work_span
+
+    child.work_span = None
+    tm.propagate_span_from_parent(grandchild, PERIOD_START, END)
+    assert child.work_span == parent.work_span
+    assert grandchild.work_span == parent.work_span
+
+
 def test_card_span_propagates_to_children():
     END = PERIOD_START + 5 * ONE_DAY
     parent = card.BaseCard("p")
     parent.work_span = (PERIOD_START + ONE_DAY, END)
     child = card.BaseCard("c")
     parent.add_element(child)
+    grandchild = card.BaseCard("gc")
+    child.add_element(grandchild)
+    not_child = card.BaseCard("nc")
+
+    r = get_standard_span_progress(grandchild, END)
+    assert r.remainder_timeline.value_at(PERIOD_START + ONE_DAY) == 1
+    assert r.remainder_timeline.value_at(PERIOD_START + 2 * ONE_DAY) < 1
+    r = get_standard_span_progress(child, END)
+    assert r.remainder_timeline.value_at(PERIOD_START + ONE_DAY) == 1
+    r = get_standard_span_progress(not_child, END)
+    assert r.remainder_timeline.value_at(PERIOD_START + ONE_DAY) < 1
 
     r = get_standard_span_progress(parent, END)
     assert r.remainder_timeline.value_at(PERIOD_START + ONE_DAY) == 1
