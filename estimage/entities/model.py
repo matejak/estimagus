@@ -17,8 +17,12 @@ class EstiModel:
         self.name_composition_map = dict()
 
     def use_composition(self, composition: Composition):
-        self.main_composition = composition
-        self.main_composition.name = ""
+        if composition.name:
+            self.main_composition = Composition("")
+            self.main_composition.add_composition(composition)
+        else:
+            self.main_composition = composition
+            self.main_composition.name = ""
 
         self.name_result_map = dict()
         self.name_composition_map = dict()
