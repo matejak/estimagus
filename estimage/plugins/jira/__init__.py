@@ -2,6 +2,7 @@ import dataclasses
 import datetime
 import collections
 import typing
+import time
 
 from jira import JIRA, exceptions
 
@@ -60,6 +61,22 @@ class InputSpec:
         ret.cutoff_date = input_form.cutoffDate.data
         ret.item_class = app.config["classes"]["BaseCard"]
         return ret
+
+
+def jira_retry(func, * args, ** kwargs):
+    return jira_retry_n(5, 2, func, * args, ** kwargs)
+
+
+def jira_retry_n(retries, pause, func, * args, ** kwargs):
+    try:
+        result = func(* args, ** kwargs)
+    except exceptions.JIRAError:
+        if retries <= 0:
+            raise
+        time.sleep(pause)
+        print(f"Failed {func.__name__}, retrying {retries} more times")
+        result = jira_retry_n(retries - 1, pause, func, * args, ** kwargs)
+    return result
 
 
 def identify_epic_subtasks(jira, epic, known_issues_by_id, parents_child_keymap):
@@ -198,6 +215,14 @@ class EventExtractor:
         return events
 
 
+class JiraWithRetry(JIRA):
+    def search_issues(self, * args, ** kwargs):
+        return jira_retry(super().search_issues, * args, ** kwargs)
+
+    def issue(self, * args, ** kwargs):
+        return jira_retry(super().issue, * args, ** kwargs)
+
+
 class Importer:
     def __init__(self, spec):
         self._cards_by_id = dict()
@@ -208,7 +233,7 @@ class Importer:
         self._projective_cards = set()
         self._all_events = []
         try:
-            self.jira = JIRA(spec.server_url, token_auth=spec.token, validate=True)
+            self.jira = JiraWithRetry(spec.server_url, token_auth=spec.token, validate=True)
         except exceptions.JIRAError as exc:
             msg = f"Error establishing a Jira session: {exc.text}"
             raise RuntimeError(msg) from exc
@@ -251,6 +276,8 @@ class Importer:
             extractor = EventExtractor(self._all_issues_by_name[name], spec.cutoff_date)
             new_events = extractor.get_task_events(self)
             self._all_events.extend(new_events)
+
+
 
     def find_cards(self, card_names: typing.Iterable[str]):
         card_ids_sequence = ", ".join(card_names)
