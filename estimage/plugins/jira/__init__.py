@@ -423,7 +423,10 @@ def stats_to_summary(stats):
     return _format_string_stats_into_sentence(pieces)
 
 
-def do_stuff(spec, retro_io, proj_io):
+def do_stuff(spec):
     importer = Importer(spec)
     importer.import_data(spec)
+    retro_io = web_utils.get_retro_loader()[1]
+    proj_io = web_utils.get_proj_loader()[1]
     importer.save(retro_io, proj_io, simpledata.EventManager)
+    return importer.get_collected_stats()

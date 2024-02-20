@@ -275,10 +275,12 @@ def write_points_to_task(io_cls, name, token, points):
     updated_card.save_metadata(io_cls)
 
 
-def do_stuff(spec, retro_loader, proj_loader):
+def do_stuff(spec):
     importer = Importer(spec)
     importer.import_data(spec)
-    importer.save(retro_loader, proj_loader, simpledata.EventManager)
+    retro_io = web_utils.get_retro_loader()[1]
+    proj_io = web_utils.get_proj_loader()[1]
+    importer.save(retro_io, proj_io, simpledata.EventManager)
     return importer.get_collected_stats()
 
 

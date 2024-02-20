@@ -211,6 +211,7 @@ def do_stuff(spec):
     retro_io = web_utils.get_retro_loader()[1]
     proj_io = web_utils.get_proj_loader()[1]
     importer.save(retro_io, proj_io, simpledata.EventManager)
+    return importer.get_collected_stats()
 
 
 class Workloads:

@@ -3,19 +3,6 @@
 {% import "utils.j2" as utils %}
 {% from 'bootstrap5/form.html' import render_form %}
 
-{% block head %}
-{{ super() }}
-
-<script type="text/javascript">
-	function supplyEncryptedToken(encrypted_field, normal_field, store_checkbox, token_str) {
-		store_checkbox.checked = false;
-		encrypted_field.value = token_str;
-		normal_field.placeholder = "Optional, using stored locally stored token by default";
-	}
-</script>
-
-{% endblock %}
-
 {% block content %}
 <div class="container">
     <div class="row">
@@ -24,31 +11,6 @@
     </div>
 </div>
 
-<script type="text/javascript">
-  function getPAT() {
-    return localStorage.getItem("estimagus.jira_ePAT");
-  }
-
-  function updatePAT(with_what) {
-    return localStorage.setItem("estimagus.jira_ePAT", with_what);
-  }
-
-
-  var update_store = document.getElementById('encrypted_meant_for_storage');
-  var enc_field = document.getElementById('encrypted_token');
-  if (update_store.value == "yes" && enc_field.value) {
-	  updatePAT(enc_field.value);
-  }
-
-  var pat = getPAT();
-  if (pat) {
-	  var normal_field = document.getElementById('token');
-	  var store_checkbox = document.getElementById('store_token');
-	  supplyEncryptedToken(enc_field, normal_field, store_checkbox, pat);
-  }
-
-</script>
+{{ plugin_form.js_code | safe }}
 
 {% endblock %}
-
-
