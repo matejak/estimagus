@@ -18,7 +18,7 @@ class MPLCompletionPlot:
         self.period_start = period_bounds[0]
         self.period_end = period_bounds[1]
         self.chart_days_before_dday = - min(int(self.dom[0]), (self.period_end - self.get_date_of_dday()).days)
-        self.chart_days_after_completion = min(0, (self.get_date_of_dday() + utils.ONE_DAY * self.dom[-1] - self.period_end).days)
+        self.chart_days_after_completion = - min(0, (self.get_date_of_dday() + utils.ONE_DAY * self.dom[-1] - self.period_end).days)
         self.ppf = ppf_cb
         self._pad_dom_and_cdf()
 
@@ -30,7 +30,7 @@ class MPLCompletionPlot:
         self.cdf = np.concatenate((
             np.zeros(self.chart_days_before_dday),
             self.cdf,
-            np.ones(self.chart_days_after_completion) * 100))
+            np.ones(self.chart_days_after_completion) * self.cdf[-1]))
 
     def _dom_to_days(self, dom_numbers):
         return dom_numbers - self.dom[0]
