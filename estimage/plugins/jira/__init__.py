@@ -317,10 +317,13 @@ class Importer:
     def status_to_state(cls, item, jira_string=""):
         if not jira_string:
             jira_string = item.get_field("status").name
-        return cls._status_to_state(item, jira_string)
+        ret = cls._status_to_state(item, jira_string)
+        return ret
 
     @classmethod
     def _status_to_state(cls, item, jira_string):
+        if jira_string == "Closed" and item.get_field("resolution").name == "Done":
+            jira_string = "Done"
         return JIRA_STATUS_TO_STATE.get(jira_string, "irrelevant")
 
     def merge_jira_item_without_children(self, item):

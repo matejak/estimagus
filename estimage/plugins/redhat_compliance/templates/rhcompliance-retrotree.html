@@ -4,7 +4,7 @@
     <h4>Committed</h4>
     <ul>
     {% for card in cards -%}
-    {% if card.status not in (6, 7) and card.tier == 0 %}
+    {% if status_of(card).relevant_and_not_done_yet and card.tier == 0 %}
     {{ utils.render_epic_retro(card, model, today, recursive=false) }}
     {% endif %}
     {% endfor -%}
@@ -12,7 +12,7 @@
     <h4>Planned</h4>
     <ul>
     {% for card in cards -%}
-    {% if card.status not in (6, 7) and card.tier == 1 %}
+    {% if status_of(card).relevant_and_not_done_yet and card.tier == 1 %}
     {{ utils.render_epic_retro(card, model, today, recursive=false) }}
     {% endif %}
     {% endfor -%}

@@ -401,6 +401,7 @@ def tree_view_retro():
 
     summary = executive_summary_of_points_and_velocity(tier0_cards_tree_without_duplicates)
     priority_sorted_cards = sorted(cards_tree_without_duplicates, key=lambda x: - x.priority)
+    statuses = flask.current_app.get_final_class("Statuses")()
 
     refresh_form = redhat_compliance.forms.RedhatComplianceRefreshForm()
     refresh_form.request_refresh_of([e.name for e in priority_sorted_cards])
@@ -411,7 +412,7 @@ def tree_view_retro():
         "tree_view_retrospective.html",
         title="Retrospective Tasks tree view",
         cards=priority_sorted_cards, today=datetime.datetime.today(), model=model,
-        refresh_form=refresh_form, summary=summary)
+        refresh_form=refresh_form, summary=summary, status_of=lambda c: statuses.get(c.status))
 
 
 @bp.route('/retrospective/epic/<epic_name>')
