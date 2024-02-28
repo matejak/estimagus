@@ -10,9 +10,11 @@ from ...visualize.burndown import StatusStyle
 from .. import jira
 from .forms import AuthoritativeForm
 
+JiraFooter = jira.JiraFooter
 
 EXPORTS = dict(
     AuthoritativeForm="AuthoritativeForm",
+    Footer="JiraFooter",
     BaseCard="BaseCard",
     MPLPointPlot="MPLPointPlot",
     Statuses="Statuses",

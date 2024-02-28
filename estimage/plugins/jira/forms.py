@@ -35,37 +35,6 @@ class EncryptedTokenForm(FlaskForm):
     encrypted_token = wtforms.HiddenField('Encrypted Token')
     encrypted_meant_for_storage = wtforms.HiddenField('Store the Encrypted Token', default="no")
 
-    js_code = textwrap.dedent("""
-        <script type="text/javascript">
-        function getPAT() {
-            return localStorage.getItem("estimagus.jira_ePAT");
-        }
-
-        function updatePAT(with_what) {
-            return localStorage.setItem("estimagus.jira_ePAT", with_what);
-        }
-
-        function supplyEncryptedToken(encrypted_field, normal_field, store_checkbox, token_str) {
-            store_checkbox.checked = false;
-            encrypted_field.value = token_str;
-            normal_field.placeholder = "Optional, using stored locally stored token by default";
-        }
-
-        var update_store = document.getElementById('encrypted_meant_for_storage');
-        var enc_field = document.getElementById('encrypted_token');
-        if (update_store.value == "yes" && enc_field.value) {
-              updatePAT(enc_field.value);
-        }
-
-        var pat = getPAT();
-        if (pat) {
-              var normal_field = document.getElementById('token');
-              var store_checkbox = document.getElementById('store_token');
-              supplyEncryptedToken(enc_field, normal_field, store_checkbox, pat);
-        }
-        </script>
-    """)
-
     def perform_work_with_token_encryption(self):
         if not self.token.data and self.encrypted_token.data:
             self.token.data = decrypt_stuff(self.encrypted_token.data)

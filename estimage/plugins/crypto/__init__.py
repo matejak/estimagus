@@ -14,9 +14,10 @@ from ...visualize.burndown import StatusStyle
 from .forms import CryptoForm
 
 
-# TEMPLATE_EXPORTS = dict(base="rhc-base.html")
+JiraFooter = jira.JiraFooter
 
 EXPORTS = dict(
+    Footer="JiraFooter",
     MPLPointPlot="MPLPointPlot",
     Statuses="Statuses",
     Workloads="Workloads",

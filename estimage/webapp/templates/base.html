@@ -62,6 +62,7 @@
         {%- endif %}
 	{{ render_messages() }}
         {% block content %}{% endblock %}
+	{% block footer %}{{ footer.get_footer_html() | safe }}{% endblock %}
 	{{ bootstrap.load_js() }}
     </body>
 </html>
