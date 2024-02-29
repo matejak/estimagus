@@ -149,7 +149,7 @@
 <div class="accordion" id="accordion{{ stem }}">
 <div class="accordion-item">
 	<h{{ heading_level }} class="accordion-header" id="accordionHeading">
-		<button class="accordion-button {{- " collapsed" if collapsed }}" type="button" data-bs-toggle="collapse" data-bs-card="#collapse{{ stem }}" aria-expanded="{{ "false" if collapsed else "true" }}" aria-controls="collapse{{ stem }}">
+		<button class="accordion-button {{- " collapsed" if collapsed }}" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ stem }}" aria-expanded="{{ "false" if collapsed else "true" }}" aria-controls="collapse{{ stem }}">
 			{{ header_text }}
 		</button>
 	</h{{ heading_level }}>
