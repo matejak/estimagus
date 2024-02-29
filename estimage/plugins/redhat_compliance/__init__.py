@@ -37,6 +37,7 @@ RHEL_STATUS_TO_STATE = {
     "Planned": "todo",
     "Verified": "done",
     "Closed": "done",
+    "Done": "done", # not really a state, but used
     "In Progress": "rhel-in_progress",
     "Integration": "rhel-integration",
     "Release Pending": "done",

@@ -398,7 +398,11 @@ class Importer:
 
     @classmethod
     def _status_to_state(cls, item, jira_string):
-        if jira_string == "Closed" and item.get_field("resolution").name == "Done":
+        resolution = item.get_field("resolution")
+        resolution_text = ""
+        if resolution:
+            resolution_text = resolution.name
+        if jira_string == "Closed" and resolution_text == "Done":
             jira_string = "Done"
         return JIRA_STATUS_TO_STATE.get(jira_string, "irrelevant")
 

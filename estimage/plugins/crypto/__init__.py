@@ -181,10 +181,14 @@ class Importer(jira.Importer):
 
     @classmethod
     def _accepted(cls, jira_string, item):
+        resolution = item.get_field("resolution")
+        resolution_text = ""
+        if resolution:
+            resolution_text = resolution.name
         if jira_string == "Closed":
             if "Accepted" in item.get_field("labels"):
                 return "Done"
-            elif item.get_field("resolution") == "Done":
+            elif resolution_text == "Done":
                 return "Done"
         return jira_string
 
