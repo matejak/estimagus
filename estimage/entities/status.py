@@ -57,6 +57,8 @@ class Statuses:
         for idx, status in enumerate(self.statuses):
             if status.name == name:
                 return idx
+        msg = f"Status '{name}' not known."
+        raise ValueError(msg)
 
     def _statuses_have_property(self, statuses, name, value):
         ret = []

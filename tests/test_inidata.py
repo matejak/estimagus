@@ -189,3 +189,10 @@ def test_appdata_storage(appdata_inifile):
     assert data2.RETROSPECTIVE_PERIOD == data.RETROSPECTIVE_PERIOD
     assert data2.PROJECTIVE_QUARTER == data.PROJECTIVE_QUARTER
     assert data2.RETROSPECTIVE_QUARTER == data.RETROSPECTIVE_QUARTER
+
+
+def test_status_extraction():
+    assert tm.get_canonical_status("bzzt") == "bzzt"
+    assert tm.get_canonical_status("0") == "irrelevant"
+    assert tm.get_canonical_status("2") == "todo"
+    assert tm.get_canonical_status("10") == "irrelevant"

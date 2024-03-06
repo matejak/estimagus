@@ -10,6 +10,25 @@ import os
 from . import data
 
 
+def get_canonical_status(name_or_index):
+    LEGACY_TABLE = [
+        "irrelevant",
+        "irrelevant",
+        "todo",
+        "in_progress",
+        "in_progress",
+        "done",
+        "irrelevant",
+    ]
+    try:
+        index = int(name_or_index)
+        return LEGACY_TABLE[index]
+    except IndexError:
+        return "irrelevant"
+    except ValueError:
+        return name_or_index
+
+
 class IniStorage:
     CONFIG_FILENAME = ""
 

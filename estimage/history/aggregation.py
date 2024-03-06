@@ -201,8 +201,14 @@ class Aggregation:
     def process_events_by_taskname_and_type(
                 self, events_by_taskname: typing.Mapping[str, data.Event]):
         for r in self.repres:
-            if (task_name := r.task_name) in events_by_taskname:
+            task_name = r.task_name
+            if task_name not in events_by_taskname:
+                continue
+            try:
                 r.process_events_by_type(events_by_taskname[task_name])
+            except ValueError as exc:
+                msg = f"Error with an event of card '{task_name}': {exc}"
+                raise ValueError(msg) from exc
 
     def add_repre(self, repre):
         if (self.end and self.end != repre.end) or (self.start and self.start != repre.start):
@@ -245,7 +251,7 @@ class Aggregation:
         for repre in self.repres:
             name = repre.task_name
             events_by_taskname[name] = manager.get_chronological_task_events_by_type(name)
-        return self.process_events_by_taskname_and_type(events_by_taskname)
+        self.process_events_by_taskname_and_type(events_by_taskname)
 
 
 ZERO_ESTIMATE_FIELD = dataclasses.field(default_factory=lambda: data.Estimate.from_triple(0, 0, 0))
