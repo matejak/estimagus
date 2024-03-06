@@ -93,10 +93,23 @@ def produce_meaningful_span(candidate_span, start, end):
     return tuple(good_span)
 
 
+def recursively_propagate_span_to_children(current_card, start, end):
+    if current_card.children:
+        for d in current_card.children:
+            propagate_span_to_children(current_card.work_span, d, start, end)
+            recursively_propagate_span_to_children(d, start, end)
+
+
 def propagate_span_to_children(parent_span, child, start, end):
     if not parent_span:
         return
     child.work_span = produce_meaningful_span(parent_span, start, end)
+
+
+def propagate_span_from_parent(current_card, start, end):
+    if current_card.parent:
+        propagate_span_from_parent(current_card.parent, start, end)
+        propagate_span_to_children(current_card.parent.work_span, current_card, start, end)
 
 
 def convert_card_to_representations_of_leaves(
@@ -105,10 +118,11 @@ def convert_card_to_representations_of_leaves(
         statuses: status.Statuses) -> typing.List[progress.Progress]:
     ret = []
 
+    propagate_span_from_parent(source, start, end)
     if source.children:
         for d in source.children:
-            propagate_span_to_children(source.work_span, d, start, end)
             ret.extend(convert_card_to_representations_of_leaves(d, start, end, statuses))
+            recursively_propagate_span_to_children(source, start, end)
     else:
         ret = [convert_card_to_representation(source, start, end, statuses)]
     return ret
@@ -187,8 +201,14 @@ class Aggregation:
     def process_events_by_taskname_and_type(
                 self, events_by_taskname: typing.Mapping[str, data.Event]):
         for r in self.repres:
-            if (task_name := r.task_name) in events_by_taskname:
+            task_name = r.task_name
+            if task_name not in events_by_taskname:
+                continue
+            try:
                 r.process_events_by_type(events_by_taskname[task_name])
+            except ValueError as exc:
+                msg = f"Error with an event of card '{task_name}': {exc}"
+                raise ValueError(msg) from exc
 
     def add_repre(self, repre):
         if (self.end and self.end != repre.end) or (self.start and self.start != repre.start):
@@ -231,7 +251,7 @@ class Aggregation:
         for repre in self.repres:
             name = repre.task_name
             events_by_taskname[name] = manager.get_chronological_task_events_by_type(name)
-        return self.process_events_by_taskname_and_type(events_by_taskname)
+        self.process_events_by_taskname_and_type(events_by_taskname)
 
 
 ZERO_ESTIMATE_FIELD = dataclasses.field(default_factory=lambda: data.Estimate.from_triple(0, 0, 0))

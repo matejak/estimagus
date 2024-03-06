@@ -93,6 +93,10 @@ class PluginFriendlyMultiheadFlask(PluginFriendlyFlask):
         self._plugin_resolvers = dict()
         self._template_overrides_maps = dict()
 
+        no_plugins = PluginResolver()
+        no_plugins.add_known_extendable_classes()
+        self.config["classes"] = no_plugins.class_dict
+
     def _new_head(self, name):
         self._plugin_resolvers[name] = PluginResolver()
         self._plugin_resolvers[name].add_known_extendable_classes()
@@ -118,6 +122,8 @@ class PluginFriendlyMultiheadFlask(PluginFriendlyFlask):
         return flask.request.blueprints[-1]
 
     def get_config_option(self, option):
+        if self.current_head in self.NON_HEAD_BLUEPRINTS:
+            return self.config[option]
         return self.config["head"][self.current_head][option]
 
     def get_correct_context_endpoint(self, endpoint):

@@ -1,12 +1,17 @@
 from flask_wtf import FlaskForm
 import wtforms
 
+from ..jira import forms
 
-class RedhatComplianceForm(FlaskForm):
-    token = wtforms.PasswordField('Token')
+
+class RedhatComplianceFormEnd(FlaskForm):
     quarter = wtforms.StringField('Quarter String')
     project_next = wtforms.BooleanField('Plan for the Next Quarter')
     submit = wtforms.SubmitField("Import Data")
+
+
+class RedhatComplianceForm(forms.EncryptedTokenForm, RedhatComplianceFormEnd):
+    pass
 
 
 class RedhatComplianceRefreshForm(FlaskForm):
@@ -28,7 +33,7 @@ class RedhatComplianceRefreshForm(FlaskForm):
     submit = wtforms.SubmitField("Refresh")
 
 
-class AuthoritativeForm:
+class AuthoritativeForm(forms.EncryptedTokenForm):
     token = wtforms.PasswordField('Jira Token')
 
     def clear_to_go(self):
@@ -41,7 +46,10 @@ class AuthoritativeForm:
             self.task_name,
             self.point_cost,
             self.token,
+            self.store_token,
             self.i_kid_you_not,
+            self.encrypted_token,
+            self.encrypted_meant_for_storage,
             self.submit,
         )
         ret = (a for a in attributes)

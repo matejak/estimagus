@@ -1,6 +1,8 @@
 import dataclasses
 import datetime
 import collections
+import textwrap
+import time
 import typing
 
 from jira import JIRA, exceptions
@@ -41,6 +43,54 @@ JIRA_PRIORITY_TO_VALUE = {
 Collected = collections.namedtuple("Collected", ("Retrospective", "Projective", "Events"))
 
 
+EXPORTS = dict(
+    Footer="JiraFooter",
+)
+
+
+class JiraFooter:
+    def get_footer_html(self):
+        strings = [super().get_footer_html()]
+        strings.append(textwrap.dedent(
+        """
+            <script type="text/javascript">
+            function tokenName() {
+                return "estimagus." + location.hostname + ".jira_ePAT";
+            }
+
+            function getPAT() {
+                const token_name = tokenName();
+                return localStorage.getItem(token_name);
+            }
+
+            function updatePAT(with_what) {
+                const token_name = tokenName();
+                return localStorage.setItem(token_name, with_what);
+            }
+
+            function supplyEncryptedToken(encrypted_field, normal_field, store_checkbox, token_str) {
+                store_checkbox.checked = false;
+                encrypted_field.value = token_str;
+                normal_field.placeholder = "Optional, using stored locally stored token by default";
+            }
+
+            let update_store = document.getElementById('encrypted_meant_for_storage');
+            let enc_field = document.getElementById('encrypted_token');
+            if (update_store.value == "yes" && enc_field.value) {
+                  updatePAT(enc_field.value);
+            }
+
+            let pat = getPAT();
+            if (pat) {
+                  let normal_field = document.getElementById('token');
+                  let store_checkbox = document.getElementById('store_token');
+                  supplyEncryptedToken(enc_field, normal_field, store_checkbox, pat);
+            }
+            </script>
+        """))
+        return "\n".join(strings)
+
+
 @dataclasses.dataclass(init=False)
 class InputSpec:
     token: str
@@ -60,6 +110,22 @@ class InputSpec:
         ret.cutoff_date = input_form.cutoffDate.data
         ret.item_class = app.config["classes"]["BaseCard"]
         return ret
+
+
+def jira_retry(func, * args, ** kwargs):
+    return jira_retry_n(5, 2, func, * args, ** kwargs)
+
+
+def jira_retry_n(retries, pause, func, * args, ** kwargs):
+    try:
+        result = func(* args, ** kwargs)
+    except exceptions.JIRAError:
+        if retries <= 0:
+            raise
+        time.sleep(pause)
+        print(f"Failed {func.__name__}, retrying {retries} more times")
+        result = jira_retry_n(retries - 1, pause, func, * args, ** kwargs)
+    return result
 
 
 def identify_epic_subtasks(jira, epic, known_issues_by_id, parents_child_keymap):
@@ -198,6 +264,14 @@ class EventExtractor:
         return events
 
 
+class JiraWithRetry(JIRA):
+    def search_issues(self, * args, ** kwargs):
+        return jira_retry(super().search_issues, * args, ** kwargs)
+
+    def issue(self, * args, ** kwargs):
+        return jira_retry(super().issue, * args, ** kwargs)
+
+
 class Importer:
     def __init__(self, spec):
         self._cards_by_id = dict()
@@ -208,7 +282,7 @@ class Importer:
         self._projective_cards = set()
         self._all_events = []
         try:
-            self.jira = JIRA(spec.server_url, token_auth=spec.token, validate=True)
+            self.jira = JiraWithRetry(spec.server_url, token_auth=spec.token, validate=True)
         except exceptions.JIRAError as exc:
             msg = f"Error establishing a Jira session: {exc.text}"
             raise RuntimeError(msg) from exc
@@ -251,6 +325,8 @@ class Importer:
             extractor = EventExtractor(self._all_issues_by_name[name], spec.cutoff_date)
             new_events = extractor.get_task_events(self)
             self._all_events.extend(new_events)
+
+
 
     def find_cards(self, card_names: typing.Iterable[str]):
         card_ids_sequence = ", ".join(card_names)
@@ -322,7 +398,11 @@ class Importer:
 
     @classmethod
     def _status_to_state(cls, item, jira_string):
-        if jira_string == "Closed" and item.get_field("resolution").name == "Done":
+        resolution = item.get_field("resolution")
+        resolution_text = ""
+        if resolution:
+            resolution_text = resolution.name
+        if jira_string == "Closed" and resolution_text == "Done":
             jira_string = "Done"
         return JIRA_STATUS_TO_STATE.get(jira_string, "irrelevant")
 
@@ -335,7 +415,11 @@ class Importer:
         result.status = self.status_to_state(item)
         if item.fields.issuetype.name == "Epic" and result.status == "abandoned":
             result.status = "done"
-        result.priority = JIRA_PRIORITY_TO_VALUE.get(item.get_field("priority").name, 0)
+        priority = item.get_field("priority")
+        if not priority:
+            result.priority = 0
+        else:
+            result.priority = JIRA_PRIORITY_TO_VALUE.get(priority.name, 0)
         result.tags = {f"label:{value}" for value in (item.get_field("labels") or [])}
 
         if assignee := item.get_field("assignee"):
@@ -392,7 +476,10 @@ def stats_to_summary(stats):
     return _format_string_stats_into_sentence(pieces)
 
 
-def do_stuff(spec, retro_io, proj_io):
+def do_stuff(spec):
     importer = Importer(spec)
     importer.import_data(spec)
+    retro_io = web_utils.get_retro_loader()[1]
+    proj_io = web_utils.get_proj_loader()[1]
     importer.save(retro_io, proj_io, simpledata.EventManager)
+    return importer.get_collected_stats()

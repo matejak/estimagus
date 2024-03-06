@@ -57,13 +57,13 @@ class IniEventsLoader(inidata.IniLoaderBase):
             if ret.quantity in ("points",):
                 ret.value_before = float(ret.value_before)
             elif ret.quantity == "state":
-                ret.value_before = ret.value_before
+                ret.value_before = inidata.get_canonical_status(ret.value_before)
         if "value_after" in data_dict:
             ret.value_after = data_dict["value_after"]
             if ret.quantity in ("points",):
                 ret.value_after = float(ret.value_after)
             elif ret.quantity == "state":
-                ret.value_after = ret.value_after
+                ret.value_after = inidata.get_canonical_status(ret.value_after)
         return ret
 
 

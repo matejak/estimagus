@@ -3,7 +3,14 @@ import flask_login
 import urllib
 
 from .. import simpledata as webdata
+from .. import PluginResolver
 from .. import utilities, persistence
+
+
+@PluginResolver.class_is_extendable("Footer")
+class Footer:
+    def get_footer_html(self):
+        return ""
 
 
 def app_is_multihead(app=None):
@@ -90,6 +97,7 @@ def get_custom_items_dict():
 def render_template(path, title, **kwargs):
     loaded_templates = dict()
     loaded_templates["base"] = flask.current_app.jinja_env.get_template("base.html")
+    footer = flask.current_app.get_final_class("Footer")()
     kwargs.update(loaded_templates)
     authenticated_user = ""
     if flask_login.current_user.is_authenticated:
@@ -99,7 +107,7 @@ def render_template(path, title, **kwargs):
     return flask.render_template(
         maybe_overriden_path, get_head_absolute_endpoint=get_head_absolute_endpoint,
         title=title, authenticated_user=authenticated_user, head_url_for=head_url_for,
-        custom_items=custom_menu_items, ** kwargs)
+        custom_items=custom_menu_items, footer=footer, ** kwargs)
 
 
 def safe_url_to_redirect(candidate):

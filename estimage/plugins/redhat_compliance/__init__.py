@@ -10,9 +10,11 @@ from ...visualize.burndown import StatusStyle
 from .. import jira
 from .forms import AuthoritativeForm
 
+JiraFooter = jira.JiraFooter
 
 EXPORTS = dict(
     AuthoritativeForm="AuthoritativeForm",
+    Footer="JiraFooter",
     BaseCard="BaseCard",
     MPLPointPlot="MPLPointPlot",
     Statuses="Statuses",
@@ -35,8 +37,10 @@ RHEL_STATUS_TO_STATE = {
     "Planned": "todo",
     "Verified": "done",
     "Closed": "done",
+    "Done": "done", # not really a state, but used
     "In Progress": "rhel-in_progress",
     "Integration": "rhel-integration",
+    "Release Pending": "done",
     "To Do": "todo",
 }
 
@@ -274,10 +278,12 @@ def write_points_to_task(io_cls, name, token, points):
     updated_card.save_metadata(io_cls)
 
 
-def do_stuff(spec, retro_loader, proj_loader):
+def do_stuff(spec):
     importer = Importer(spec)
     importer.import_data(spec)
-    importer.save(retro_loader, proj_loader, simpledata.EventManager)
+    retro_io = web_utils.get_retro_loader()[1]
+    proj_io = web_utils.get_proj_loader()[1]
+    importer.save(retro_io, proj_io, simpledata.EventManager)
     return importer.get_collected_stats()
 
 
