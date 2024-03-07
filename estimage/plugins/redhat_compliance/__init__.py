@@ -6,6 +6,7 @@ import typing
 
 from ... import simpledata, data, persistence
 from ...entities import status
+from ...webapp import web_utils
 from ...visualize.burndown import StatusStyle
 from .. import jira
 from .forms import AuthoritativeForm
