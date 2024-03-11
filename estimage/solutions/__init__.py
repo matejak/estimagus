@@ -12,6 +12,9 @@ class Solution:
     def __init__(self):
         self.card_name = ""
 
+    def describe(self):
+        return ""
+
     def prime(self, cards: typing.Iterable[BaseCard]):
         raise NotImplementedError()
 
@@ -23,9 +26,14 @@ class SolutionByUpdating(Solution):
         super().__init__()
         self.end_value = None
 
+    def describe(self):
+        return f"Update the record of '{self.card_name}'"
 
 class SolutionByUpdatingChildren(SolutionByUpdating):
     action = "update_children_points"
+
+    def describe(self):
+        return f"Update children of '{self.card_name}', so they become consistent with the its record."
 
     def prime(self, cards: typing.Iterable[BaseCard]):
         my_card = [c for c in cards if c.name == self.card_name][0]
@@ -35,6 +43,12 @@ class SolutionByUpdatingChildren(SolutionByUpdating):
 
 class SolutionByUpdatingSelf(SolutionByUpdating):
     action = "update_points"
+
+    def __init__(self):
+        super().__init__()
+
+    def describe(self):
+        return f"Update the record of '{self.card_name}', so it matches records of its children."
 
     def prime(self, cards: typing.Iterable[BaseCard]):
         pass
