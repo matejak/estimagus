@@ -11,7 +11,7 @@ from ... import data
 from ... import utilities, statops
 from ...statops import summary
 from ... import simpledata as webdata
-from ... import history
+from ... import history, problems, solutions
 from ...plugins import redhat_compliance
 
 
@@ -436,3 +436,22 @@ def view_epic_retro(epic_name):
     return web_utils.render_template(
         'epic_view_retrospective.html', title='View epic', breadcrumbs=breadcrumbs,
         today=datetime.datetime.today(), epic=t, model=model, summary=summary)
+
+
+@bp.route('/problems')
+@flask_login.login_required
+def view_problems():
+    user = flask_login.current_user
+    user_id = user.get_id()
+
+    all_cards_by_id, model = web_utils.get_all_tasks_by_id_and_user_model("retro", user_id)
+    all_cards = list(all_cards_by_id.values())
+
+    problem_detector = problems.ProblemDetector(model, all_cards)
+    probs = problem_detector.problems
+    solver = solutions.ProblemSolver()
+    sols = {p.description: solver.get_solution_of(p) for p in probs}
+
+    return web_utils.render_template(
+        'problems.html', title='Problems',
+        all_cards_by_id=all_cards_by_id, problems=probs, solutions=sols)

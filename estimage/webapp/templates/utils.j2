@@ -12,7 +12,7 @@
 {% macro render_epic_retro(epic, model, today, recursive=true) %}
     <li>
         <div id="{{ epic.name }}">
-        {{ epic_link(epic, "main.view_epic_retro") }} &mdash; {{ epic.title }}
+        {{ epic_link(epic, "retrospective") }} &mdash; {{ epic.title }}
         <div class="container-md">
            <div class="row">
               <div class="col">
@@ -73,6 +73,19 @@
 	"retrospective": "main.view_retro_task",
 } %}
 
+{% set epic_type_to_function = {
+	"projective": "main.view_epic",
+	"retrospective": "main.view_epic_retro",
+} %}
+
+{% macro task_or_epic_link(card, type) -%}
+{% if card.children %}
+{{ epic_link(card, type) }}
+{% else %}
+{{ task_link(card, type) }}
+{% endif %}
+{%- endmacro %}
+
 {% macro task_link(task, type) -%}
         <a href="{{ head_url_for(task_type_to_function[type], task_name=task.name) }}">{{ task.name }}</a>&nbsp;<a href="{{ task.uri }}" rel="external">{{ render_icon("box-arrow-up-right") }}</a>
 {%- endmacro %}
@@ -81,8 +94,8 @@
 	<a href="{{ epic.uri }}" rel="external">{{ render_icon("box-arrow-up-right") }}</a>
 {%- endmacro %}
 
-{% macro epic_link(epic, endpoint="main.view_epic") -%}
-        <a href="{{ head_url_for(endpoint, epic_name=epic.name) }}">{{ epic.name }}</a>&nbsp;{{ epic_external_link(epic) }}
+{% macro epic_link(epic, type="projective") -%}
+        <a href="{{ head_url_for(epic_type_to_function[type], epic_name=epic.name) }}">{{ epic.name }}</a>&nbsp;{{ epic_external_link(epic) }}
 {%- endmacro %}
 
 {% macro render_state_short(state) -%}
