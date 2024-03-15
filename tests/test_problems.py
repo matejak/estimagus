@@ -1,6 +1,6 @@
 import pytest
 
-import estimage.problems as tm
+import estimage.problems.problem as tm
 
 
 @pytest.fixture
@@ -62,16 +62,33 @@ def test_model_notices_basic_inconsistency(cards_one_two):
     assert "inconsistent_estimate" in problem.tags
     assert "sum_of_children_lower" not in problem.tags
     assert "one" in problem.description
-    assert "is 2" in problem.description
+    assert problem.affected_card_name == "one"
+    assert problem.value_expected == 2
+    assert problem.value_found == 1
+    assert "2" in problem.description
     assert "of 1" in problem.description
 
 
-def test_model_notices_inconsistency_maybe_caused_by_progress(cards_one_two):
+def test_model_notices_inconsistency_unlikely_caused_by_progress(cards_one_two):
     card_one, card_two = cards_one_two
     card_two.point_cost = 0.5
     problem = get_problem_of_cards(cards_one_two)
     assert "inconsistent_estimate" in problem.tags
     assert "sum_of_children_lower" in problem.tags
+    assert not "estimate_within_nominal" in problem.tags
+    assert problem.value_expected == 0.5
+    assert problem.value_found == 1
+
+
+def test_model_notices_inconsistency_probably_caused_by_progress(cards_one_two):
+    card_one, card_two = cards_one_two
+    card_two.status = "done"
+    problem = get_problem_of_cards(cards_one_two)
+    assert "inconsistent_estimate" in problem.tags
+    assert "sum_of_children_lower" in problem.tags
+    assert "estimate_within_nominal" in problem.tags
+    assert problem.value_expected == 0
+    assert problem.value_found == 1
 
 
 def test_model_notices_children_not_estimated(cards_one_two):
@@ -80,15 +97,19 @@ def test_model_notices_children_not_estimated(cards_one_two):
     card_two.status = "done"
     problem = get_problem_of_cards(cards_one_two)
     assert "inconsistent_estimate" in problem.tags
-    assert "missing_estimates" not in problem.tags
+    assert "missing_children_estimates" not in problem.tags
     assert "one" in problem.description
     assert "not estimated" not in problem.description
+    assert problem.value_expected == 0
+    assert problem.value_found == 1
 
     card_two.point_cost = 0
     problem = get_problem_of_cards(cards_one_two)
     assert "one" in problem.description
     assert "inconsistent_estimate" in problem.tags
-    assert "missing_estimates" in problem.tags
+    assert "missing_children_estimates" in problem.tags
+    assert problem.value_expected is None
+    assert problem.value_found == 1
 
 
 def test_model_finds_status_problem(cards_one_two):
@@ -99,4 +120,4 @@ def test_model_finds_status_problem(cards_one_two):
 
     card_two.point_cost = card_one.point_cost
     problem = get_problem_of_cards(cards_one_two)
-    assert "one" in problem.affected_cards_names
+    assert "one" == problem.affected_card_name
