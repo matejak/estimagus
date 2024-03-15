@@ -448,10 +448,46 @@ def view_problems():
     all_cards = list(all_cards_by_id.values())
 
     problem_detector = problems.ProblemDetector(model, all_cards)
-    probs = problem_detector.problems
-    solver = solutions.ProblemSolver()
-    sols = {p.description: solver.get_solution_of(p) for p in probs}
+    
+    classifier = problems.groups.ProblemClassifier()
+    classifier.classify(problem_detector.problems)
+    categories = classifier.get_categories_with_problems()
+
+    cat_forms = []
+    for cat in categories:
+        probs = classifier.classified_problems[cat.name]
+
+        form = forms.ProblemForm()
+        form.add_problems(cat, probs)
+        form.problem.data = "Missing Update"
+
+        cat_forms.append((cat, form))
+
+    # solver = solutions.ProblemSolver()
+    # sols = {p.description: solver.get_solution_of(p) for p in probs}
 
     return web_utils.render_template(
         'problems.html', title='Problems',
-        all_cards_by_id=all_cards_by_id, problems=probs, solutions=sols)
+        all_cards_by_id=all_cards_by_id, problems=probs, catforms=cat_forms)
+
+
+@bp.route('/problems/fix', methods=['POST'])
+@flask_login.login_required
+def fix_problems():
+    user = flask_login.current_user
+    user_id = user.get_id()
+
+    all_cards_by_id, model = web_utils.get_all_tasks_by_id_and_user_model("retro", user_id)
+    all_cards = list(all_cards_by_id.values())
+
+    problem_detector = problems.ProblemDetector(model, all_cards)
+
+    form = forms.ProblemForm()
+    form.add_problems(problem_detector.problems)
+    if form.validate_on_submit():
+        print(f"Fix {form.problem.data} by {form.solution.data}")
+        print(f"Fix: {form.problems.data}")
+    else:
+        flask.flash(f"Error handing over solution: {form.errors}")
+    return flask.redirect(
+        web_utils.head_url_for("main.view_problems"))

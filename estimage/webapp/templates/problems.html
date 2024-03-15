@@ -1,14 +1,11 @@
 {% extends "general_retro.html" %}
 
 {% import "utils.j2" as utils with context %}
+{% from 'bootstrap5/form.html' import render_form %}
 
 
-{% macro print_name_replaced_with_links(text, names) %}
-{% if names | length > 1 %}
-{{ print_name_replaced_with_links(print_name_replaced_with_links(text, [names[0]]), names[1:]) }}
-{% else %}
-{{ text.replace(names[0], utils.task_or_epic_link(all_cards_by_id[names[0]], "retrospective")) | safe }}
-{% endif %}
+{% macro print_name_replaced_with_links(text, name) %}
+{{ text.replace(name, utils.task_or_epic_link(all_cards_by_id[name], "retrospective")) | safe }}
 {% endmacro %}
 
 
@@ -16,24 +13,13 @@
 <div class="container-md">
     <h2>Problems</h2>
     <div class="row">
+    {% for cat, form in catforms %}
     <div>
-    {% for p in problems %}
-    <h3>{{ " ".join(p.affected_cards_names) }}</h3>
-    	<p>
-        {{ print_name_replaced_with_links(p.description, p.affected_cards_names) }}
-    	</p>
-    	<p>
-	Tags:
-        <ul>
-	    {% for t in p.tags %}
-		<li>{{ t }}</li>
-	    {% endfor %}
-        </ul>
-	Solution:
-	{{ solutions[p.description].describe() }}
-    	</p>
-    {% endfor %}
+    <h3>{{ cat.name }}</h3>
+    <p>{{ cat.description }}</p>
+        {{ render_form(form, action=head_url_for("main.fix_problems")) }}
     </div>
+    {% endfor %}
     </div>
 </div>
 {% endblock content %}
