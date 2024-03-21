@@ -57,9 +57,9 @@ class InputSpec(jira.InputSpec):
         ret.cutoff_date = app.get_config_option("RETROSPECTIVE_PERIOD")[0]
         query = f"project = {PROJECT_NAME} AND type = Task AND sprint in openSprints()"
         query = "filter = 12350823 AND Sprint in openSprints() AND labels = committed AND issuetype in (task, bug, Story)"
-        query = "filter = 12350823 AND Sprint in openSprints() AND issuetype in (task, bug, Story)"
         ret.retrospective_query = query
-        ret.projective_query = ""
+        query = "filter = 12350823 AND Sprint in futureSprints() AND issuetype in (task, bug, Story)"
+        ret.projective_query = query
         ret.item_class = app.get_final_class("BaseCard")
         return ret
 
@@ -138,16 +138,15 @@ class Importer(jira.Importer):
         proj_tasks = set()
         if spec.projective_query:
             self.report("Gathering proj stuff")
-            proj_tasks = get_epics_and_their_tasks_by_id(
+            proj_tasks = get_tasks(
                 self.jira, spec.projective_query, self._all_issues_by_name,
                 self._parents_child_keymap)
-            new_names = proj_epic_names.difference(retro_epic_names)
-            new_cards = self.export_jira_epic_chain_to_cards(new_names)
-            known_names = proj_epic_names.intersection(retro_epic_names)
-            known_cards = self.export_jira_epic_chain_to_cards(known_names)
+            new_cards = self.export_jira_epic_chain_to_cards(proj_tasks)
             self._cards_by_id.update(new_cards)
+            new_epic_names = self.put_tasks_under_artificial_epics(proj_tasks)
             self._projective_cards.update(new_cards.keys())
-            self._projective_cards.update(known_cards.keys())
+            self._projective_cards.update(new_epic_names)
+            self._cards_by_id.update(new_cards)
 
         self.resolve_inheritance(proj_tasks.union(retro_tasks))
 
