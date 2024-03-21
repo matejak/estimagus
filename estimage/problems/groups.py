@@ -83,17 +83,8 @@ class ReasonableOutdated(ProblemCategory):
         "sum_of_children_lower",
     ])
     unwanted_tags = frozenset([
-        "missing_estimates",
+        "missing_children_estimates",
     ])
-
-
-@problem_category
-class GenericInconsistent(ProblemCategory):
-    name = "generic_inconsistent"
-    solution = solutions.SolutionByUpdatingSelf
-
-    required_tags = frozenset(["inconsistent_estimate"])
-    unwanted_tags = frozenset(["missing_estimates"])
 
 
 @problem_category
@@ -104,6 +95,15 @@ class UnestimatedChildren(ProblemCategory):
 
     required_tags = set([
         "inconsistent_estimate",
-        "missing_estimates",
-        "childless_children",
+        "missing_children_estimates",
+        "has_only_childless_children",
     ])
+
+
+@problem_category
+class GenericInconsistent(ProblemCategory):
+    name = "generic_inconsistent"
+    solution = solutions.SolutionByUpdatingSelf
+
+    required_tags = frozenset(["inconsistent_estimate"])
+    unwanted_tags = frozenset(["missing_estimates"])
