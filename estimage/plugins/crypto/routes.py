@@ -17,7 +17,6 @@ bp = flask.Blueprint("crypto", __name__, template_folder="templates")
 def sync():
     form = forms.CryptoForm()
     if form.validate_on_submit():
-        form.perform_work_with_token_encryption()
         task_spec = crypto.InputSpec.from_form_and_app(form, flask.current_app)
         jira.routes.do_stuff_and_flash_messages(task_spec, crypto.do_stuff)
     return web_utils.render_template(
