@@ -1,7 +1,7 @@
 import collections
 import typing
 
-from .problem import Problem, get_problem
+from .problem import Problem
 from . import solutions
 
 
@@ -14,9 +14,9 @@ class ProblemCategory:
     unwanted_tags: typing.FrozenSet[str] = frozenset()
 
     def matches(self, p: Problem):
-        if p.tags.intersection(self.required_tags) != self.required_tags:
+        if set(p.tags).intersection(self.required_tags) != self.required_tags:
             return False
-        if p.tags.intersection(self.unwanted_tags):
+        if set(p.tags).intersection(self.unwanted_tags):
             return False
         return True
 

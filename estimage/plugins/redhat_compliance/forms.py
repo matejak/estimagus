@@ -54,3 +54,7 @@ class AuthoritativeForm(forms.EncryptedTokenForm):
         )
         ret = (a for a in attributes)
         return ret
+
+
+class ProblemForm(forms.EncryptedTokenForm):
+    pass

@@ -8,7 +8,7 @@ from test_problems import cards_one_two
 
 def test_problem_categories_trivial():
     dumb_classifier = tm.ProblemClassifier()
-    p = tm.get_problem(tags=["unspecific"])
+    p = tm.Problem.get_problem(tags=["unspecific"])
     dumb_classifier.classify([p])
     others = dumb_classifier.not_classified
     assert len(others) == 1
@@ -48,7 +48,7 @@ def test_problem_categories_no_duplication(classifier):
 
 def test_problem_categories_basic(classifier):
     classifier.add_category(Underestimation)
-    p = tm.get_problem(tags=["underestimated"])
+    p = tm.Problem.get_problem(tags=["underestimated"])
     classifier.classify([p])
     assert not classifier.not_classified
     underestimation_problems = classifier.classified_problems["underestimation"]

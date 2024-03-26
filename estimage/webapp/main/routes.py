@@ -11,7 +11,7 @@ from ... import data
 from ... import utilities, statops
 from ...statops import summary
 from ... import simpledata as webdata
-from ... import history, problems, solutions
+from ... import history, problems
 from ...plugins import redhat_compliance
 
 
@@ -438,6 +438,11 @@ def view_epic_retro(epic_name):
         today=datetime.datetime.today(), epic=t, model=model, summary=summary)
 
 
+class RetroProblem(problems.Problem):
+    def format_task_name(self):
+        return f"{self.affected_card_name}"
+
+
 @bp.route('/problems')
 @flask_login.login_required
 def view_problems():
@@ -447,7 +452,7 @@ def view_problems():
     all_cards_by_id, model = web_utils.get_all_tasks_by_id_and_user_model("retro", user_id)
     all_cards = list(all_cards_by_id.values())
 
-    problem_detector = problems.ProblemDetector(model, all_cards)
+    problem_detector = problems.ProblemDetector(model, all_cards, RetroProblem)
     
     classifier = problems.groups.ProblemClassifier()
     classifier.classify(problem_detector.problems)
@@ -457,14 +462,10 @@ def view_problems():
     for cat in categories:
         probs = classifier.classified_problems[cat.name]
 
-        form = forms.ProblemForm()
-        form.add_problems(cat, probs)
-        form.problem.data = "Missing Update"
+        form = flask.current_app.get_final_class("ProblemForm")()
+        form.add_problems_and_cat(cat, probs)
 
         cat_forms.append((cat, form))
-
-    # solver = solutions.ProblemSolver()
-    # sols = {p.description: solver.get_solution_of(p) for p in probs}
 
     return web_utils.render_template(
         'problems.html', title='Problems',
@@ -482,11 +483,15 @@ def fix_problems():
 
     problem_detector = problems.ProblemDetector(model, all_cards)
 
+    classifier = problems.groups.ProblemClassifier()
+    classifier.classify(problem_detector.problems)
+    categories = classifier.get_categories_with_problems()
+
     form = forms.ProblemForm()
     form.add_problems(problem_detector.problems)
     if form.validate_on_submit():
-        print(f"Fix {form.problem.data} by {form.solution.data}")
-        print(f"Fix: {form.problems.data}")
+        problems_cat = classifier.CATEGORIES[form.problem_category.data]
+        print(f"Fix {form.problems.data}: {problems_cat.solution.description}")
     else:
         flask.flash(f"Error handing over solution: {form.errors}")
     return flask.redirect(
