@@ -98,3 +98,35 @@ class PointEstimationForm(FlaskForm):
     most_likely = wtforms.SelectField("Most Likely", choices=FIB)
     pessimistic = wtforms.SelectField("Pessimistic", choices=FIB)
     submit = SubmitField("Save Estimate")
+
+
+class MultiCheckboxField(wtforms.SelectMultipleField):
+    """
+    A multiple-select, except displays a list of checkboxes.
+
+    Iterating the field will produce subfields, allowing custom rendering of
+    the enclosed checkbox fields.
+    """
+    widget = wtforms.widgets.ListWidget(prefix_label=False)
+    option_widget = wtforms.widgets.CheckboxInput()
+
+
+@PluginResolver.class_is_extendable("ProblemForm")
+class ProblemForm(FlaskForm):
+
+    def add_problems(self, all_problems):
+        for p in all_problems:
+            self.problems.choices.append((p.affected_card_name, ""))
+
+    def add_problems_and_cat(self, problems_category, problems):
+        for p in problems:
+            self.problems.choices.append((p.affected_card_name, p.get_formatted_description()))
+
+        self.problem_category.data = problems_category.name
+        if s := problems_category.solution:
+            self.solution.data = s.description
+
+    problem_category = wtforms.HiddenField("problem_cat")
+    problems = MultiCheckboxField("Problems", choices=[])
+    solution = wtforms.StringField("Solution", render_kw={'readonly': True})
+    submit = SubmitField("Solve Problems")

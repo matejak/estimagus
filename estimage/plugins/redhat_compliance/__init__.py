@@ -9,12 +9,13 @@ from ...entities import status
 from ...webapp import web_utils
 from ...visualize.burndown import StatusStyle
 from .. import jira
-from .forms import AuthoritativeForm
+from .forms import AuthoritativeForm, ProblemForm
 
 JiraFooter = jira.JiraFooter
 
 EXPORTS = dict(
     AuthoritativeForm="AuthoritativeForm",
+    ProblemForm="ProblemForm",
     Footer="JiraFooter",
     BaseCard="BaseCard",
     MPLPointPlot="MPLPointPlot",

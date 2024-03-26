@@ -17,6 +17,7 @@ from .forms import CryptoForm
 JiraFooter = jira.JiraFooter
 
 EXPORTS = dict(
+    ProblemForm="ProblemForm",
     Footer="JiraFooter",
     MPLPointPlot="MPLPointPlot",
     Statuses="Statuses",

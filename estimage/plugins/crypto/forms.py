@@ -11,3 +11,7 @@ class CryptoFormEnd(FlaskForm):
 
 class CryptoForm(forms.EncryptedTokenForm, CryptoFormEnd):
     pass
+
+
+class ProblemForm(forms.EncryptedTokenForm):
+    pass
