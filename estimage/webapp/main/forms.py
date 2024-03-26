@@ -110,22 +110,23 @@ class MultiCheckboxField(wtforms.SelectMultipleField):
     widget = wtforms.widgets.ListWidget(prefix_label=False)
     option_widget = wtforms.widgets.CheckboxInput()
 
-    def get_selected(self):
-        ret = []
-        for x in self:
-            print(11, x, 22)
 
-
+@PluginResolver.class_is_extendable("ProblemForm")
 class ProblemForm(FlaskForm):
 
-    def add_problems(self, problems_category, problems):
-        for p in problems:
-            self.problems.choices.append((p.affected_card_name, p.description))
+    def add_problems(self, all_problems):
+        for p in all_problems:
+            self.problems.choices.append((p.affected_card_name, ""))
 
+    def add_problems_and_cat(self, problems_category, problems):
+        for p in problems:
+            self.problems.choices.append((p.affected_card_name, p.get_formatted_description()))
+
+        self.problem_category.data = problems_category.name
         if s := problems_category.solution:
             self.solution.data = s.description
 
-    problem = wtforms.HiddenField("problem")
+    problem_category = wtforms.HiddenField("problem_cat")
     problems = MultiCheckboxField("Problems", choices=[])
     solution = wtforms.StringField("Solution", render_kw={'readonly': True})
     submit = SubmitField("Solve Problems")

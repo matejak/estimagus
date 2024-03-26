@@ -10,12 +10,21 @@ from ..entities.model import EstiModel
 
 TAG_TO_PROBLEM_TYPE = dict()
 
-def get_problem(** data):
-    data["tags"] = frozenset(data.get("tags", frozenset()))
-    problem_tags = list(data["tags"].intersection(set(TAG_TO_PROBLEM_TYPE.keys())))
+def _get_problem_t_tags(tags):
+    problem_tags = list(set(tags).intersection(set(TAG_TO_PROBLEM_TYPE.keys())))
     if not problem_tags:
-        return Problem(** data)
-    return TAG_TO_PROBLEM_TYPE[problem_tags[0]](** data)
+        return ""
+    return problem_tags[0]
+
+
+def get_problem(base_problem_t, ** data):
+    problem_tag = _get_problem_t_tags(data.get("tags", set()))
+    if not problem_tag:
+        problem_t_final = base_problem_t
+    else:
+        problem_t_special = TAG_TO_PROBLEM_TYPE[problem_tag]
+        problem_t_final = type("aProblem", (problem_t_special, base_problem_t), dict())
+    return problem_t_final(** data)
 
 
 def problem_associated_with_tag(tag):
@@ -31,8 +40,11 @@ class Problem:
     affected_card_name: str = ""
     tags: typing.FrozenSet[str] = frozenset()
 
+    def get_formatted_description(self):
+        return self.description.format(formatted_task_name=self.format_task_name())
+
     def format_task_name(self):
-        return self.affected_card_name
+        return f"'{self.affected_card_name}'"
 
 
 @problem_associated_with_tag("inconsistent_estimate")
@@ -45,10 +57,11 @@ class ValueProblem(Problem):
 class ProblemDetector:
     POINT_THRESHOLD = 0.4
 
-    def __init__(self, model: EstiModel, cards: typing.Iterable[BaseCard]):
+    def __init__(self, model: EstiModel, cards: typing.Iterable[BaseCard], base_problem_t=Problem):
         self.model = model
         self.cards = cards
         self.problems = []
+        self.base_problem_t = base_problem_t
 
         self._get_problems()
 
@@ -81,7 +94,7 @@ class ProblemDetector:
         else:
             self._inconsistent_card_differing_estimate(data, card, expected_computed_cost, computed_nominal_cost)
         data["tags"] = frozenset(data["tags"])
-        self.problems.append(get_problem(** data))
+        self.problems.append(get_problem(self.base_problem_t, ** data))
 
     def _card_has_no_children_with_children(self, card):
         for child in card.children:
@@ -92,7 +105,8 @@ class ProblemDetector:
     def _inconsistent_card_missing_children_estimates(self, data, card):
         recorded_cost = data['value_found']
         data["description"] = (
-            f"'{card.name}' has inconsistent recorded point cost of {recorded_cost:.2g}, "
+            "{formatted_task_name} "
+            f"has inconsistent recorded point cost of {recorded_cost:.2g}, "
             f"as its children appear to lack estimations."
         )
         data["tags"].add("missing_children_estimates")
@@ -106,7 +120,8 @@ class ProblemDetector:
         if recorded_cost <= computed_nominal_cost:
             data["tags"].add("estimate_within_nominal")
         data["description"] = (
-            f"'{card.name}' has inconsistent recorded point cost of {recorded_cost:.2g}, "
+            "{formatted_task_name} "
+            f"has inconsistent recorded point cost of {recorded_cost:.2g}, "
             f"while the deduced cost is {expected_computed_cost:.2g}"
         )
         data["value_expected"] = expected_computed_cost
