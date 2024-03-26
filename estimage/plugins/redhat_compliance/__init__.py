@@ -251,30 +251,30 @@ class Importer(jira.Importer):
             return JIRA_STATUS_TO_STATE.get(jira_string, "irrelevant")
 
 
-def _get_simple_spec(token):
+def _get_simple_spec(token, card_cls):
     Spec = collections.namedtuple("Spec", ["server_url", "token", "item_class"])
     spec = Spec(
         server_url="https://issues.redhat.com",
         token=token,
-        item_class = app.get_final_class("BaseCard"))
+        item_class=card_cls)
     return spec
 
 
-def refresh_cards(names, io_cls, token):
-    spec = _get_simple_spec(token)
+def refresh_cards(names, io_cls, card_cls, token):
+    spec = _get_simple_spec(token, card_cls)
     real_cards = [data.BaseCard.load_metadata(name, io_cls) for name in names]
     importer = Importer(spec)
     importer.refresh_cards(real_cards, io_cls)
 
 
-def write_some_points(form, io_cls):
-    return write_points_to_task(io_cls, form.task_name.data, form.token.data, float(form.point_cost.data))
+def write_some_points(form, io_cls, card_cls):
+    return write_points_to_task(io_cls, card_cls, form.task_name.data, form.token.data, float(form.point_cost.data))
 
 
-def write_points_to_task(io_cls, name, token, points):
-    spec = _get_simple_spec(token)
+def write_points_to_task(io_cls, card_cls, name, token, points):
+    spec = _get_simple_spec(token, card_cls)
     importer = Importer(spec)
-    our_card = data.BaseCard.load_metadata(name, io_cls)
+    our_card = card_cls.load_metadata(name, io_cls)
     updated_card = importer.update_points_of(our_card, points)
     updated_card.save_metadata(io_cls)
 
