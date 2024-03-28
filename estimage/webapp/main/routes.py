@@ -86,7 +86,8 @@ def move_issue_estimate_to_consensus(task_name):
 @bp.route('/authoritative/<task_name>', methods=['POST'])
 @flask_login.login_required
 def move_consensus_estimate_to_authoritative(task_name):
-    form = flask.current_app.get_final_class("AuthoritativeForm")
+    form = flask.current_app.get_final_class("AuthoritativeForm")()
+    card_cls = flask.current_app.get_final_class("BaseCard")
     if form.validate_on_submit():
         if form.i_kid_you_not.data:
             pollster_cons = webdata.AuthoritativePollster()
@@ -95,15 +96,14 @@ def move_consensus_estimate_to_authoritative(task_name):
             form.point_cost.data = str(estimate.expected)
             io_cls = web_utils.get_proj_loader()[1]
             try:
-                redhat_compliance.write_some_points(form, io_cls)
+                redhat_compliance.write_some_points(form, io_cls, card_cls)
             except Exception as exc:
                 msg = f"Error updating the record: {exc}"
                 flask.flash(msg)
         else:
             flask.flash("Authoritative estimate not updated, request was not serious")
 
-    return flask.redirect(
-        web_utils.head_url_for("main.view_projective_task", task_name=task_name))
+    return view_projective_task(task_name, dict(authoritative=form))
 
 
 @bp.route('/estimate/<task_name>', methods=['POST'])
@@ -168,14 +168,18 @@ def get_similar_cards_with_estimations(user_id, task_name):
 
 @bp.route('/projective/task/<task_name>')
 @flask_login.login_required
-def view_projective_task(task_name):
+def view_projective_task(task_name, known_forms=None):
     t = projective_retrieve_task(task_name)
+    if known_forms is None:
+        known_forms = dict()
 
     request_forms = dict(
         estimation=forms.NumberEstimationForm(),
         consensus=forms.ConsensusForm(),
         authoritative=flask.current_app.get_final_class("AuthoritativeForm")(),
     )
+    request_forms.update(known_forms)
+
     breadcrumbs = get_projective_breadcrumbs()
     append_card_to_breadcrumbs(breadcrumbs, t, lambda n: web_utils.head_url_for("main.view_epic", epic_name=n))
     return view_task(t, breadcrumbs, request_forms)
@@ -298,6 +302,7 @@ def index():
 @flask_login.login_required
 def refresh():
     form = redhat_compliance.forms.RedhatComplianceRefreshForm()
+    card_cls = flask.current_app.get_final_class("BaseCard")
     if form.validate_on_submit():
         if form.mode.data == "projective":
             io_cls = web_utils.get_proj_loader()[1]
@@ -305,7 +310,7 @@ def refresh():
             io_cls = web_utils.get_retro_loader()[1]
         try:
             redhat_compliance.refresh_cards(
-                form.get_what_names_to_refresh(), io_cls, form.token.data)
+                form.get_what_names_to_refresh(), io_cls, card_cls, form.token.data)
         except Exception as exc:
             msg = f"Error doing refresh: {exc}"
             flask.flash(msg)

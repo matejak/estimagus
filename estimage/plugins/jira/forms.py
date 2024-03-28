@@ -35,7 +35,13 @@ class EncryptedTokenForm(FlaskForm):
     encrypted_token = wtforms.HiddenField('Encrypted Token')
     encrypted_meant_for_storage = wtforms.HiddenField('Store the Encrypted Token', default="no")
 
-    def perform_work_with_token_encryption(self):
+    def validate_on_submit(self):
+        ret = super().validate_on_submit()
+        if ret:
+            self._perform_work_with_token_encryption()
+        return ret
+
+    def _perform_work_with_token_encryption(self):
         if not self.token.data and self.encrypted_token.data:
             self.token.data = decrypt_stuff(self.encrypted_token.data)
         if self.store_token.data:

@@ -38,8 +38,6 @@ def do_stuff_and_flash_messages(task_spec, callback):
 def jira_plugin():
     form = forms.JiraForm()
     if form.validate_on_submit():
-        form.perform_work_with_token_encryption()
-
         task_spec = jira.InputSpec.from_form_and_app(form, flask.current_app)
 
         do_stuff_and_flash_messages(task_spec, jira.do_stuff)
