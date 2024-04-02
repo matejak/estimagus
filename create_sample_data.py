@@ -2,69 +2,59 @@ import datetime
 import random
 
 import estimage.simpledata as sd
+from estimage.persistence.card import ini
 from estimage import data
 
 
-def create_task(cls, name, points, state=data.State.todo):
-    t = cls()
-    t.name = name
+def create_task(name, points, status="todo"):
+    t = data.BaseCard(name)
     t.point_cost = points
-    t.status = state
+    t.assignee = "marty"
+    if random.random() > 0.5:
+        t.collaborators.append("andy")
+    t.status = status
     t.title = f"Issue {name}"
     t.description = f"Description of Issue {name}"
-    t.save_metadata()
-    t.save_point_cost()
     return t
 
 
-def create_projective_task(name, points):
-    return create_task(sd.ProjCard, name, points)
-
-
-def create_retrospective_task(name, points, state):
-    return create_task(sd.RetroCard, name, points, state)
-
-
-def create_epic(cls, name, children=None):
-    t = cls()
+def create_epic(name, children=None, status="in_progress"):
+    t = data.BaseCard(name)
     t.name = name
     t.title = f"Epic {name}"
+    t.assignee = "marty"
     t.description = f"Description of Epic {name}"
+    t.status = status
     if children:
-        t.dependents = children
-    t.save_metadata()
+        t.children = children
+        for c in children:
+            c.parent = t
     return t
-
-
-def create_projective_epic(name, children=None):
-    return create_epic(sd.ProjCard, name, children)
-
-
-def create_retrospective_epic(name, children=None):
-    return create_epic(sd.RetroCard, name, children)
 
 
 def create_projective_tasks_and_epics():
-    t1 = create_projective_task("future-one", 1)
-    t2 = create_projective_task("future-two", 2)
-    t3 = create_projective_task("future-three", 3)
-    create_projective_epic("future-first", children=[t1, t2])
-    e3 = create_projective_epic("future-deep", children=[t3])
-    create_projective_epic("future-shallow", children=[e3])
+    real_saver = type("RealSaver", (sd.ProjCardIO, ini.IniCardSaver), dict())
+    t1 = create_task("future-one", 1)
+    t2 = create_task("future-two", 2)
+    t3 = create_task("future-three", 3)
+    e1 = create_epic("future-first", children=[t1, t2])
+    e3 = create_epic("future-deep", children=[t3])
+    e4 = create_epic("future-shallow", children=[e3])
+    real_saver.bulk_save_metadata([t1, t2, t3, e1, e3, e4])
 
 
 def create_status_events_for_task(task_name, end_status, period_interval):
-    status_low_bound = int(data.State.todo)
+    status_low_bound = 2
+    statuses = data.Statuses().statuses[status_low_bound:]
     period_length = period_interval[1] - period_interval[0]
-    states = [data.State(code + 1) for code in range(status_low_bound, int(end_status))]
-    dates = sorted([random.random() * period_length + period_interval[0] for _ in states])
+    dates = sorted([random.random() * period_length + period_interval[0] for _ in statuses])
     events = []
-    before = data.State.todo
-    for state, when in zip(states, dates):
+    before = data.Statuses().statuses[status_low_bound - 1]
+    for status, when in zip(statuses, dates):
         event = data.Event(task_name, "state", when)
-        event.value_before = before
-        event.value_after = state
-        before = state
+        event.value_before = before.name
+        event.value_after = status.name
+        before = status
         events.append(event)
     return events
 
@@ -77,26 +67,30 @@ def dispatch_events_for_task(manager, task_name, end_status, period):
 
 def create_retrospective_events():
     manager = sd.EventManager()
-    period = (datetime.datetime(2022, 10, 1), datetime.datetime(2023, 1, 1))
-    dispatch_events_for_task(manager, "past-one", data.State.done, period)
-    dispatch_events_for_task(manager, "past-two", data.State.review, period)
-    dispatch_events_for_task(manager, "past-three", data.State.in_progress, period)
-    dispatch_events_for_task(manager, "past-four", data.State.done, period)
+    period = list(sd.AppData()._get_default_retrospective_period())
+    period[1] = datetime.datetime.today()
+    dispatch_events_for_task(manager, "past-one", "done", period)
+    dispatch_events_for_task(manager, "past-two", "done", period)
+    dispatch_events_for_task(manager, "past-three", "in_progress", period)
+    dispatch_events_for_task(manager, "past-four", "done", period)
     manager.save()
 
 
 def create_retrospective_tasks_and_epics():
-    t1 = create_retrospective_task("past-one", 1, data.State.done)
+    real_saver = type("RealSaver", (sd.RetroCardIO, ini.IniCardSaver), dict())
 
-    t2 = create_retrospective_task("past-two", 2, data.State.review)
-    t3 = create_retrospective_task("past-three", 3, data.State.in_progress)
-    create_retrospective_epic("past-first", children=[t1, t2])
-    e3 = create_retrospective_epic("past-deep", children=[t3])
-    create_retrospective_epic("past-shallow", children=[e3])
+    t1 = create_task("past-one", 1, "done")
 
-    t4 = create_retrospective_task("past-four", 5, data.State.done)
-    t5 = create_retrospective_task("past-five", 4, data.State.todo)
-    create_retrospective_epic("past-second", children=[t4, t5])
+    t2 = create_task("past-two", 2, "in_progress")
+    t3 = create_task("past-three", 3, "done")
+    e1 = create_epic("past-first", children=[t1, t2])
+    e3 = create_epic("past-deep", children=[t3], status="done")
+    e4 = create_epic("past-shallow", children=[e3], status="done")
+
+    t4 = create_task("past-four", 5, "done")
+    t5 = create_task("past-five", 4, "todo")
+    e5 = create_epic("past-second", children=[t4, t5])
+    real_saver.bulk_save_metadata([t1, t2, t3, t4, t5, e1, e3, e4, e5])
 
 
 if __name__ == "__main__":

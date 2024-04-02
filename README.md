@@ -4,9 +4,9 @@
 
 # Estimagus
 
-Decision support web application focused on estimation of tasks, on evaluation of progress and on identification of bottlenecks.
+Estimagus is a framework and a decision support web application focused on estimation of tasks, on evaluation of progress and on identification of bottlenecks when working on projects that can be decomposed into a tree of tasks.
 
-The software is not complete, so part of this description is rather a wish than the reality.
+Estimagus can be extended to synchronize with trackers s.a. Jira, and operate on local copy of the data, possibly synchronizing updates back to the tracker.
 
 
 ## Quickstart
@@ -14,6 +14,7 @@ The software is not complete, so part of this description is rather a wish than 
 You can run the application locally, or you can utilize containers to get it up and running.
 
 In any case, a running app without testing data is no fun, so you want to run the `create_sample_data.py` script that will output a bunch of `ini` files that can serve as sample data.
+Still, it is not particularly fun, so perhaps join Gitter and find out how to get some real data from your tracker.
 
 
 ### Running in the live system
@@ -26,6 +27,7 @@ SECRET_KEY=abcd DATA_DIR=. python -m flask run
 ```
 
 and voila - you should be able to connect to http://localhost:5000, and start exploring the app.
+The `$DATA_DIR/appdata.ini` file contains additional configuration that can be edited.
 
 
 ### Running in a container
@@ -53,12 +55,17 @@ Following environmental variables are recognized and used:
 - `DATA_DIRS`: An ordered, comma-separated list of directories with configuration and data of "heads" for the multi-head setup.
 - `LOGIN_PROVIDER_NAME`: one of `autologin` or `google`. Autologin logs in any user, google allows Google login when set up properly.
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`: When using google login, you need to obtain those from Google to have the Google login working.
-- `PLUGINS`: An ordered, comma-separated list of plugin names to load.
+- `PLUGINS`: An ordered, comma-separated list of plugin names to load. Plugins are Python packages located in the `plugins` directory of Estimagus.
 
 
 ## Assumptions
 
 Some assumptions are hard, while others may be subjects to change.
+
+### Terms
+
+*Card* is a node in the task tree of the project.
+Therefore, it can be a task, or a collection of tasks.
 
 
 ### Planning
@@ -67,48 +74,24 @@ Some assumptions are hard, while others may be subjects to change.
   A point is the only unit available at a time, it can reflect e.g. relative difficulty or time cost, but one can't have both quantities next to each other.
 - Task can be meaningfully estimated using a (possibly degenerate) three-point estimate (optimistic, most likely, pessimistic) interval that covers the actual value with an estimated probability of about 95%.
   It is therefore possible (with about 5% probability) that the actual case is worse than pessimistic, or better than optimistic.
-- The expected time when a unit or collection of work (task or epic) is supposed to be worked on can be set statically by specifying start and end dates.
-- Task sizes are a linear quantity, and a collection of tasks (epic) doesn't entail anything else besides its tasks.
-  The size of work on an epic can be estimated by adding up (whatever that means) estimations of individual tasks.
-  Integration of work between individual tasks is therefore factored in task estimates.
-- The plan and the actual execution are related only through the velocity.
-  Velocity is treated as a black box.
-  There is no distinction between a team member taking time off and underestimation - both result in temporal reduction of velocity.
+- The expected time when a card is supposed to be worked on can be set statically by specifying start and end dates.
+  This enables individual projections of the on-track state on the level of cards.
+- Task sizes are a linear quantity, and a size of a card that has children is exactly the sum of sizes of its children.
+  In other words, the size of work on an epic can be estimated by adding up (whatever that means) estimations of individual tasks.
+  Notably, integration of work between individual tasks is therefore factored in task estimates.
 
 
 ### Execution
 
 - Tasks are being worked on when the task's state is "In Progress".
-- The expected value of task's estimate corresponds to the work that has been done on the task.
-- There is no way how to directly measure the rate of progress (velocity) before concluding an element of work (e.g. task, subtask).
-  The velocity can only be measured indirectly based on the estimated size and delivery time.
-- The velocity is constant in time while the task is in progress.
+- The expected value of task's estimate corresponds to the work that has been done on the task when it is completed.
+- There is no way how to directly measure the rate of progress (velocity) before completing a card.
+  The velocity can only be measured indirectly based on the estimated size and time spent in progress.
+- The velocity is constant when the task is in progress.
 - Execution of each tasks is an independent event.
   Tasks may depend on each other, but how relatively smoothly will a task flow can't be deduced from execution of other tasks.
-- If the team reestimates anything, the history of reestimations is not relevant.
+- If anything, the history of reestimations is not relevant, the last number is what counts.
 - It is impossible to find out who or how many people worked to complete a task.
-
-
-### Casual Model
-
-- Team works on multiple tasks simultaneously. Nevertheless, the team achieves constant progress every day, which is invisible until the task being worked on is completed.
-- The expected progress rate that can be modeled is objectively fluctuating around a constant value. The actual rate is based on the expected rate, additionally influenced by individual conditions of team members. Finally, the observed rate is influenced also by irregularities in issues difficulty.
-- Some time between start and end of the work, the task is marked as being in progress, and it is concluded at some point. The discrepancy between the actual and recorded start is random, although most likely zero (precise tracking), absent-minded (bogus 1-day tasks), or delayed (late record of the start or end).
-
-
-### Considerations
-
-- The target of estimation is one of the team's progress rate (velocity).
-- The only observable data are events of task completion. Due to tracking errors and possible estimation errors, the observed velocity can be extremely volatile.
-- Only the delayed start is considered.
-- Observed velocity: Expected times team availability ratio over sum(real period - starting delay; of tasks that were recorded as in progress at that time).
-
-
-## Purpose
-
-- Allow for more natural expression of estimations.
-- Provide fast feedback on iterations while they are in progress.
-- Use the data to make predictions about the future with a specific certainty.
 
 
 ## Features
@@ -122,7 +105,7 @@ Some assumptions are hard, while others may be subjects to change.
 
 - Know what's going on during the execution phase:
 
-  - View status-aware burndown charts in the global scale, or on a finer scale of composite issues (epics).
+  - View status-aware burndown charts on the global scale, or on a finer scale of composite cards (epics).
   - View velocity data on all scales as well.
 
 - Plan better next time: Use past velocity to convert story points to time estimations including the corresponding quantitative confidence.
@@ -140,21 +123,3 @@ Authoritative estimates reflect the actual entry stored in the tracking system t
 #### Retrospective view
 
 The tool visualizes progress and velocity of issues that are currently being worked on.
-
-
-### Driving user stories
-
-- As a sysadmin, I want to be able to set up Estimagus to connect to various task systems, so my customers will be able to estimate on the top of those systems using Estimagus, while being backwards-compatible.
-- As a developer, I want to
-  - estimate tasks using the 3-point method without interfering with others.
-  - export results of my estimations to the main task database, so my estimations can be used by the whole team.
-  - see similar tasks when estimating, so I get feedback that can improve my relative estimation.
-  - nominate a set of estimations as globally authoritative, so I have access to working versions of 3-point estimates at any time.
-  - keep track of history of the authoritative estimation, so reestimates are easily identifiable, and not hidden.
-  - work with my estimation and the authoritative estimation if it exists, or at least with a marked estimation as its fallback.
-  - express interest on working on an issue or epic, and to review this information, so that I can manage my focus, and I can help others to plan in a way that can consider my contribution preferences.
-- As a stakeholder, I want to
-  - see the team's burndown charts and velocity charts, so that I know whether the team is in control of things.
-  - have projection of the state of things readily available, so that I can correlate it with the team's version and focus on potential differences.
-  - identify tasks or epics that are in danger of slipping, so that I can realocate resources in time.
-
