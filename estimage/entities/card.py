@@ -75,6 +75,8 @@ class BaseCard:
         return ret
 
     def add_element(self, what: "BaseCard"):
+        if what in self:
+            return
         self.children.append(what)
         what.parent = self
 

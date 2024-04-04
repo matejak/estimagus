@@ -215,3 +215,9 @@ def test_card_forget(card_io):
     one.save_metadata(card_io)
     card_io.forget_all()
     assert not card_io.load_all_cards()
+
+
+def test_no_duplicate_children(subtree_card, leaf_card):
+    assert len(subtree_card.children) == 1
+    subtree_card.add_element(leaf_card)
+    assert len(subtree_card.children) == 1
