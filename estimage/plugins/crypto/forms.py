@@ -6,6 +6,7 @@ from ..jira import forms
 
 
 class CryptoFormEnd(FlaskForm):
+    project_next = wtforms.BooleanField('Plan for the Next Iteration')
     submit = wtforms.SubmitField("Import Data")
 
 
