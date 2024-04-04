@@ -449,7 +449,7 @@ def view_problems():
     user = flask_login.current_user
     user_id = user.get_id()
 
-    all_cards_by_id, model = web_utils.get_all_tasks_by_id_and_user_model("retro", user_id)
+    all_cards_by_id, model = web_utils.get_all_tasks_by_id_and_user_model("proj", user_id)
     all_cards = list(all_cards_by_id.values())
 
     problem_detector = problems.ProblemDetector(model, all_cards, RetroProblem)

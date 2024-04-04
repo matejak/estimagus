@@ -120,7 +120,7 @@ class ProblemForm(FlaskForm):
 
     def add_problems_and_cat(self, problems_category, problems):
         for p in problems:
-            self.problems.choices.append((p.affected_card_name, p.get_formatted_description()))
+            self.problems.choices.append((p.affected_card_name, p))
 
         self.problem_category.data = problems_category.name
         if s := problems_category.solution:
