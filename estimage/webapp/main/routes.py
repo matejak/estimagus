@@ -491,7 +491,7 @@ def fix_problems():
     form.add_problems(problem_detector.problems)
     if form.validate_on_submit():
         problems_cat = classifier.CATEGORIES[form.problem_category.data]
-        print(f"Fix {form.problems.data}: {problems_cat.solution.description}")
+        flask.flash(f"Fix {form.problems.data}: {problems_cat.solution.description}")
     else:
         flask.flash(f"Error handing over solution: {form.errors}")
     return flask.redirect(

@@ -4,11 +4,12 @@ import textwrap
 
 import cryptography.fernet
 import flask
-from flask_wtf import FlaskForm
 import wtforms
 
+from ..base.forms import BaseForm
 
-class JiraFormStart(FlaskForm):
+
+class JiraFormStart(BaseForm):
     server = wtforms.StringField('Server URL', default="https://")
 
 
@@ -29,11 +30,15 @@ def encrypt_stuff(what):
     return fernet.encrypt(what.encode()).decode()
 
 
-class EncryptedTokenForm(FlaskForm):
+class EncryptedTokenForm(BaseForm):
     token = wtforms.PasswordField('Token')
     store_token = wtforms.BooleanField('Store token locally for later', default=True)
     encrypted_token = wtforms.HiddenField('Encrypted Token')
     encrypted_meant_for_storage = wtforms.HiddenField('Store the Encrypted Token', default="no")
+    def __init__(self, ** kwargs):
+        super().__init__(** kwargs)
+        self.extending_fields.append(self.token)
+        self.extending_fields.append(self.store_token)
 
     def validate_on_submit(self):
         ret = super().validate_on_submit()
@@ -49,7 +54,7 @@ class EncryptedTokenForm(FlaskForm):
             self.encrypted_meant_for_storage.data = "yes"
 
 
-class JiraFormEnd(FlaskForm):
+class JiraFormEnd(BaseForm):
     retroQuery = wtforms.StringField('Retrospective Query')
     projQuery = wtforms.StringField('Projective Query')
     cutoffDate = wtforms.DateField("History Cutoff date")

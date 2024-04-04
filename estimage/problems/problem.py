@@ -30,8 +30,8 @@ class Problem:
     affected_card_name: str = ""
     tags: typing.FrozenSet[str] = frozenset()
 
-    def get_formatted_description(self):
-        return self.description.format(formatted_task_name=self.format_task_name())
+    def get_formatted_description(self, formatted_task_name):
+        return self.description_template.format(formatted_task_name=formatted_task_name)
 
     def format_task_name(self):
         return f"'{self.affected_card_name}'"

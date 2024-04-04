@@ -1,10 +1,10 @@
-from flask_wtf import FlaskForm
 import wtforms
 
 from ..jira import forms
+from ..base.forms import BaseForm
 
 
-class RedhatComplianceFormEnd(FlaskForm):
+class RedhatComplianceFormEnd(BaseForm):
     quarter = wtforms.StringField('Quarter String')
     project_next = wtforms.BooleanField('Plan for the Next Quarter')
     submit = wtforms.SubmitField("Import Data")
@@ -14,7 +14,7 @@ class RedhatComplianceForm(forms.EncryptedTokenForm, RedhatComplianceFormEnd):
     pass
 
 
-class RedhatComplianceRefreshForm(FlaskForm):
+class RedhatComplianceRefreshForm(BaseForm):
 
     def request_refresh_of(self, names):
         self.cards.data = ",".join(names)

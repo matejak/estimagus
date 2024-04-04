@@ -1,8 +1,8 @@
-from flask_wtf import FlaskForm
 import wtforms
 from wtforms import StringField, BooleanField, SubmitField, ValidationError
 
 from ... import PluginResolver
+from ...plugins.base.forms import BaseForm
 
 
 class SubmitMixin:
@@ -27,7 +27,7 @@ class DeleteMixin:
         self.delete.render_kw["disabled"] = "disabled"
 
 
-class PromotionMixin(FlaskForm):
+class PromotionMixin(BaseForm):
     def __init__(self, id_prefix, * args, ** kwargs):
         super().__init__(* args, ** kwargs)
         self.i_kid_you_not.id = id_prefix + self.i_kid_you_not.id
@@ -65,7 +65,7 @@ class AuthoritativeForm(PromotionMixin, SubmitMixin):
 FIB = [0, 1, 2, 3, 5, 8, 13, 21, 34]
 
 
-class NumberEstimationForm(FlaskForm, SubmitMixin, DeleteMixin):
+class NumberEstimationForm(BaseForm, SubmitMixin, DeleteMixin):
     optimistic = wtforms.DecimalField("Optimistic")
     most_likely = wtforms.DecimalField("Most Likely")
     pessimistic = wtforms.DecimalField("Pessimistic")
@@ -93,7 +93,7 @@ class NumberEstimationForm(FlaskForm, SubmitMixin, DeleteMixin):
         return all_errors
 
 
-class PointEstimationForm(FlaskForm):
+class PointEstimationForm(BaseForm):
     optimistic = wtforms.SelectField("Optimistic", choices=FIB)
     most_likely = wtforms.SelectField("Most Likely", choices=FIB)
     pessimistic = wtforms.SelectField("Pessimistic", choices=FIB)
@@ -112,7 +112,10 @@ class MultiCheckboxField(wtforms.SelectMultipleField):
 
 
 @PluginResolver.class_is_extendable("ProblemForm")
-class ProblemForm(FlaskForm):
+class ProblemForm(BaseForm):
+    def __init__(self, ** kwargs):
+        self.extending_fields = []
+        super().__init__(** kwargs)
 
     def add_problems(self, all_problems):
         for p in all_problems:
