@@ -271,17 +271,12 @@ def view_epic(epic_name):
 
     t = projective_retrieve_task(epic_name)
 
-    refresh_form = redhat_compliance.forms.RedhatComplianceRefreshForm()
-    refresh_form.request_refresh_of([epic_name] + [e.name for e in t.children])
-    refresh_form.mode.data = "projective"
-    refresh_form.next.data = flask.request.path
-
     breadcrumbs = get_projective_breadcrumbs()
     append_card_to_breadcrumbs(breadcrumbs, t, lambda n: web_utils.head_url_for("main.view_epic", epic_name=n))
 
     return web_utils.render_template(
         'epic_view.html', title='View epic', epic=t, estimate=estimate, model=model, breadcrumbs=breadcrumbs,
-        refresh_form=refresh_form)
+    )
 
 
 def get_similar_tasks(user_id, task_name, all_cards_by_id):
@@ -296,34 +291,6 @@ def get_similar_tasks(user_id, task_name, all_cards_by_id):
 @bp.route('/')
 def index():
     return flask.redirect(web_utils.head_url_for("main.overview_retro"))
-
-
-@bp.route('/refresh', methods=["POST"])
-@flask_login.login_required
-def refresh():
-    form = redhat_compliance.forms.RedhatComplianceRefreshForm()
-    card_cls = flask.current_app.get_final_class("BaseCard")
-    if form.validate_on_submit():
-        if form.mode.data == "projective":
-            io_cls = web_utils.get_proj_loader()[1]
-        else:
-            io_cls = web_utils.get_retro_loader()[1]
-        try:
-            redhat_compliance.refresh_cards(
-                form.get_what_names_to_refresh(), io_cls, card_cls, form.token.data)
-        except Exception as exc:
-            msg = f"Error doing refresh: {exc}"
-            flask.flash(msg)
-    redirect = web_utils.safe_url_to_redirect(form.next.data)
-    return flask.redirect(redirect)
-
-
-@bp.route('/refresh_single', methods=["GET"])
-@flask_login.login_required
-def refresh_single():
-    # TODO: The refresh code goes here
-    redirect = web_utils.safe_url_to_redirect(flask.request.args.get("next", "/"))
-    return flask.redirect(redirect)
 
 
 @bp.route('/projective')
@@ -408,16 +375,11 @@ def tree_view_retro():
     priority_sorted_cards = sorted(cards_tree_without_duplicates, key=lambda x: - x.priority)
     statuses = flask.current_app.get_final_class("Statuses")()
 
-    refresh_form = redhat_compliance.forms.RedhatComplianceRefreshForm()
-    refresh_form.request_refresh_of([e.name for e in priority_sorted_cards])
-    refresh_form.mode.data = "retrospective"
-    refresh_form.next.data = flask.request.path
-
     return web_utils.render_template(
         "tree_view_retrospective.html",
         title="Retrospective Tasks tree view",
         cards=priority_sorted_cards, today=datetime.datetime.today(), model=model,
-        refresh_form=refresh_form, summary=summary, status_of=lambda c: statuses.get(c.status))
+        summary=summary, status_of=lambda c: statuses.get(c.status))
 
 
 @bp.route('/retrospective/epic/<epic_name>')

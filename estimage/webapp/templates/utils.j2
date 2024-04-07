@@ -219,13 +219,3 @@
 {% macro state_to_string(state) -%}
     {{ states_table.get(state, state) }}
 {%- endmacro %}
-
-
-{% macro show_refresh_form(refresh_form) -%}
-	{% if refresh_form %}
-        <div class="col">
-	{{ caller() }}
-	{{ render_form(refresh_form, action=head_url_for("main.refresh")) }}
-        </div>
-	{% endif %}
-{%- endmacro %}
