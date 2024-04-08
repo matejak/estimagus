@@ -48,6 +48,37 @@ EXPORTS = dict(
 )
 
 
+class TrackerAccess:
+    def __init__(self, server_url, token, importer_cls, ** kwargs):
+        self.server_url = server_url
+        self.token = token
+        self.importer_cls = importer_cls
+        super().__init__(** kwargs)
+
+    @classmethod
+    def from_form(cls, form):
+        raise NotImplementedError
+
+    def _get_spec(self):
+        ret = InputSpec()
+        ret.server_url = self.server_url
+        ret.token = self.token
+        ret.item_class = card.BaseCard
+        return ret
+
+    def get_tracker_points_of(self, c: card.BaseCard) -> float:
+        spec = self._get_spec()
+        spec.item_class = c.__class__
+        importer = self.importer_cls(spec)
+        importer.get_points_of(c)
+
+    def set_tracker_points_of(self, c: card.BaseCard, points: float):
+        spec = self._get_spec()
+        spec.item_class = c.__class__
+        importer = self.importer_cls(spec)
+        importer.update_points_of(c, points)
+
+
 class JiraFooter:
     def get_footer_html(self):
         strings = [super().get_footer_html()]

@@ -56,6 +56,9 @@ class AuthoritativeForm(PromotionMixin, SubmitMixin):
     def clear_to_go(self):
         pass
 
+    def get_point_cost(self):
+        return float(self.point_cost.data)
+
     task_name = wtforms.HiddenField('task_name')
     point_cost = wtforms.HiddenField('point_cost')
     i_kid_you_not = BooleanField("Consensus should be published to the tracker")

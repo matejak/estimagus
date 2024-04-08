@@ -142,3 +142,12 @@ class BaseCard:
 
     def get_tree(self, statuses: status.Statuses=None):
         return self.to_tree([self], statuses)
+
+
+@PluginResolver.class_is_extendable("TrackerAccess")
+class TrackerAccess:
+    def get_tracker_points_of(self, card: BaseCard) -> float:
+        raise NotImplementedError
+
+    def set_tracker_points_of(self, card: BaseCard, points: float):
+        raise NotImplementedError

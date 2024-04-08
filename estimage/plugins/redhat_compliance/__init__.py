@@ -13,6 +13,7 @@ from .forms import AuthoritativeForm, ProblemForm
 
 JiraFooter = jira.JiraFooter
 
+
 EXPORTS = dict(
     AuthoritativeForm="AuthoritativeForm",
     ProblemForm="ProblemForm",
@@ -20,6 +21,7 @@ EXPORTS = dict(
     BaseCard="BaseCard",
     MPLPointPlot="MPLPointPlot",
     Statuses="Statuses",
+    TrackerAccess="TrackerAccess",
     Workloads="Workloads",
 )
 
@@ -36,7 +38,7 @@ TEMPLATE_OVERRIDES = {
 
 RHEL_STATUS_TO_STATE = {
     "New": "todo",
-    "Planned": "todo",
+    "Planning": "todo",
     "Verified": "done",
     "Closed": "done",
     "Done": "done", # not really a state, but used
@@ -71,6 +73,15 @@ JIRA_STATUS_TO_STATE = {
     "Needs Peer Review": "review",
     "To Do": "todo",
 }
+
+class TrackerAccess(jira.TrackerAccess):
+    @classmethod
+    def from_form(cls, form):
+        kwargs = dict()
+        kwargs["server_url"] = "https://issues.redhat.com"
+        kwargs["token"] = form.token.data
+        kwargs["importer_cls"] = Importer
+        return cls(** kwargs)
 
 
 class InputSpec(jira.InputSpec):
@@ -217,13 +228,18 @@ class Importer(jira.Importer):
         if work_span[0] or work_span[-1]:
             result.work_span = tuple(work_span)
 
+    def get_points_of(self, our_task):
+        jira_task = self.find_card(our_task.name)
+        remote_points = self._get_points_of(jira_task)
+        return remote_points
+
     def update_points_of(self, our_task, points):
         jira_task = self.find_card(our_task.name)
         remote_points = self._get_points_of(jira_task)
         if remote_points == points:
             our_task.point_cost = points
             return our_task
-        if remote_points != our_task.point_cost:
+        if abs(remote_points - our_task.point_cost) > 0.1:
             msg = (
                 f"Trying to update issue {our_task.name} "
                 f"with cached value {our_task.point_cost}, "

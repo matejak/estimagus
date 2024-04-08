@@ -83,11 +83,20 @@ def move_issue_estimate_to_consensus(task_name):
         web_utils.head_url_for("main.view_projective_task", task_name=task_name))
 
 
+def _update_tracker_and_local_point_cost(card_name, io_cls, form):
+    card_cls = flask.current_app.get_final_class("BaseCard")
+    card = card_cls.load_metadata(card_name, io_cls)
+    new_cost = form.get_point_cost()
+    access = flask.current_app.get_final_class("TrackerAccess").from_form(form)
+    access.set_tracker_points_of(card, new_cost)
+    card.point_cost = new_cost
+    card.save_metadata(io_cls)
+
+
 @bp.route('/authoritative/<task_name>', methods=['POST'])
 @flask_login.login_required
 def move_consensus_estimate_to_authoritative(task_name):
     form = flask.current_app.get_final_class("AuthoritativeForm")()
-    card_cls = flask.current_app.get_final_class("BaseCard")
     if form.validate_on_submit():
         if form.i_kid_you_not.data:
             pollster_cons = webdata.AuthoritativePollster()
@@ -96,7 +105,7 @@ def move_consensus_estimate_to_authoritative(task_name):
             form.point_cost.data = str(estimate.expected)
             io_cls = web_utils.get_proj_loader()[1]
             try:
-                redhat_compliance.write_some_points(form, io_cls, card_cls)
+                _update_tracker_and_local_point_cost(task_name, io_cls, form)
             except Exception as exc:
                 msg = f"Error updating the record: {exc}"
                 flask.flash(msg)
