@@ -21,7 +21,7 @@ EXPORTS = dict(
     BaseCard="BaseCard",
     MPLPointPlot="MPLPointPlot",
     Statuses="Statuses",
-    TrackerAccess="TrackerAccess",
+    CardSynchronizer="CardSynchronizer",
     Workloads="Workloads",
 )
 
@@ -74,7 +74,7 @@ JIRA_STATUS_TO_STATE = {
     "To Do": "todo",
 }
 
-class TrackerAccess(jira.TrackerAccess):
+class CardSynchronizer(jira.CardSynchronizer):
     @classmethod
     def from_form(cls, form):
         kwargs = dict()
@@ -235,20 +235,9 @@ class Importer(jira.Importer):
 
     def update_points_of(self, our_task, points):
         jira_task = self.find_card(our_task.name)
-        remote_points = self._get_points_of(jira_task)
-        if remote_points == points:
-            our_task.point_cost = points
-            return our_task
-        if abs(remote_points - our_task.point_cost) > 0.1:
-            msg = (
-                f"Trying to update issue {our_task.name} "
-                f"with cached value {our_task.point_cost}, "
-                f"while it has {remote_points}."
-            )
-            raise ValueError(msg)
         self._set_points_of(jira_task, points)
-        jira_task.find(jira_task.key)
-        return self.merge_jira_item_without_children(jira_task)
+        our_task.point_cost = points
+        return our_task
 
     def save(self, retro_card_io_class, proj_card_io_class, event_manager_class):
         apply_some_events_into_issues(self._cards_by_id, self._all_events)
@@ -282,18 +271,6 @@ def refresh_cards(names, io_cls, card_cls, token):
     real_cards = [data.BaseCard.load_metadata(name, io_cls) for name in names]
     importer = Importer(spec)
     importer.refresh_cards(real_cards, io_cls)
-
-
-def write_some_points(form, io_cls, card_cls):
-    return write_points_to_task(io_cls, card_cls, form.task_name.data, form.token.data, float(form.point_cost.data))
-
-
-def write_points_to_task(io_cls, card_cls, name, token, points):
-    spec = _get_simple_spec(token, card_cls)
-    importer = Importer(spec)
-    our_card = card_cls.load_metadata(name, io_cls)
-    updated_card = importer.update_points_of(our_card, points)
-    updated_card.save_metadata(io_cls)
 
 
 def do_stuff(spec):

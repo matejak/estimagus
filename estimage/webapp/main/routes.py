@@ -87,10 +87,8 @@ def _update_tracker_and_local_point_cost(card_name, io_cls, form):
     card_cls = flask.current_app.get_final_class("BaseCard")
     card = card_cls.load_metadata(card_name, io_cls)
     new_cost = form.get_point_cost()
-    access = flask.current_app.get_final_class("TrackerAccess").from_form(form)
-    access.set_tracker_points_of(card, new_cost)
-    card.point_cost = new_cost
-    card.save_metadata(io_cls)
+    synchro = flask.current_app.get_final_class("CardSynchronizer").from_form(form)
+    synchro.set_tracker_points_of(card, new_cost, io_cls)
 
 
 @bp.route('/authoritative/<task_name>', methods=['POST'])
@@ -431,7 +429,7 @@ def view_problems():
 
     cat_forms = []
     for cat in categories:
-        probs = classifier.classified_problems[cat.name]
+        probs = classifier.classified_problems[cat.name].values()
 
         form = flask.current_app.get_final_class("ProblemForm")()
         form.add_problems_and_cat(cat, probs)
@@ -458,11 +456,19 @@ def fix_problems():
     classifier.classify(problem_detector.problems)
     categories = classifier.get_categories_with_problems()
 
-    form = forms.ProblemForm()
+    form = flask.current_app.get_final_class("ProblemForm")()
     form.add_problems(problem_detector.problems)
     if form.validate_on_submit():
-        problems_cat = classifier.CATEGORIES[form.problem_category.data]
-        flask.flash(f"Fix {form.problems.data}: {problems_cat.solution.description}")
+        cat_name = form.problem_category.data
+        problems_cat = classifier.CATEGORIES[cat_name]
+        if not problems_cat.solution.solvable:
+            flask.flash(f"Fix {form.problems.data}: {problems_cat.solution.description}")
+        else:
+            synchro = flask.current_app.get_final_class("CardSynchronizer").from_form(form)
+            io_cls = web_utils.get_proj_loader()[1]
+            for name in form.problems.data:
+                problem = classifier.classified_problems[cat_name][name]
+                problems_cat.solution(problem).solve(all_cards_by_id[name], synchro, io_cls)
     else:
         flask.flash(f"Error handing over solution: {form.errors}")
     return flask.redirect(

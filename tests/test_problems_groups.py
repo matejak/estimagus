@@ -52,6 +52,7 @@ def test_problem_categories_basic(classifier):
     classifier.classify([p])
     assert not classifier.not_classified
     underestimation_problems = classifier.classified_problems["underestimation"]
+    underestimation_problems = list(underestimation_problems.values())
     assert underestimation_problems[0] == p
 
 

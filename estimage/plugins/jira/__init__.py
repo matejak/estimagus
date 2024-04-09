@@ -48,7 +48,7 @@ EXPORTS = dict(
 )
 
 
-class TrackerAccess:
+class CardSynchronizer:
     def __init__(self, server_url, token, importer_cls, ** kwargs):
         self.server_url = server_url
         self.token = token
@@ -70,13 +70,13 @@ class TrackerAccess:
         spec = self._get_spec()
         spec.item_class = c.__class__
         importer = self.importer_cls(spec)
-        importer.get_points_of(c)
+        return importer.get_points_of(c)
 
-    def set_tracker_points_of(self, c: card.BaseCard, points: float):
+    def insert_points_into_tracker(self, c: card.BaseCard, target_points: float):
         spec = self._get_spec()
         spec.item_class = c.__class__
         importer = self.importer_cls(spec)
-        importer.update_points_of(c, points)
+        importer.update_points_of(c, target_points)
 
 
 class JiraFooter:
@@ -367,14 +367,13 @@ class Importer:
         return [cards_by_id[name] for name in card_names]
 
     def find_card(self, name: str):
-        query = f"id = {name}"
-        card = self.jira.search_issues(query)
+        card = self.jira.issue(name)
         if not card:
             msg = (
                 f"{card} not found"
             )
             raise ValueError(msg)
-        return card[0]
+        return card
 
     def refresh_cards(self, real_cards: typing.Iterable[card.BaseCard], io_cls):
         if not real_cards:

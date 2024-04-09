@@ -221,3 +221,38 @@ def test_no_duplicate_children(subtree_card, leaf_card):
     assert len(subtree_card.children) == 1
     subtree_card.add_element(leaf_card)
     assert len(subtree_card.children) == 1
+
+
+class MockSynchronizer(card.CardSynchronizer):
+    def __init__(self):
+        super().__init__()
+        self.tracker_value = 1
+        self.inserted_points = False
+
+    def get_tracker_points_of(self, card) -> float:
+        return self.tracker_value
+
+    def insert_points_into_tracker(self, card, points: float):
+        self.inserted_points = True
+
+
+def test_synchro_refuses_update_of_card_that_changed(standalone_leaf_card):
+    synchro = MockSynchronizer()
+    assert synchro.get_tracker_points_of(standalone_leaf_card) != standalone_leaf_card.point_cost
+    with pytest.raises(ValueError):
+        synchro.set_tracker_points_of(standalone_leaf_card, 0)
+
+
+def test_synchro_updates_card_that_differs_little_from_record(standalone_leaf_card):
+    synchro = MockSynchronizer()
+    synchro.tracker_value = 2.05
+    synchro.set_tracker_points_of(standalone_leaf_card, 1.23)
+    assert standalone_leaf_card.point_cost == 1.23
+
+
+def test_synchro_noop_when_expectation_matches_record(standalone_leaf_card):
+    synchro = MockSynchronizer()
+    synchro.tracker_value = 1.0
+    synchro.set_tracker_points_of(standalone_leaf_card, 1.0)
+    assert not synchro.inserted_points
+    assert standalone_leaf_card.point_cost == 1

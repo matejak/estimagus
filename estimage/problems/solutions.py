@@ -6,6 +6,7 @@ from .problem import Problem
 
 class Solution:
     card_name: str
+    problem: Problem
     description: str = ""
 
     def __init__(self, problem: Problem):
@@ -14,9 +15,13 @@ class Solution:
     def describe(self):
         return ""
 
+    def solve(self, card, synchro, io_cls):
+        raise NotImplementedError
+
 
 class SolutionByUpdating(Solution):
     updates_model: bool
+    solvable = False
 
     def __init__(self, problem: Problem):
         super().__init__(problem)

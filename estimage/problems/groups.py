@@ -31,13 +31,13 @@ class ProblemCategory:
 
 class ProblemClassifier:
     CATEGORIES: typing.Mapping[str, ProblemCategory] = dict()
-    classified_problems: typing.Mapping[str, typing.List[Problem]]
+    classified_problems: typing.Mapping[str, typing.Mapping[str, Problem]]
     _problems = typing.Mapping[Problem, str]
 
     def __init__(self):
         self.not_classified = []
         self.CATEGORIES = dict(** self.CATEGORIES)
-        self.classified_problems = collections.defaultdict(list)
+        self.classified_problems = collections.defaultdict(dict)
         self._problems = dict()
 
     def classify(self, problems: typing.Iterable[Problem]):
@@ -47,7 +47,7 @@ class ProblemClassifier:
     def _classify_problem(self, problem: Problem):
         for c_name, c in self.CATEGORIES.items():
             if c.matches(problem):
-                self.classified_problems[c_name].append(problem)
+                self.classified_problems[c_name][problem.affected_card_name] = problem
                 self._problems[problem] = c_name
                 return
         self.not_classified.append(problem)
