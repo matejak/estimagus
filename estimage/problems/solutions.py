@@ -42,6 +42,7 @@ class SolutionByUpdatingChildren(SolutionByUpdating):
 class SolutionByUpdatingSelf(SolutionByUpdating):
     action = "update_points"
     description = "Update the respective card, so it is consistent with its children"
+    solvable = True
     value: float
 
     def __init__(self, problem: Problem):
@@ -50,3 +51,6 @@ class SolutionByUpdatingSelf(SolutionByUpdating):
 
     def describe(self):
         return f"Update the record of '{self.card_name}', so it matches records of its children."
+
+    def solve(self, card, synchro, io_cls):
+        synchro.set_tracker_points_of(card, self.problem.value_expected, io_cls)
