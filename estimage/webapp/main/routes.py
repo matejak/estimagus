@@ -422,7 +422,7 @@ def view_problems():
     all_cards = list(all_cards_by_id.values())
 
     problem_detector = problems.ProblemDetector(model, all_cards, RetroProblem)
-    
+
     classifier = problems.groups.ProblemClassifier()
     classifier.classify(problem_detector.problems)
     categories = classifier.get_categories_with_problems()
@@ -431,14 +431,14 @@ def view_problems():
     for cat in categories:
         probs = classifier.classified_problems[cat.name].values()
 
-        form = flask.current_app.get_final_class("ProblemForm")()
+        form = flask.current_app.get_final_class("ProblemForm")(prefix=cat.name)
         form.add_problems_and_cat(cat, probs)
 
         cat_forms.append((cat, form))
 
     return web_utils.render_template(
         'problems.html', title='Problems',
-        all_cards_by_id=all_cards_by_id, problems=probs, catforms=cat_forms)
+        all_cards_by_id=all_cards_by_id, catforms=cat_forms)
 
 
 @bp.route('/problems/fix', methods=['POST'])

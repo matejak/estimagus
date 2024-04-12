@@ -1,7 +1,6 @@
 import dataclasses
 import datetime
 import collections
-import textwrap
 import time
 import typing
 
@@ -43,11 +42,6 @@ JIRA_PRIORITY_TO_VALUE = {
 Collected = collections.namedtuple("Collected", ("Retrospective", "Projective", "Events"))
 
 
-EXPORTS = dict(
-    Footer="JiraFooter",
-)
-
-
 class CardSynchronizer:
     def __init__(self, server_url, token, importer_cls, ** kwargs):
         self.server_url = server_url
@@ -77,49 +71,6 @@ class CardSynchronizer:
         spec.item_class = c.__class__
         importer = self.importer_cls(spec)
         importer.update_points_of(c, target_points)
-
-
-class JiraFooter:
-    def get_footer_html(self):
-        strings = [super().get_footer_html()]
-        strings.append(textwrap.dedent(
-        """
-            <script type="text/javascript">
-            function tokenName() {
-                return "estimagus." + location.hostname + ".jira_ePAT";
-            }
-
-            function getPAT() {
-                const token_name = tokenName();
-                return localStorage.getItem(token_name);
-            }
-
-            function updatePAT(with_what) {
-                const token_name = tokenName();
-                return localStorage.setItem(token_name, with_what);
-            }
-
-            function supplyEncryptedToken(encrypted_field, normal_field, store_checkbox, token_str) {
-                store_checkbox.checked = false;
-                encrypted_field.value = token_str;
-                normal_field.placeholder = "Optional, using stored locally stored token by default";
-            }
-
-            let update_store = document.getElementById('encrypted_meant_for_storage');
-            let enc_field = document.getElementById('encrypted_token');
-            if (update_store.value == "yes" && enc_field.value) {
-                  updatePAT(enc_field.value);
-            }
-
-            let pat = getPAT();
-            if (pat) {
-                  let normal_field = document.getElementById('token');
-                  let store_checkbox = document.getElementById('store_token');
-                  supplyEncryptedToken(enc_field, normal_field, store_checkbox, pat);
-            }
-            </script>
-        """))
-        return "\n".join(strings)
 
 
 @dataclasses.dataclass(init=False)

@@ -36,3 +36,9 @@
 </div>
 {% endblock content %}
 
+{% block footer %}
+{{ super() }}
+{% if catforms %}
+{{ catforms[0][1].supporting_js([cf[1] for cf in catforms]) | safe }}
+{%- endif %}
+{% endblock %}

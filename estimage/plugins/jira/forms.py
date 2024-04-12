@@ -53,6 +53,53 @@ class EncryptedTokenForm(BaseForm):
             self.encrypted_token.data = encrypt_stuff(self.token.data)
             self.encrypted_meant_for_storage.data = "yes"
 
+    @classmethod
+    def supporting_js(cls, forms):
+        template = textwrap.dedent("""
+        <script type="text/javascript">
+        function tokenName() {
+            return "estimagus." + location.hostname + ".jira_ePAT";
+        }
+
+        function getPAT() {
+            const token_name = tokenName();
+            return localStorage.getItem(token_name);
+        }
+
+        function updatePAT(with_what) {
+            const token_name = tokenName();
+            return localStorage.setItem(token_name, with_what);
+        }
+
+        function supplyEncryptedToken(encrypted_field, normal_field, store_checkbox, token_str) {
+            store_checkbox.checked = false;
+            encrypted_field.value = token_str;
+            normal_field.placeholder = "Optional, using stored locally stored token by default";
+        }
+
+        const prefixes = %s;
+        prefixes.forEach(function(prefix) {
+            let update_store = document.getElementById(prefix + 'encrypted_meant_for_storage');
+            let enc_field = document.getElementById(prefix + 'encrypted_token');
+            if (update_store.value == "yes" && enc_field.value) {
+                  updatePAT(enc_field.value);
+            }
+        });
+
+        let pat = getPAT();
+        if (pat) {
+            prefixes.forEach(function(prefix) {
+                let normal_field = document.getElementById(prefix + 'token');
+                let store_checkbox = document.getElementById(prefix + 'store_token');
+                let enc_field = document.getElementById(prefix + 'encrypted_token');
+                supplyEncryptedToken(enc_field, normal_field, store_checkbox, pat);
+            });
+        }
+        </script>
+        """)
+        prefixes = [f._prefix for f in forms]
+        return template % prefixes
+
 
 class JiraFormEnd(BaseForm):
     retroQuery = wtforms.StringField('Retrospective Query')
