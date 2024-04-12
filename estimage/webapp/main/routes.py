@@ -441,6 +441,19 @@ def view_problems():
         all_cards_by_id=all_cards_by_id, catforms=cat_forms)
 
 
+def _solve_problem(form, classifier, all_cards_by_id):
+    cat_name = form.problem_category.data
+    problems_cat = classifier.CATEGORIES[cat_name]
+    if not problems_cat.solution.solvable:
+        flask.flash(f"Problem of kind {cat_name} can't be solved automatically.")
+    else:
+        synchro = flask.current_app.get_final_class("CardSynchronizer").from_form(form)
+        io_cls = web_utils.get_proj_loader()[1]
+        for name in form.problems.data:
+            problem = classifier.classified_problems[cat_name][name]
+            problems_cat.solution(problem).solve(all_cards_by_id[name], synchro, io_cls)
+
+
 @bp.route('/problems/fix', methods=['POST'])
 @flask_login.login_required
 def fix_problems():
@@ -454,21 +467,11 @@ def fix_problems():
 
     classifier = problems.groups.ProblemClassifier()
     classifier.classify(problem_detector.problems)
-    categories = classifier.get_categories_with_problems()
 
     form = flask.current_app.get_final_class("ProblemForm")()
     form.add_problems(problem_detector.problems)
     if form.validate_on_submit():
-        cat_name = form.problem_category.data
-        problems_cat = classifier.CATEGORIES[cat_name]
-        if not problems_cat.solution.solvable:
-            flask.flash(f"Fix {form.problems.data}: {problems_cat.solution.description}")
-        else:
-            synchro = flask.current_app.get_final_class("CardSynchronizer").from_form(form)
-            io_cls = web_utils.get_proj_loader()[1]
-            for name in form.problems.data:
-                problem = classifier.classified_problems[cat_name][name]
-                problems_cat.solution(problem).solve(all_cards_by_id[name], synchro, io_cls)
+        _solve_problem(form, classifier, all_cards_by_id)
     else:
         flask.flash(f"Error handing over solution: {form.errors}")
     return flask.redirect(
