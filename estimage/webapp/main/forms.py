@@ -135,4 +135,4 @@ class ProblemForm(BaseForm):
     problem_category = wtforms.HiddenField("problem_cat")
     problems = MultiCheckboxField("Problems", choices=[])
     solution = wtforms.StringField("Solution", render_kw={'readonly': True})
-    submit = SubmitField("Solve Problems")
+    submit = SubmitField("Solve Selected Problems")

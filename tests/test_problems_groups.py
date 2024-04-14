@@ -24,11 +24,14 @@ def classifier():
     return CustomClassifier()
 
 
+@tm.problem_category
 class Underestimation(tm.ProblemCategory):
     name = "underestimation"
+    weight = 10
 
-    def matches(self, p):
-        return "underestimated" in p.tags
+    required_tags = frozenset([
+        "underestimated",
+    ])
 
 
 def test_problem_category_match():
@@ -41,13 +44,11 @@ def test_problem_category_match():
 
 
 def test_problem_categories_no_duplication(classifier):
-    classifier.add_category(Underestimation)
     with pytest.raises(KeyError):
         classifier.add_category(Underestimation)
 
 
 def test_problem_categories_basic(classifier):
-    classifier.add_category(Underestimation)
     p = tm.Problem.get_problem(tags=["underestimated"])
     classifier.classify([p])
     assert not classifier.not_classified
@@ -73,3 +74,17 @@ def test_basic_inconsistency_solution(classifier, cards_one_two):
 
     only_category = classifier.get_categories_with_problems()[0]
     assert only_category.name == problem_category.name
+
+
+def test_groups_ordering():
+    classifier = CustomClassifier()
+    groups = list(classifier.CATEGORIES.values())
+    ordered_groups = sorted(groups, key=lambda x: x.weight)
+    assert groups == ordered_groups
+
+    problems = []
+    problems.append(tm.Problem(tags=frozenset(["inconsistent_estimate"])))
+    problems.append(tm.Problem(tags=frozenset(["underestimated"])))
+    classifier.classify(problems)
+    cats = classifier.get_categories_with_problems()
+    assert cats[0].name == "underestimation"

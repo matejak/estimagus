@@ -12,3 +12,8 @@
 </div>
 
 {% endblock %}
+
+{% block footer %}
+{{ super() }}
+{{ plugin_form.supporting_js([plugin_form]) | safe }}
+{% endblock %}

@@ -437,7 +437,7 @@ def view_problems():
         cat_forms.append((cat, form))
 
     return web_utils.render_template(
-        'problems.html', title='Problems',
+        'problems.html', title='Problems', category_forms=[cf[1] for cf in cat_forms],
         all_cards_by_id=all_cards_by_id, catforms=cat_forms)
 
 
@@ -445,7 +445,7 @@ def _solve_problem(form, classifier, all_cards_by_id):
     cat_name = form.problem_category.data
     problems_cat = classifier.CATEGORIES[cat_name]
     if not problems_cat.solution.solvable:
-        flask.flash(f"Problem of kind {cat_name} can't be solved automatically.")
+        flask.flash(f"Problem of kind '{cat_name}' can't be solved automatically.")
     else:
         synchro = flask.current_app.get_final_class("CardSynchronizer").from_form(form)
         io_cls = web_utils.get_proj_loader()[1]

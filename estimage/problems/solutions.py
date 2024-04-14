@@ -33,7 +33,7 @@ class SolutionByUpdating(Solution):
 
 class SolutionByUpdatingChildren(SolutionByUpdating):
     action = "update_children_points"
-    description = "Update children of respective card, so the subtree is consistent"
+    description = "Update divide the card's size among its children, so the subtree is consistent"
 
     def describe(self):
         return f"Update children of '{self.card_name}', so they become consistent with the its record."

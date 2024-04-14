@@ -10,7 +10,7 @@
     <div class="row">
     {% for cat, form in catforms %}
     <div>
-    <h3>{{ cat.name }}</h3>
+    <h3>{{ cat.summary }}</h3>
     <p>{{ cat.description }}</p>
     <form action="{{ head_url_for("main.fix_problems") }}" method="post" class="form">
         {{ form.hidden_tag() }}
@@ -38,7 +38,7 @@
 
 {% block footer %}
 {{ super() }}
-{% if catforms %}
-{{ catforms[0][1].supporting_js([cf[1] for cf in catforms]) | safe }}
+{% if category_forms %}
+{{ category_forms[0].supporting_js(category_forms) | safe }}
 {%- endif %}
 {% endblock %}

@@ -14,11 +14,8 @@ from ...visualize.burndown import StatusStyle
 from .forms import CryptoForm, ProblemForm
 
 
-JiraFooter = jira.JiraFooter
-
 EXPORTS = dict(
     ProblemForm="ProblemForm",
-    Footer="JiraFooter",
     MPLPointPlot="MPLPointPlot",
     Statuses="Statuses",
     Workloads="Workloads",
