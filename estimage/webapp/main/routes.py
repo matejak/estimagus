@@ -454,9 +454,9 @@ def _solve_problem(form, classifier, all_cards_by_id):
             problems_cat.solution(problem).solve(all_cards_by_id[name], synchro, io_cls)
 
 
-@bp.route('/problems/fix', methods=['POST'])
+@bp.route('/problems/fix/<category>', methods=['POST'])
 @flask_login.login_required
-def fix_problems():
+def fix_problems(category):
     user = flask_login.current_user
     user_id = user.get_id()
 
@@ -468,7 +468,7 @@ def fix_problems():
     classifier = problems.groups.ProblemClassifier()
     classifier.classify(problem_detector.problems)
 
-    form = flask.current_app.get_final_class("ProblemForm")()
+    form = flask.current_app.get_final_class("ProblemForm")(prefix=category)
     form.add_problems(problem_detector.problems)
     if form.validate_on_submit():
         _solve_problem(form, classifier, all_cards_by_id)

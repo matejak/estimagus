@@ -34,16 +34,23 @@ class SolutionByUpdating(Solution):
 class SolutionByUpdatingChildren(SolutionByUpdating):
     action = "update_children_points"
     description = "Update divide the card's size among its children, so the subtree is consistent"
+    solvable = True
 
     def describe(self):
         return f"Update children of '{self.card_name}', so they become consistent with the its record."
+
+    def solve(self, card, synchro, io_cls):
+        children_value = round(self.problem.value_found / len(card.children), 1)
+        if children_value <= 0:
+            return
+        for c in card.children:
+            synchro.set_tracker_points_of(c, children_value, io_cls)
 
 
 class SolutionByUpdatingSelf(SolutionByUpdating):
     action = "update_points"
     description = "Update the respective card, so it is consistent with its children"
     solvable = True
-    value: float
 
     def __init__(self, problem: Problem):
         super().__init__(problem)
