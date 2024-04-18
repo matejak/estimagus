@@ -345,8 +345,11 @@ class Importer:
     def export_jira_epic_chain_to_cards(self, root_names: typing.Iterable[str]) -> dict[str, card.BaseCard]:
         exported_cards_by_id = dict()
         for name in root_names:
-            issue = self._all_issues_by_name[name]
-            card = self.merge_jira_item_without_children(issue)
+            if name in self._cards_by_id:
+                card = self._cards_by_id[name]
+            else:
+                issue = self._all_issues_by_name[name]
+                card = self.merge_jira_item_without_children(issue)
             exported_cards_by_id[name] = card
             children = self._parents_child_keymap[name]
             if not children:
