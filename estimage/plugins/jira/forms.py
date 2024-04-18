@@ -110,3 +110,30 @@ class JiraFormEnd(BaseForm):
 
 class JiraForm(JiraFormStart, EncryptedTokenForm, JiraFormEnd):
     pass
+
+
+class AuthoritativeForm(EncryptedTokenForm):
+    token = wtforms.PasswordField('Jira Token')
+
+    def clear_to_go(self):
+        self.enable_submit_button()
+        super().clear_to_go()
+
+    def __iter__(self):
+        attributes = (
+            self.csrf_token,
+            self.task_name,
+            self.point_cost,
+            self.token,
+            self.store_token,
+            self.i_kid_you_not,
+            self.encrypted_token,
+            self.encrypted_meant_for_storage,
+            self.submit,
+        )
+        ret = (a for a in attributes)
+        return ret
+
+
+class ProblemForm(EncryptedTokenForm):
+    pass

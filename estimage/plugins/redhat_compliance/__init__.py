@@ -9,7 +9,7 @@ from ...entities import status
 from ...webapp import web_utils
 from ...visualize.burndown import StatusStyle
 from .. import jira
-from .forms import AuthoritativeForm, ProblemForm
+from ..jira.forms import AuthoritativeForm, ProblemForm
 
 
 EXPORTS = dict(

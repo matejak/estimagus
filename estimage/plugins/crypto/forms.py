@@ -12,7 +12,3 @@ class CryptoFormEnd(BaseForm):
 
 class CryptoForm(forms.EncryptedTokenForm, CryptoFormEnd):
     pass
-
-
-class ProblemForm(forms.EncryptedTokenForm):
-    pass

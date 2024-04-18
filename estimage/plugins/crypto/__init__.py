@@ -11,10 +11,12 @@ from .. import jira, redhat_compliance
 from ...webapp import web_utils
 from ...entities import status
 from ...visualize.burndown import StatusStyle
-from .forms import CryptoForm, ProblemForm
+from .forms import CryptoForm
+from ..jira.forms import AuthoritativeForm, ProblemForm
 
 
 EXPORTS = dict(
+    AuthoritativeForm="AuthoritativeForm",
     ProblemForm="ProblemForm",
     MPLPointPlot="MPLPointPlot",
     Statuses="Statuses",
