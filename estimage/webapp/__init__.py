@@ -204,17 +204,19 @@ def create_app_multihead(config_class=config.MultiheadConfig):
 def configure_head(app, directory):
     config_class = simpledata.AppData
     config_class.DATADIR = pathlib.Path(directory)
-    app.config["head"][directory].update(config.read_or_create_config(simpledata.AppData).__dict__)
+    head_name = config_class.DATADIR.stem
+    app.config["head"][head_name]["DATA_DIR"] = config_class.DATADIR
+    app.config["head"][head_name].update(config.read_or_create_config(simpledata.AppData).__dict__)
 
-    metadata = app.config["head"][directory].pop("META", dict())
-    app.config["head"][directory]["description"] = metadata.get("description", "")
-    app.config["head"][directory]["PLUGINS"] = config.parse_csv(metadata.get("plugins_csv", ""))
+    metadata = app.config["head"][head_name].pop("META", dict())
+    app.config["head"][head_name]["description"] = metadata.get("description", "")
+    app.config["head"][head_name]["PLUGINS"] = config.parse_csv(metadata.get("plugins_csv", ""))
 
-    plugins_dict = {name: plugins.get_plugin(name) for name in app.config["head"][directory]["PLUGINS"]}
-    app.supply_with_plugins(directory, plugins_dict)
-    app.store_plugins_to_config(directory)
+    plugins_dict = {name: plugins.get_plugin(name) for name in app.config["head"][head_name]["PLUGINS"]}
+    app.supply_with_plugins(head_name, plugins_dict)
+    app.store_plugins_to_config(head_name)
 
-    bp = flask.Blueprint(directory, __name__, url_prefix=f"/{directory}")
+    bp = flask.Blueprint(head_name, __name__, url_prefix=f"/{head_name}")
 
     bp.register_blueprint(main_bp)
     bp.register_blueprint(vis_bp, url_prefix="/vis")
