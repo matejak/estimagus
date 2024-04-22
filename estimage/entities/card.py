@@ -1,6 +1,4 @@
-import re
 import typing
-import enum
 import dataclasses
 import datetime
 
@@ -77,6 +75,8 @@ class BaseCard:
         return ret
 
     def add_element(self, what: "BaseCard"):
+        if what in self:
+            return
         self.children.append(what)
         what.parent = self
 
@@ -142,3 +142,32 @@ class BaseCard:
 
     def get_tree(self, statuses: status.Statuses=None):
         return self.to_tree([self], statuses)
+
+
+@PluginResolver.class_is_extendable("CardSynchronizer")
+class CardSynchronizer:
+    ABSOLUTE_TOLERABLE_DIFFERENCE = 0.1
+    def get_tracker_points_of(self, card: BaseCard) -> float:
+        raise NotImplementedError
+
+    def set_tracker_points_of(self, card: BaseCard, target_points: float, card_io=None):
+        real_points = self.get_tracker_points_of(card)
+        self._synchronize_or_raise(card, real_points, target_points)
+        card.point_cost = target_points
+        if card_io:
+            card.save_metadata(card_io)
+
+    def _synchronize_or_raise(self, card: BaseCard, real_points: float, target_points: float):
+        if real_points == target_points:
+            return
+        if abs(real_points - card.point_cost) > self.ABSOLUTE_TOLERABLE_DIFFERENCE:
+            msg = (
+                    f"Value of card '{card.name}' differs from expected value: "
+                    f"{real_points} is not {card.point_cost} respectively "
+                    f"by more than {self.ABSOLUTE_TOLERABLE_DIFFERENCE:.2g}."
+            )
+            raise ValueError(msg)
+        self.insert_points_into_tracker(card, target_points)
+
+    def insert_points_into_tracker(self, card: BaseCard, target_points: float):
+        raise NotImplementedError

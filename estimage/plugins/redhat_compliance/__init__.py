@@ -9,16 +9,16 @@ from ...entities import status
 from ...webapp import web_utils
 from ...visualize.burndown import StatusStyle
 from .. import jira
-from .forms import AuthoritativeForm
+from ..jira.forms import AuthoritativeForm, ProblemForm
 
-JiraFooter = jira.JiraFooter
 
 EXPORTS = dict(
     AuthoritativeForm="AuthoritativeForm",
-    Footer="JiraFooter",
+    ProblemForm="ProblemForm",
     BaseCard="BaseCard",
     MPLPointPlot="MPLPointPlot",
     Statuses="Statuses",
+    CardSynchronizer="CardSynchronizer",
     Workloads="Workloads",
 )
 
@@ -35,7 +35,7 @@ TEMPLATE_OVERRIDES = {
 
 RHEL_STATUS_TO_STATE = {
     "New": "todo",
-    "Planned": "todo",
+    "Planning": "todo",
     "Verified": "done",
     "Closed": "done",
     "Done": "done", # not really a state, but used
@@ -70,6 +70,15 @@ JIRA_STATUS_TO_STATE = {
     "Needs Peer Review": "review",
     "To Do": "todo",
 }
+
+class CardSynchronizer(jira.CardSynchronizer):
+    @classmethod
+    def from_form(cls, form):
+        kwargs = dict()
+        kwargs["server_url"] = "https://issues.redhat.com"
+        kwargs["token"] = form.token.data
+        kwargs["importer_cls"] = Importer
+        return cls(** kwargs)
 
 
 class InputSpec(jira.InputSpec):
@@ -216,22 +225,16 @@ class Importer(jira.Importer):
         if work_span[0] or work_span[-1]:
             result.work_span = tuple(work_span)
 
-    def update_points_of(self, our_task, points):
+    def get_points_of(self, our_task):
         jira_task = self.find_card(our_task.name)
         remote_points = self._get_points_of(jira_task)
-        if remote_points == points:
-            our_task.point_cost = points
-            return our_task
-        if remote_points != our_task.point_cost:
-            msg = (
-                f"Trying to update issue {our_task.name} "
-                f"with cached value {our_task.point_cost}, "
-                f"while it has {remote_points}."
-            )
-            raise ValueError(msg)
+        return remote_points
+
+    def update_points_of(self, our_task, points):
+        jira_task = self.find_card(our_task.name)
         self._set_points_of(jira_task, points)
-        jira_task.find(jira_task.key)
-        return self.merge_jira_item_without_children(jira_task)
+        our_task.point_cost = points
+        return our_task
 
     def save(self, retro_card_io_class, proj_card_io_class, event_manager_class):
         apply_some_events_into_issues(self._cards_by_id, self._all_events)
@@ -265,18 +268,6 @@ def refresh_cards(names, io_cls, card_cls, token):
     real_cards = [data.BaseCard.load_metadata(name, io_cls) for name in names]
     importer = Importer(spec)
     importer.refresh_cards(real_cards, io_cls)
-
-
-def write_some_points(form, io_cls, card_cls):
-    return write_points_to_task(io_cls, card_cls, form.task_name.data, form.token.data, float(form.point_cost.data))
-
-
-def write_points_to_task(io_cls, card_cls, name, token, points):
-    spec = _get_simple_spec(token, card_cls)
-    importer = Importer(spec)
-    our_card = card_cls.load_metadata(name, io_cls)
-    updated_card = importer.update_points_of(our_card, points)
-    updated_card.save_metadata(io_cls)
 
 
 def do_stuff(spec):

@@ -12,12 +12,12 @@ from ...webapp import web_utils
 from ...entities import status
 from ...visualize.burndown import StatusStyle
 from .forms import CryptoForm
+from ..jira.forms import AuthoritativeForm, ProblemForm
 
-
-JiraFooter = jira.JiraFooter
 
 EXPORTS = dict(
-    Footer="JiraFooter",
+    AuthoritativeForm="AuthoritativeForm",
+    ProblemForm="ProblemForm",
     MPLPointPlot="MPLPointPlot",
     Statuses="Statuses",
     Workloads="Workloads",
@@ -55,11 +55,14 @@ class InputSpec(jira.InputSpec):
         ret.server_url = "https://issues.redhat.com"
         ret.token = form.token.data
         ret.cutoff_date = app.get_config_option("RETROSPECTIVE_PERIOD")[0]
+        sprint = "openSprints()"
         query = f"project = {PROJECT_NAME} AND type = Task AND sprint in openSprints()"
         query = "filter = 12350823 AND Sprint in openSprints() AND labels = committed AND issuetype in (task, bug, Story)"
-        ret.retrospective_query = query
-        query = "filter = 12350823 AND Sprint in futureSprints() AND issuetype in (task, bug, Story)"
-        ret.projective_query = query
+        query_tpl = "filter = 12350823 AND Sprint in {sprint} AND issuetype in (task, bug, Story)"
+        ret.retrospective_query = query_tpl.format(sprint=sprint)
+        if form.project_next.data:
+            sprint = "futureSprints()"
+        ret.projective_query = query_tpl.format(sprint=sprint)
         ret.item_class = app.get_final_class("BaseCard")
         return ret
 
@@ -103,6 +106,7 @@ class Importer(jira.Importer):
             epic.assignee = assignee
             epic.title = f"Issues of {assignee}"
             epic.tier = 1
+            epic.status = "in_progress"
             if committed:
                 epic.title = "Committed " + epic.title
                 epic.tier = 0
@@ -118,6 +122,31 @@ class Importer(jira.Importer):
             epic_names.add(epic.name)
         return epic_names
 
+    def _parent_has_only_unestimated_children(self, pname):
+        children = self._cards_by_id[pname].children
+        rolling_sum = 0
+        for c in children:
+            rolling_sum += abs(c.point_cost)
+        return rolling_sum == 0
+
+    def _propagate_estimates_of_estimated_task_to_unestimated_subtasks(self, pname):
+        parent = self._cards_by_id[pname]
+        if parent.point_cost == 0:
+            return
+        if not self._parent_has_only_unestimated_children(pname):
+            return
+        points_per_child = parent.point_cost / len(parent.children)
+        for c in parent.children:
+            c.point_cost = points_per_child
+
+    def distribute_subtasks_points_to_tasks(self):
+        names_of_not_parents = set()
+        for c in self._cards_by_id.values():
+            if not c.children and c.parent:
+                names_of_not_parents.add(c.name)
+        names_of_parents_of_not_parents = {self._cards_by_id[cname].parent.name for cname in names_of_not_parents}
+        for pn in names_of_parents_of_not_parents:
+            self._propagate_estimates_of_estimated_task_to_unestimated_subtasks(pn)
 
     def import_data(self, spec):
         retro_tasks = set()
@@ -148,7 +177,8 @@ class Importer(jira.Importer):
             self._projective_cards.update(new_epic_names)
             self._cards_by_id.update(new_cards)
 
-        self.resolve_inheritance(proj_tasks.union(retro_tasks))
+        self.resolve_inheritance(set(self._cards_by_id.keys()))
+        self.distribute_subtasks_points_to_tasks()
 
         for name in issue_names_requiring_events:
             extractor = jira.EventExtractor(self._all_issues_by_name[name], spec.cutoff_date)

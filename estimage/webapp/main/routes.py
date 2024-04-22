@@ -11,7 +11,7 @@ from ... import data
 from ... import utilities, statops
 from ...statops import summary
 from ... import simpledata as webdata
-from ... import history
+from ... import history, problems
 from ...plugins import redhat_compliance
 
 
@@ -83,11 +83,18 @@ def move_issue_estimate_to_consensus(task_name):
         web_utils.head_url_for("main.view_projective_task", task_name=task_name))
 
 
+def _update_tracker_and_local_point_cost(card_name, io_cls, form):
+    card_cls = flask.current_app.get_final_class("BaseCard")
+    card = card_cls.load_metadata(card_name, io_cls)
+    new_cost = form.get_point_cost()
+    synchro = flask.current_app.get_final_class("CardSynchronizer").from_form(form)
+    synchro.set_tracker_points_of(card, new_cost, io_cls)
+
+
 @bp.route('/authoritative/<task_name>', methods=['POST'])
 @flask_login.login_required
 def move_consensus_estimate_to_authoritative(task_name):
     form = flask.current_app.get_final_class("AuthoritativeForm")()
-    card_cls = flask.current_app.get_final_class("BaseCard")
     if form.validate_on_submit():
         if form.i_kid_you_not.data:
             pollster_cons = webdata.AuthoritativePollster()
@@ -96,7 +103,7 @@ def move_consensus_estimate_to_authoritative(task_name):
             form.point_cost.data = str(estimate.expected)
             io_cls = web_utils.get_proj_loader()[1]
             try:
-                redhat_compliance.write_some_points(form, io_cls, card_cls)
+                _update_tracker_and_local_point_cost(task_name, io_cls, form)
             except Exception as exc:
                 msg = f"Error updating the record: {exc}"
                 flask.flash(msg)
@@ -271,17 +278,12 @@ def view_epic(epic_name):
 
     t = projective_retrieve_task(epic_name)
 
-    refresh_form = redhat_compliance.forms.RedhatComplianceRefreshForm()
-    refresh_form.request_refresh_of([epic_name] + [e.name for e in t.children])
-    refresh_form.mode.data = "projective"
-    refresh_form.next.data = flask.request.path
-
     breadcrumbs = get_projective_breadcrumbs()
     append_card_to_breadcrumbs(breadcrumbs, t, lambda n: web_utils.head_url_for("main.view_epic", epic_name=n))
 
     return web_utils.render_template(
         'epic_view.html', title='View epic', epic=t, estimate=estimate, model=model, breadcrumbs=breadcrumbs,
-        refresh_form=refresh_form)
+    )
 
 
 def get_similar_tasks(user_id, task_name, all_cards_by_id):
@@ -296,34 +298,6 @@ def get_similar_tasks(user_id, task_name, all_cards_by_id):
 @bp.route('/')
 def index():
     return flask.redirect(web_utils.head_url_for("main.overview_retro"))
-
-
-@bp.route('/refresh', methods=["POST"])
-@flask_login.login_required
-def refresh():
-    form = redhat_compliance.forms.RedhatComplianceRefreshForm()
-    card_cls = flask.current_app.get_final_class("BaseCard")
-    if form.validate_on_submit():
-        if form.mode.data == "projective":
-            io_cls = web_utils.get_proj_loader()[1]
-        else:
-            io_cls = web_utils.get_retro_loader()[1]
-        try:
-            redhat_compliance.refresh_cards(
-                form.get_what_names_to_refresh(), io_cls, card_cls, form.token.data)
-        except Exception as exc:
-            msg = f"Error doing refresh: {exc}"
-            flask.flash(msg)
-    redirect = web_utils.safe_url_to_redirect(form.next.data)
-    return flask.redirect(redirect)
-
-
-@bp.route('/refresh_single', methods=["GET"])
-@flask_login.login_required
-def refresh_single():
-    # TODO: The refresh code goes here
-    redirect = web_utils.safe_url_to_redirect(flask.request.args.get("next", "/"))
-    return flask.redirect(redirect)
 
 
 @bp.route('/projective')
@@ -408,16 +382,11 @@ def tree_view_retro():
     priority_sorted_cards = sorted(cards_tree_without_duplicates, key=lambda x: - x.priority)
     statuses = flask.current_app.get_final_class("Statuses")()
 
-    refresh_form = redhat_compliance.forms.RedhatComplianceRefreshForm()
-    refresh_form.request_refresh_of([e.name for e in priority_sorted_cards])
-    refresh_form.mode.data = "retrospective"
-    refresh_form.next.data = flask.request.path
-
     return web_utils.render_template(
         "tree_view_retrospective.html",
         title="Retrospective Tasks tree view",
         cards=priority_sorted_cards, today=datetime.datetime.today(), model=model,
-        refresh_form=refresh_form, summary=summary, status_of=lambda c: statuses.get(c.status))
+        summary=summary, status_of=lambda c: statuses.get(c.status))
 
 
 @bp.route('/retrospective/epic/<epic_name>')
@@ -436,3 +405,74 @@ def view_epic_retro(epic_name):
     return web_utils.render_template(
         'epic_view_retrospective.html', title='View epic', breadcrumbs=breadcrumbs,
         today=datetime.datetime.today(), epic=t, model=model, summary=summary)
+
+
+class RetroProblem(problems.Problem):
+    def format_task_name(self):
+        return f"{self.affected_card_name}"
+
+
+@bp.route('/problems')
+@flask_login.login_required
+def view_problems():
+    user = flask_login.current_user
+    user_id = user.get_id()
+
+    all_cards_by_id, model = web_utils.get_all_tasks_by_id_and_user_model("proj", user_id)
+    all_cards = list(all_cards_by_id.values())
+
+    problem_detector = problems.ProblemDetector(model, all_cards, RetroProblem)
+
+    classifier = problems.groups.ProblemClassifier()
+    classifier.classify(problem_detector.problems)
+    categories = classifier.get_categories_with_problems()
+
+    cat_forms = []
+    for cat in categories:
+        probs = classifier.classified_problems[cat.name].values()
+
+        form = flask.current_app.get_final_class("ProblemForm")(prefix=cat.name)
+        form.add_problems_and_cat(cat, probs)
+
+        cat_forms.append((cat, form))
+
+    return web_utils.render_template(
+        'problems.html', title='Problems', category_forms=[cf[1] for cf in cat_forms],
+        all_cards_by_id=all_cards_by_id, catforms=cat_forms)
+
+
+def _solve_problem(form, classifier, all_cards_by_id):
+    cat_name = form.problem_category.data
+    problems_cat = classifier.CATEGORIES[cat_name]
+    if not problems_cat.solution.solvable:
+        flask.flash(f"Problem of kind '{cat_name}' can't be solved automatically.")
+    else:
+        synchro = flask.current_app.get_final_class("CardSynchronizer").from_form(form)
+        io_cls = web_utils.get_proj_loader()[1]
+        for name in form.problems.data:
+            problem = classifier.classified_problems[cat_name][name]
+            problems_cat.solution(problem).solve(all_cards_by_id[name], synchro, io_cls)
+
+
+@bp.route('/problems/fix/<category>', methods=['POST'])
+@flask_login.login_required
+def fix_problems(category):
+    user = flask_login.current_user
+    user_id = user.get_id()
+
+    all_cards_by_id, model = web_utils.get_all_tasks_by_id_and_user_model("retro", user_id)
+    all_cards = list(all_cards_by_id.values())
+
+    problem_detector = problems.ProblemDetector(model, all_cards)
+
+    classifier = problems.groups.ProblemClassifier()
+    classifier.classify(problem_detector.problems)
+
+    form = flask.current_app.get_final_class("ProblemForm")(prefix=category)
+    form.add_problems(problem_detector.problems)
+    if form.validate_on_submit():
+        _solve_problem(form, classifier, all_cards_by_id)
+    else:
+        flask.flash(f"Error handing over solution: {form.errors}")
+    return flask.redirect(
+        web_utils.head_url_for("main.view_problems"))

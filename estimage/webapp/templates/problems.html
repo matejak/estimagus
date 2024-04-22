@@ -1,0 +1,44 @@
+{% extends "general_plan.html" %}
+
+{% import "utils.j2" as utils with context %}
+{% from 'bootstrap5/form.html' import render_form, render_field, render_hidden_errors %}
+
+
+{% block content %}
+<div class="container-md">
+    <h2>Problems</h2>
+    <div class="row">
+    {% for cat, form in catforms %}
+    <div>
+    <h3>{{ cat.summary }}</h3>
+    <p>{{ cat.description }}</p>
+    <form action="{{ head_url_for("main.fix_problems", category=cat.name) }}" method="post" class="form">
+        {{ form.hidden_tag() }}
+        {{ render_hidden_errors(form) }}
+	<ul id="{{ form.problems.id }}" class="form-control list-group">
+		    {% for (card_name, problem) in form.problems.choices %}
+		    <li class="list-group-item">
+			    <input id={{ form.problems.id }}-{{ loop.index0 }} name="{{ form.problems.id }}" type="checkbox" value="{{ card_name }}">
+			    <label for={{ form.problems.id }}-{{ loop.index0 }} class="form-label">{{ problem.get_formatted_description(utils.task_or_epic_link(all_cards_by_id[card_name], "projective")) | safe}}</label>
+		    </li>
+		    {% endfor %}
+	    </ul>
+	    <h4>Solution</h4>
+	    <p>{{ form.solution.data }}</p>
+	    {% for field in form.extending_fields %}
+	    {{ render_field(field) }}
+	    {% endfor %}
+	    {{ render_field(form.submit) }}
+    </form>
+    </div>
+    {% endfor %}
+    </div>
+</div>
+{% endblock content %}
+
+{% block footer %}
+{{ super() }}
+{% if category_forms %}
+{{ category_forms[0].supporting_js(category_forms) | safe }}
+{%- endif %}
+{% endblock %}

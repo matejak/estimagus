@@ -4,11 +4,12 @@ import textwrap
 
 import cryptography.fernet
 import flask
-from flask_wtf import FlaskForm
 import wtforms
 
+from ..base.forms import BaseForm
 
-class JiraFormStart(FlaskForm):
+
+class JiraFormStart(BaseForm):
     server = wtforms.StringField('Server URL', default="https://")
 
 
@@ -29,11 +30,15 @@ def encrypt_stuff(what):
     return fernet.encrypt(what.encode()).decode()
 
 
-class EncryptedTokenForm(FlaskForm):
+class EncryptedTokenForm(BaseForm):
     token = wtforms.PasswordField('Token')
     store_token = wtforms.BooleanField('Store token locally for later', default=True)
     encrypted_token = wtforms.HiddenField('Encrypted Token')
     encrypted_meant_for_storage = wtforms.HiddenField('Store the Encrypted Token', default="no")
+    def __init__(self, ** kwargs):
+        super().__init__(** kwargs)
+        self.extending_fields.append(self.token)
+        self.extending_fields.append(self.store_token)
 
     def validate_on_submit(self):
         ret = super().validate_on_submit()
@@ -48,8 +53,55 @@ class EncryptedTokenForm(FlaskForm):
             self.encrypted_token.data = encrypt_stuff(self.token.data)
             self.encrypted_meant_for_storage.data = "yes"
 
+    @classmethod
+    def supporting_js(cls, forms):
+        template = textwrap.dedent("""
+        <script type="text/javascript">
+        function tokenName() {
+            return "estimagus." + location.hostname + ".jira_ePAT";
+        }
 
-class JiraFormEnd(FlaskForm):
+        function getPAT() {
+            const token_name = tokenName();
+            return localStorage.getItem(token_name);
+        }
+
+        function updatePAT(with_what) {
+            const token_name = tokenName();
+            return localStorage.setItem(token_name, with_what);
+        }
+
+        function supplyEncryptedToken(encrypted_field, normal_field, store_checkbox, token_str) {
+            store_checkbox.checked = false;
+            encrypted_field.value = token_str;
+            normal_field.placeholder = "Optional, using stored locally stored token by default";
+        }
+
+        const prefixes = %s;
+        prefixes.forEach(function(prefix) {
+            let update_store = document.getElementById(prefix + 'encrypted_meant_for_storage');
+            let enc_field = document.getElementById(prefix + 'encrypted_token');
+            if (update_store.value == "yes" && enc_field.value) {
+                  updatePAT(enc_field.value);
+            }
+        });
+
+        let pat = getPAT();
+        if (pat) {
+            prefixes.forEach(function(prefix) {
+                let normal_field = document.getElementById(prefix + 'token');
+                let store_checkbox = document.getElementById(prefix + 'store_token');
+                let enc_field = document.getElementById(prefix + 'encrypted_token');
+                supplyEncryptedToken(enc_field, normal_field, store_checkbox, pat);
+            });
+        }
+        </script>
+        """)
+        prefixes = [f._prefix for f in forms]
+        return template % prefixes
+
+
+class JiraFormEnd(BaseForm):
     retroQuery = wtforms.StringField('Retrospective Query')
     projQuery = wtforms.StringField('Projective Query')
     cutoffDate = wtforms.DateField("History Cutoff date")
@@ -57,4 +109,31 @@ class JiraFormEnd(FlaskForm):
 
 
 class JiraForm(JiraFormStart, EncryptedTokenForm, JiraFormEnd):
+    pass
+
+
+class AuthoritativeForm(EncryptedTokenForm):
+    token = wtforms.PasswordField('Jira Token')
+
+    def clear_to_go(self):
+        self.enable_submit_button()
+        super().clear_to_go()
+
+    def __iter__(self):
+        attributes = (
+            self.csrf_token,
+            self.task_name,
+            self.point_cost,
+            self.token,
+            self.store_token,
+            self.i_kid_you_not,
+            self.encrypted_token,
+            self.encrypted_meant_for_storage,
+            self.submit,
+        )
+        ret = (a for a in attributes)
+        return ret
+
+
+class ProblemForm(EncryptedTokenForm):
     pass

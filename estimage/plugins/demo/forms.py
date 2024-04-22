@@ -1,12 +1,13 @@
-from flask_wtf import FlaskForm
 import wtforms
 
+from ..base.forms import BaseForm
 
-class DemoForm(FlaskForm):
+
+class DemoForm(BaseForm):
     issues = wtforms.SelectMultipleField('Issues')
     progress = wtforms.FloatField('Progress')
     submit = wtforms.SubmitField("Next Day")
 
 
-class ResetForm(FlaskForm):
+class ResetForm(BaseForm):
     reset = wtforms.SubmitField("Reset Simulation")
