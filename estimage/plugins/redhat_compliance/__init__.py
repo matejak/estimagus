@@ -68,6 +68,7 @@ JIRA_STATUS_TO_STATE = {
     "Closed": "irrelevant",
     "In Progress": "in_progress",
     "Needs Peer Review": "review",
+    "Review": "review",
     "To Do": "todo",
 }
 

@@ -219,6 +219,8 @@ class Importer(jira.Importer):
                 return "Done"
             elif resolution_text == "Done":
                 return "Done"
+            else:
+                jira_string = "not_done_therefore_irrelevant"
         return jira_string
 
     @classmethod

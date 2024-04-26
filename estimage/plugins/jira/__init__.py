@@ -26,6 +26,7 @@ JIRA_STATUS_TO_STATE = {
     "POST": "in_progress",
     "MODIFIED": "in_progress",
     "Needs Peer Review": "review",
+    "Review": "review",
     "To Do": "todo",
 }
 
