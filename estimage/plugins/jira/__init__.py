@@ -96,18 +96,18 @@ class InputSpec:
 
 
 def jira_retry(func, * args, ** kwargs):
-    return jira_retry_n(5, 2, func, * args, ** kwargs)
+    return jira_retry_n(5, 5, func, * args, ** kwargs)
 
 
-def jira_retry_n(retries, pause, func, * args, ** kwargs):
+def jira_retry_n(retries, longest_pause, func, * args, ** kwargs):
     try:
         result = func(* args, ** kwargs)
     except exceptions.JIRAError:
         if retries <= 0:
             raise
-        time.sleep(pause)
+        time.sleep(longest_pause / retries)
         print(f"Failed {func.__name__}, retrying {retries} more times")
-        result = jira_retry_n(retries - 1, pause, func, * args, ** kwargs)
+        result = jira_retry_n(retries - 1, longest_pause, func, * args, ** kwargs)
     return result
 
 
@@ -156,15 +156,6 @@ def name_from_field(field_contents):
 def inherit_attributes(parent, child):
     parent.add_element(child)
     child.tier = parent.tier
-
-
-def resolve_inheritance_of_attributes(name, all_items_by_id, parents_child_keymap):
-    item = all_items_by_id[name]
-    child_names = parents_child_keymap.get(item.name, [])
-    for child_name in child_names:
-        child = all_items_by_id[child_name]
-        inherit_attributes(item, child)
-        resolve_inheritance_of_attributes(child_name, all_items_by_id, parents_child_keymap)
 
 
 def save_exported_jira_tasks(all_cards_by_id, id_selection, card_io_class):
@@ -260,10 +251,13 @@ class Importer:
         self._cards_by_id = dict()
         self._all_issues_by_name = dict()
         self._parents_child_keymap = collections.defaultdict(set)
+        self._parent_name_to_children_names = dict()
 
         self._retro_cards = set()
         self._projective_cards = set()
         self._all_events = []
+
+        self._issues_with_known_children = set()
         try:
             self.jira = JiraWithRetry(spec.server_url, token_auth=spec.token, validate=True)
         except exceptions.JIRAError as exc:
@@ -273,6 +267,87 @@ class Importer:
 
     def report(self, msg):
         print(msg)
+
+    def _execute_search_query(self, query):
+        items = self.jira.search_issues(query, expand="changelog,renderedFields", maxResults=0)
+        return items
+
+    def _perform_a_query(self, query):
+        results = self._execute_search_query(query)
+        results_by_name = {r.key: r for r in results}
+        self._all_issues_by_name.update(results_by_name)
+        got_names = set(results_by_name.keys())
+        return got_names
+
+    def _find_children_by_querying_children(self, parent_name, children_attribute="Epic Link", query_template='{children_query}'):
+        children_query = f'"{children_attribute}" = {parent_name}'
+        children_names = self._perform_a_query(query_template.format(children_query=children_query))
+        self._parent_name_to_children_names[parent_name] = children_names
+        return children_names
+
+    def _find_children_by_examining_parent(self, parent_name, children_field_name="subtasks"):
+        parent = self._all_issues_by_name[parent_name]
+        children = parent.get_field(children_field_name)
+        child_names = {c.key for c in children}
+        self._parent_name_to_children_names[parent.key] = child_names
+        return child_names
+
+    def _expand_primary_query_to_tree(self, names_obtained):
+        for epic_name in names_obtained:
+            if epic_name in self._parent_name_to_children_names:
+                continue
+
+            task_names = self._find_children_by_querying_children(epic_name)
+            for name in task_names:
+                if name in self._parent_name_to_children_names:
+                    continue
+                self._find_children_by_examining_parent(name)
+        return names_obtained
+
+    def export_issue_tree_to_cards(self, root_names: typing.Iterable[str]) -> dict[str, card.BaseCard]:
+        exported_cards_by_id = dict()
+        for name in root_names:
+            if name in self._cards_by_id:
+                card = self._cards_by_id[name]
+            else:
+                issue = self._all_issues_by_name[name]
+                card = self.merge_jira_item_without_children(issue)
+            exported_cards_by_id[name] = card
+            children = self._parents_child_keymap[name]
+            if not children:
+                continue
+            chain = self.export_issue_tree_to_cards(children)
+            exported_cards_by_id.update(chain)
+        return exported_cards_by_id
+
+    def apply_query(self, query, cards_destination):
+        core_results = self._perform_a_query(query)
+        root_results = self._expand_primary_query_to_tree(core_results)
+
+        new_cards = self.export_jira_epic_chain_to_cards(root_results)
+        cards_destination.update(new_cards.keys())
+        self._cards_by_id.update(new_cards)
+        self.resolve_inheritance(new_cards)
+        return root_results
+
+    def _import_data(self, spec):
+        issue_names_requiring_events = set()
+
+        new_cards = set()
+        retro_epic_names = set()
+        if spec.retrospective_query:
+            self.report("Gathering retro stuff")
+            retro_epic_names = self.apply_query(spec.retrospective_query, new_cards)
+
+        proj_epic_names = set()
+        if spec.projective_query:
+            self.report("Gathering proj stuff")
+            proj_epic_names = self.apply_query(spec.projective_query, new_cards)
+
+        for name in new_cards:
+            extractor = EventExtractor(self._all_issues_by_name[name], spec.cutoff_date)
+            new_events = extractor.get_task_events(self)
+            self._all_events.extend(new_events)
 
     def import_data(self, spec):
         issue_names_requiring_events = set()
@@ -308,8 +383,6 @@ class Importer:
             extractor = EventExtractor(self._all_issues_by_name[name], spec.cutoff_date)
             new_events = extractor.get_task_events(self)
             self._all_events.extend(new_events)
-
-
 
     def find_cards(self, card_names: typing.Iterable[str]):
         card_ids_sequence = ", ".join(card_names)
@@ -361,8 +434,15 @@ class Importer:
 
     def resolve_inheritance(self, root_names: typing.Iterable[str]):
         for root_name in root_names:
-            resolve_inheritance_of_attributes(
-                root_name, self._cards_by_id, self._parents_child_keymap)
+            self.resolve_inheritance_of_attributes(root_name, self._cards_by_id, self._parents_child_keymap)
+
+    def resolve_inheritance_of_attributes(self, name):
+        item = self._cards_by_id[name]
+        child_names = self._parents_child_keymap.get(item.name, [])
+        for child_name in child_names:
+            child = self._cards_by_id[child_name]
+            inherit_attributes(item, child)
+            resolve_inheritance_of_attributes(child_name, self._cards_by_id, self._parents_child_keymap)
 
     def _get_contents_of_rendered_field(self, item, field_name):
         ret = ""
