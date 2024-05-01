@@ -172,7 +172,8 @@ class Importer(jira.Importer):
     WORK_END = "customfield_12313942"
 
     def _get_points_of(self, item):
-        return float(item.get_field(self.STORY_POINTS) or 0)
+        ret = self._get_contents_of_field(item, self.STORY_POINTS, 0)
+        return ret
 
     def _set_points_of(self, item, points):
         item.update({self.STORY_POINTS: round(points, 2)})
@@ -192,8 +193,9 @@ class Importer(jira.Importer):
         result.status_summary = self._get_status_summary(item)
         result.loading_plugin = "jira-rhcompliance"
         self._record_collaborators(result, item)
-        self._record_commitment_as_tier_and_tags(result, item)
         self._record_work_span(result, item)
+
+        self._record_commitment_as_tier_and_tags(result, item)
 
         return result
 
@@ -201,7 +203,7 @@ class Importer(jira.Importer):
         result.collaborators = []
         try:
             result.collaborators += [
-                jira.name_from_field(c) for c in item.get_field(self.CONTRIBUTORS) or []]
+                jira.get_name_from_person_field(c) for c in item.get_field(self.CONTRIBUTORS) or []]
         except AttributeError:
             pass
 

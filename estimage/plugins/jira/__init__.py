@@ -111,45 +111,7 @@ def jira_retry_n(retries, longest_pause, func, * args, ** kwargs):
     return result
 
 
-def identify_epic_subtasks(jira, epic, known_issues_by_id, parents_child_keymap):
-    subtasks = jira.search_issues(
-        f'"Epic Link" = {epic.key}', expand="changelog,renderedFields", maxResults=0)
-    for t in subtasks:
-        parents_child_keymap[epic.key].add(t.key)
-        if t.key in known_issues_by_id:
-            continue
-        known_issues_by_id[t.key] = t
-        recursively_identify_task_subtasks(jira, t, known_issues_by_id, parents_child_keymap)
-
-
-def recursively_identify_task_subtasks(jira, task, known_issues_by_id, parents_child_keymap):
-    subtasks = task.get_field("subtasks")
-    if not subtasks:
-        return
-    for subtask in subtasks:
-        parents_child_keymap[task.key].add(subtask.key)
-        if subtask.key in known_issues_by_id:
-            continue
-        subtask = jira.issue(subtask.key, expand="changelog,renderedFields")
-        known_issues_by_id[subtask.key] = subtask
-        recursively_identify_task_subtasks(jira, subtask, known_issues_by_id, parents_child_keymap)
-
-
-def get_epics_and_their_tasks_by_id(jira, epics_query, all_items_by_name, parents_child_keymap):
-    epics = jira.search_issues(
-        f"type = epic AND {epics_query}", expand="changelog,renderedFields", maxResults=0)
-
-    new_epics_names = set()
-    for epic in epics:
-        new_epics_names.add(epic.key)
-        if epic.key in all_items_by_name:
-            continue
-        all_items_by_name[epic.key] = epic
-        identify_epic_subtasks(jira, epic, all_items_by_name, parents_child_keymap)
-    return new_epics_names
-
-
-def name_from_field(field_contents):
+def get_name_from_person_field(field_contents):
     return field_contents.emailAddress.split("@", 1)[0]
 
 
@@ -250,14 +212,12 @@ class Importer:
     def __init__(self, spec):
         self._cards_by_id = dict()
         self._all_issues_by_name = dict()
-        self._parents_child_keymap = collections.defaultdict(set)
         self._parent_name_to_children_names = dict()
 
         self._retro_cards = set()
         self._projective_cards = set()
         self._all_events = []
 
-        self._issues_with_known_children = set()
         try:
             self.jira = JiraWithRetry(spec.server_url, token_auth=spec.token, validate=True)
         except exceptions.JIRAError as exc:
@@ -272,7 +232,7 @@ class Importer:
         items = self.jira.search_issues(query, expand="changelog,renderedFields", maxResults=0)
         return items
 
-    def _perform_a_query(self, query):
+    def _perform_and_process_query(self, query):
         results = self._execute_search_query(query)
         results_by_name = {r.key: r for r in results}
         self._all_issues_by_name.update(results_by_name)
@@ -281,177 +241,124 @@ class Importer:
 
     def _find_children_by_querying_children(self, parent_name, children_attribute="Epic Link", query_template='{children_query}'):
         children_query = f'"{children_attribute}" = {parent_name}'
-        children_names = self._perform_a_query(query_template.format(children_query=children_query))
+        children_names = self._perform_and_process_query(query_template.format(children_query=children_query))
         self._parent_name_to_children_names[parent_name] = children_names
         return children_names
 
     def _find_children_by_examining_parent(self, parent_name, children_field_name="subtasks"):
         parent = self._all_issues_by_name[parent_name]
         children = parent.get_field(children_field_name)
-        child_names = {c.key for c in children}
+        child_names = set()
+        for c in children:
+            c = self.jira.issue(c.key, expand="changelog,renderedFields")
+            child_names.add(c.key)
+            self._all_issues_by_name[c.key] = c
         self._parent_name_to_children_names[parent.key] = child_names
         return child_names
 
-    def _expand_primary_query_to_tree(self, names_obtained):
-        for epic_name in names_obtained:
-            if epic_name in self._parent_name_to_children_names:
-                continue
+    def _query_children_to_get_children(self, parent_name, query_order):
+        return query_order < 2
 
-            task_names = self._find_children_by_querying_children(epic_name)
-            for name in task_names:
-                if name in self._parent_name_to_children_names:
-                    continue
-                self._find_children_by_examining_parent(name)
-        return names_obtained
+    def _expand_primary_query_result(self, result_name, order=1):
+        children_names = set()
+        if self._query_children_to_get_children(result_name, order):
+            children_names = self._find_children_by_querying_children(result_name)
+        else:
+            children_names = self._find_children_by_examining_parent(result_name)
+        if children_names:
+            new_children = self._expand_primary_query_results(children_names, order + 1)
+
+    def _expand_primary_query_results(self, result_names, order=1):
+        for name in result_names:
+            if name not in self._parent_name_to_children_names:
+                new_results = self._expand_primary_query_result(name, order)
+            else:
+                new_results = self._parent_name_to_children_names[name]
+
+    def _expand_primary_query_to_tree(self, names_obtained):
+        self._expand_primary_query_results(names_obtained, 1)
+
+    def _get_or_create_card(self, name):
+        if name in self._cards_by_id:
+            card = self._cards_by_id[name]
+        else:
+            issue = self._all_issues_by_name[name]
+            card = self.merge_jira_item_without_children(issue)
+        return card
 
     def export_issue_tree_to_cards(self, root_names: typing.Iterable[str]) -> dict[str, card.BaseCard]:
         exported_cards_by_id = dict()
         for name in root_names:
-            if name in self._cards_by_id:
-                card = self._cards_by_id[name]
-            else:
-                issue = self._all_issues_by_name[name]
-                card = self.merge_jira_item_without_children(issue)
-            exported_cards_by_id[name] = card
-            children = self._parents_child_keymap[name]
-            if not children:
+            exported_cards_by_id[name] = self._get_or_create_card(name)
+
+            children_names = self._parent_name_to_children_names.get(name, [])
+            if not children_names:
                 continue
-            chain = self.export_issue_tree_to_cards(children)
+            chain = self.export_issue_tree_to_cards(children_names)
             exported_cards_by_id.update(chain)
         return exported_cards_by_id
 
-    def apply_query(self, query, cards_destination):
-        core_results = self._perform_a_query(query)
-        root_results = self._expand_primary_query_to_tree(core_results)
+    def _get_and_record_jira_tree(self, query):
+        core_results = self._perform_and_process_query(query)
+        self._expand_primary_query_to_tree(core_results)
+        return core_results
 
-        new_cards = self.export_jira_epic_chain_to_cards(root_results)
-        cards_destination.update(new_cards.keys())
+    def _export_jira_tree_to_cards(self, root_results):
+        new_cards = self.export_issue_tree_to_cards(root_results)
         self._cards_by_id.update(new_cards)
         self.resolve_inheritance(new_cards)
-        return root_results
-
-    def _import_data(self, spec):
-        issue_names_requiring_events = set()
-
-        new_cards = set()
-        retro_epic_names = set()
-        if spec.retrospective_query:
-            self.report("Gathering retro stuff")
-            retro_epic_names = self.apply_query(spec.retrospective_query, new_cards)
-
-        proj_epic_names = set()
-        if spec.projective_query:
-            self.report("Gathering proj stuff")
-            proj_epic_names = self.apply_query(spec.projective_query, new_cards)
-
-        for name in new_cards:
-            extractor = EventExtractor(self._all_issues_by_name[name], spec.cutoff_date)
-            new_events = extractor.get_task_events(self)
-            self._all_events.extend(new_events)
+        return set(new_cards.keys())
 
     def import_data(self, spec):
         issue_names_requiring_events = set()
 
-        retro_epic_names = set()
         if spec.retrospective_query:
             self.report("Gathering retro stuff")
-            retro_epic_names = get_epics_and_their_tasks_by_id(
-                self.jira, spec.retrospective_query, self._all_issues_by_name,
-                self._parents_child_keymap)
-            new_cards = self.export_jira_epic_chain_to_cards(retro_epic_names)
-            self._retro_cards.update(new_cards.keys())
-            issue_names_requiring_events.update(new_cards.keys())
-            self._cards_by_id.update(new_cards)
+            root_results = self._get_and_record_jira_tree(spec.retrospective_query)
+            new_cards = self._export_jira_tree_to_cards(root_results)
+            self._retro_cards.update(new_cards)
 
-        proj_epic_names = set()
         if spec.projective_query:
             self.report("Gathering proj stuff")
-            proj_epic_names = get_epics_and_their_tasks_by_id(
-                self.jira, spec.projective_query, self._all_issues_by_name,
-                self._parents_child_keymap)
-            new_names = proj_epic_names.difference(retro_epic_names)
-            new_cards = self.export_jira_epic_chain_to_cards(new_names)
-            known_names = proj_epic_names.intersection(retro_epic_names)
-            known_cards = self.export_jira_epic_chain_to_cards(known_names)
-            self._cards_by_id.update(new_cards)
-            self._projective_cards.update(new_cards.keys())
-            self._projective_cards.update(known_cards.keys())
+            root_results = self._get_and_record_jira_tree(spec.projective_query)
+            new_cards = self._export_jira_tree_to_cards(root_results)
+            self._projective_cards.update(new_cards)
 
-        self.resolve_inheritance(proj_epic_names.union(retro_epic_names))
-
-        for name in issue_names_requiring_events:
+        new_cards = self._retro_cards.union(self._projective_cards)
+        for name in new_cards:
+            if name not in self._all_issues_by_name:
+                continue
             extractor = EventExtractor(self._all_issues_by_name[name], spec.cutoff_date)
             new_events = extractor.get_task_events(self)
             self._all_events.extend(new_events)
 
-    def find_cards(self, card_names: typing.Iterable[str]):
-        card_ids_sequence = ", ".join(card_names)
-        query = f"id in ({card_ids_sequence})"
-        cards = self.jira.search_issues(query, expand="renderedFields")
-        cards_by_id = {t.key: t for t in cards}
-        return [cards_by_id[name] for name in card_names]
-
-    def find_card(self, name: str):
-        card = self.jira.issue(name)
-        if not card:
-            msg = (
-                f"{card} not found"
-            )
-            raise ValueError(msg)
-        return card
-
-    def refresh_cards(self, real_cards: typing.Iterable[card.BaseCard], io_cls):
-        if not real_cards:
-            return
-        fresh = self.find_cards([t.name for t in real_cards])
-        refreshed = [self._apply_refresh(real, jira) for real, jira in zip(real_cards, fresh)]
-        io_cls.bulk_save_metadata(refreshed)
-
-    def _get_refreshed_card(self, real_card: card.BaseCard):
-        jira_card = self.jira.issue(real_card.name, expand="renderedFields")
-        return self._apply_refresh(real_card, jira_card)
-
-    def _apply_refresh(self, real_card: card.BaseCard, jira_card):
-        fresh_card = self.merge_jira_item_without_children(jira_card)
-        fresh_card.children = real_card.children
-        return fresh_card
-
-    def export_jira_epic_chain_to_cards(self, root_names: typing.Iterable[str]) -> dict[str, card.BaseCard]:
-        exported_cards_by_id = dict()
-        for name in root_names:
-            if name in self._cards_by_id:
-                card = self._cards_by_id[name]
-            else:
-                issue = self._all_issues_by_name[name]
-                card = self.merge_jira_item_without_children(issue)
-            exported_cards_by_id[name] = card
-            children = self._parents_child_keymap[name]
-            if not children:
-                continue
-            chain = self.export_jira_epic_chain_to_cards(children)
-            exported_cards_by_id.update(chain)
-        return exported_cards_by_id
-
     def resolve_inheritance(self, root_names: typing.Iterable[str]):
         for root_name in root_names:
-            self.resolve_inheritance_of_attributes(root_name, self._cards_by_id, self._parents_child_keymap)
+            self.resolve_inheritance_of_attributes(root_name)
 
     def resolve_inheritance_of_attributes(self, name):
         item = self._cards_by_id[name]
-        child_names = self._parents_child_keymap.get(item.name, [])
+        child_names = self._parent_name_to_children_names.get(item.name, [])
         for child_name in child_names:
             child = self._cards_by_id[child_name]
             inherit_attributes(item, child)
-            resolve_inheritance_of_attributes(child_name, self._cards_by_id, self._parents_child_keymap)
+            self.resolve_inheritance_of_attributes(child_name)
 
     def _get_contents_of_rendered_field(self, item, field_name):
-        ret = ""
+        ret = self._get_contents_of_field(item, field_name, "")
         try:
-            ret = item.get_field(field_name) or ""
             ret = getattr(item.renderedFields, field_name)
         except AttributeError:
             pass
         ret = ret.replace("\r", "")
+        return ret
+
+    def _get_contents_of_field(self, item, field_name, default_value=None):
+        ret = default_value
+        try:
+            ret = item.get_field(field_name) or default_value
+        except AttributeError:
+            pass
         return ret
 
     @classmethod
@@ -478,17 +385,19 @@ class Importer:
         result.title = item.get_field("summary") or ""
         result.description = self._get_contents_of_rendered_field(item, "description")
         result.status = self.status_to_state(item)
-        if item.fields.issuetype.name == "Epic" and result.status == "abandoned":
-            result.status = "done"
         priority = item.get_field("priority")
         if not priority:
             result.priority = 0
         else:
             result.priority = JIRA_PRIORITY_TO_VALUE.get(priority.name, 0)
-        result.tags = {f"label:{value}" for value in (item.get_field("labels") or [])}
 
-        if assignee := item.get_field("assignee"):
-            result.assignee = name_from_field(assignee)
+        result.tags = set()
+
+        labels = self._get_contents_of_field(item, "labels", [])
+        result.tags = {f"label:{value}" for value in labels}
+
+        if assignee := self._get_contents_of_field(item, "assignee"):
+            result.assignee = get_name_from_person_field(assignee)
 
         return result
 

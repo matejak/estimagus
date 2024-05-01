@@ -9,21 +9,35 @@ import estimage.history.aggregation as tm
 import estimage.entities.card as card
 
 from test_events import mgr, early_event, ONE_DAY, PERIOD_START, LONG_PERIOD_END
-from test_history_progress import simple_card, repre, oneday_repre, twoday_repre, twoday_repre_done_in_day, ExtendedStatuses
+from test_history_progress import repre, oneday_repre, twoday_repre, twoday_repre_done_in_day, ExtendedStatuses
 
 
 @pytest.fixture
-def supertask_card(simple_card):
+def make_simple_card():
+    def _make(name="task", cost=8):
+        ret = card.BaseCard(name)
+        ret.point_cost = cost
+        ret.status = "todo"
+        return ret
+    return _make
+
+
+@pytest.fixture
+def simple_card(make_simple_card):
+    return make_simple_card()
+
+
+@pytest.fixture
+def supertask_card(make_simple_card):
     ret = card.BaseCard("supertask")
-    ret.add_element(simple_card)
+    ret.add_element(make_simple_card("subtask"))
     return ret
 
 
 @pytest.fixture
-def another_supertask_card(simple_card):
+def another_supertask_card(make_simple_card):
     ret = card.BaseCard("another-supertask")
-    subtask = simple_card
-    subtask.name = "subtask"
+    subtask = make_simple_card("another-subtask")
     ret.add_element(subtask)
     return ret
 
@@ -36,6 +50,7 @@ def test_aggregation(repre):
 
     aggregation = tm.Aggregation()
     aggregation.add_repre(repre)
+    repre.task_name = "unique-name"
     aggregation.add_repre(repre)
 
     assert aggregation.statuses_on(someday) == {repre.get_status_at(someday)}
@@ -63,6 +78,7 @@ def test_aggregation_get_time_bounds(repre):
 def test_aggregation_enforce_time_bounds(repre, oneday_repre):
     aggregation = tm.Aggregation()
     aggregation.add_repre(repre)
+    repre.task_name = "unique-name"
     aggregation.add_repre(repre)
     with pytest.raises(ValueError):
         aggregation.add_repre(oneday_repre)
@@ -151,6 +167,7 @@ def test_aggregation_plan(twoday_repre_done_in_day):
 
     another_points = 8
     another_repre = history.Progress(a.start, a.end)
+    another_repre.task_name = "unique-task-name"
     another_repre.status_timeline.set_value_at(a.start, a.statuses.int("todo"))
     another_repre.points_timeline.set_value_at(PERIOD_START, another_points)
     a.add_repre(another_repre)
@@ -415,3 +432,9 @@ def test_aggregation_velocity_summary(simple_card, mgr):
     assert summary.total_days_with_velocity == 2
     assert summary.nonzero_velocity == simple_card.point_cost / 2.0
     assert mean_velocity == summary.daily_velocity
+
+
+def test_no_two_progresses_of_same_task(simple_card):
+    same_cards = [simple_card, simple_card]
+    with pytest.raises(ValueError):
+        tm.Aggregation.from_cards(same_cards, PERIOD_START, PERIOD_START)

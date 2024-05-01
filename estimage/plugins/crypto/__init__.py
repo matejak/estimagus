@@ -67,21 +67,6 @@ class InputSpec(jira.InputSpec):
         return ret
 
 
-def get_tasks(jira_connection, query, all_items_by_name, parents_child_keymap):
-    tasks = jira_connection.search_issues(
-        query, expand="changelog,renderedFields", maxResults=0)
-
-    new_task_names = set()
-    for task in tasks:
-        new_task_names.add(task.key)
-        if task.key in all_items_by_name:
-            continue
-        all_items_by_name[task.key] = task
-        jira.identify_epic_subtasks(jira_connection, task, all_items_by_name, parents_child_keymap)
-        jira.recursively_identify_task_subtasks(jira_connection, task, all_items_by_name, parents_child_keymap)
-    return new_task_names
-
-
 class Importer(jira.Importer):
     STORY_POINTS = "customfield_12310243"
     EPIC_LINK = "customfield_12311140"
@@ -113,7 +98,7 @@ class Importer(jira.Importer):
             self._cards_by_id[name] = epic
         return epic
 
-    def put_tasks_under_artificial_epics(self, tasks):
+    def put_cards_under_artificial_epics(self, tasks):
         epic_names = set()
         for task_name in tasks:
             task = self._cards_by_id[task_name]
@@ -148,42 +133,17 @@ class Importer(jira.Importer):
         for pn in names_of_parents_of_not_parents:
             self._propagate_estimates_of_estimated_task_to_unestimated_subtasks(pn)
 
+    def _query_children_to_get_children(self, parent_name, query_order):
+        return False
+
+    def _export_jira_tree_to_cards(self, root_results):
+        new_cards = super()._export_jira_tree_to_cards(root_results)
+        new_epic_names = self.put_cards_under_artificial_epics(root_results)
+        return new_cards.union(new_epic_names)
+
     def import_data(self, spec):
-        retro_tasks = set()
-        issue_names_requiring_events = set()
-        if spec.retrospective_query:
-            self.report("Gathering retro stuff")
-            retro_tasks = get_tasks(
-                self.jira, spec.retrospective_query, self._all_issues_by_name,
-                self._parents_child_keymap)
-            new_cards = self.export_jira_epic_chain_to_cards(retro_tasks)
-            self._cards_by_id.update(new_cards)
-            new_epic_names = self.put_tasks_under_artificial_epics(retro_tasks)
-            self._retro_cards.update(new_cards.keys())
-            self._retro_cards.update(new_epic_names)
-            issue_names_requiring_events.update(new_cards.keys())
-            self._cards_by_id.update(new_cards)
-
-        proj_tasks = set()
-        if spec.projective_query:
-            self.report("Gathering proj stuff")
-            proj_tasks = get_tasks(
-                self.jira, spec.projective_query, self._all_issues_by_name,
-                self._parents_child_keymap)
-            new_cards = self.export_jira_epic_chain_to_cards(proj_tasks)
-            self._cards_by_id.update(new_cards)
-            new_epic_names = self.put_tasks_under_artificial_epics(proj_tasks)
-            self._projective_cards.update(new_cards.keys())
-            self._projective_cards.update(new_epic_names)
-            self._cards_by_id.update(new_cards)
-
-        self.resolve_inheritance(set(self._cards_by_id.keys()))
+        super().import_data(spec)
         self.distribute_subtasks_points_to_tasks()
-
-        for name in issue_names_requiring_events:
-            extractor = jira.EventExtractor(self._all_issues_by_name[name], spec.cutoff_date)
-            new_events = extractor.get_task_events(self)
-            self._all_events.extend(new_events)
 
     def merge_jira_item_without_children(self, item):
 
