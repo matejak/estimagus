@@ -103,6 +103,7 @@ class Estimate:
     sigma: float
 
     source: EstimInput
+    LAMBDA = 4
 
     def __init__(self, expected, sigma):
         self.expected = expected
@@ -127,7 +128,7 @@ class Estimate:
                 f"{optimistic:.4g} <= {most_likely:.4g} <= {pessimistic:.4g}"
             )
             raise ValueError(msg)
-        expected = (optimistic + pessimistic + 4 * most_likely) / 6
+        expected = (optimistic + pessimistic + cls.LAMBDA * most_likely) / (cls.LAMBDA + 2)
 
         variance = (expected - optimistic) * (pessimistic - expected) / 7.0
         if variance < 0 and variance > - 1e-10:
@@ -227,11 +228,11 @@ class Estimate:
     # see https://en.wikipedia.org/wiki/PERT_distribution
     @property
     def pert_beta_a(self):
-        return 1 + 4 * (self.source.most_likely - self.source.optimistic) / self.width
+        return 1 + self.LAMBDA * (self.source.most_likely - self.source.optimistic) / self.width
 
     @property
     def pert_beta_b(self):
-        return 1 + 4 * (self.source.pessimistic - self.source.most_likely) / self.width
+        return 1 + self.LAMBDA * (self.source.pessimistic - self.source.most_likely) / self.width
 
     def _get_rv(self):
         return sp.stats.beta(
