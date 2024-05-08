@@ -13,20 +13,10 @@ from ... import simpledata
 
 
 JIRA_STATUS_TO_STATE = {
-    "Backlog": "todo",
-    "Refinement": "todo",
     "New": "todo",
     "Done": "done",
-    "Verified": "done",
-    "Abandoned": "irrelevant",
     "Closed": "irrelevant",
     "In Progress": "in_progress",
-    "ASSIGNED": "in_progress",
-    "ON_DEV": "in_progress",
-    "POST": "in_progress",
-    "MODIFIED": "in_progress",
-    "Needs Peer Review": "review",
-    "Review": "review",
     "To Do": "todo",
 }
 
@@ -88,11 +78,17 @@ class InputSpec:
         ret = cls()
         ret.token = input_form.token.data
         ret.server_url = input_form.server.data
-        ret.retrospective_query = input_form.retroQuery.data
-        ret.projective_query = input_form.projQuery.data
-        ret.cutoff_date = input_form.cutoffDate.data
-        ret.item_class = app.config["classes"]["BaseCard"]
+        ret.item_class = app.get_final_class("BaseCard")
+        self.set_cutoff_date(input_form)
+        self.set_queries(input_form)
         return ret
+
+    def set_cutoff_date(self, input_form):
+        self.cutoff_date = input_form.cutoffDate.data
+
+    def set_queries(self, input_form):
+        self.retrospective_query = input_form.retroQuery.data
+        self.projective_query = input_form.projQuery.data
 
 
 def jira_retry(func, * args, ** kwargs):
@@ -135,8 +131,6 @@ def jira_date_to_datetime(jira_date):
 
 
 class EventExtractor:
-    STORY_POINTS = "customfield_12310243"
-
     def __init__(self, task, cutoff_date=None):
         self.task = task
         self.cutoff_datetime = None
@@ -151,30 +145,22 @@ class EventExtractor:
             if jira_datetime_to_datetime(history.created) >= self.cutoff_datetime
         ]
 
+    def _field_to_event(self, date, field_name, former_value, new_value):
+        evt = None
+        if field_name == "status":
+            evt = evts.Event(self.task.key, "state", date)
+            evt.value_before = self.importer.status_to_state(self.task, former_value)
+            evt.value_after = self.importer.status_to_state(self.task, new_value)
+            evt.msg = f"Status changed from '{former_value}' to '{new_value}'"
+        return evt
+
     def import_event(self, event, date):
 
         field_name = event.field
         former_value = event.fromString
         new_value = event.toString
-        related_task_name = self.task.key
 
-        evt = None
-        if field_name == "status":
-            evt = evts.Event(related_task_name, "state", date)
-            evt.value_before = self.importer.status_to_state(self.task, former_value)
-            evt.value_after = self.importer.status_to_state(self.task, new_value)
-            evt.msg = f"Status changed from '{former_value}' to '{new_value}'"
-        elif field_name == self.STORY_POINTS:
-            evt = evts.Event(related_task_name, "points", date)
-            evt.value_before = float(former_value or 0)
-            evt.value_after = float(new_value or 0)
-            evt.msg = f"Points changed from {former_value} to {new_value}"
-        elif field_name in ("Latest Status Summary", "Status Summary"):
-            evt = evts.Event(related_task_name, "status_summary", date)
-            evt.value_before = former_value
-            evt.value_after = new_value
-            evt.msg = f"Event summary changed to {new_value}"
-
+        evt = self._field_to_event(date, field_name, former_value, new_value)
         return evt
 
     def append_event_entry(self, events, event, date):
@@ -298,6 +284,15 @@ class Importer:
             exported_cards_by_id.update(chain)
         return exported_cards_by_id
 
+    def find_card(self, name: str):
+        card = self.jira.issue(name)
+        if not card:
+            msg = (
+                f"{card} not found"
+            )
+            raise ValueError(msg)
+        return card
+
     def _get_and_record_jira_tree(self, query):
         core_results = self._perform_and_process_query(query)
         self._expand_primary_query_to_tree(core_results)
@@ -309,7 +304,7 @@ class Importer:
         self.resolve_inheritance(new_cards)
         return set(new_cards.keys())
 
-    def import_data(self, spec):
+    def import_data(self, spec, extractor_cls=EventExtractor):
         issue_names_requiring_events = set()
 
         if spec.retrospective_query:
@@ -328,7 +323,7 @@ class Importer:
         for name in new_cards:
             if name not in self._all_issues_by_name:
                 continue
-            extractor = EventExtractor(self._all_issues_by_name[name], spec.cutoff_date)
+            extractor = extractor_cls(self._all_issues_by_name[name], spec.cutoff_date)
             new_events = extractor.get_task_events(self)
             self._all_events.extend(new_events)
 
@@ -369,12 +364,18 @@ class Importer:
         return ret
 
     @classmethod
-    def _status_to_state(cls, item, jira_string):
+    def _item_is_closed_done(cls, item, jira_string):
         resolution = item.get_field("resolution")
         resolution_text = ""
         if resolution:
             resolution_text = resolution.name
         if jira_string == "Closed" and resolution_text == "Done":
+            return True
+        return False
+
+    @classmethod
+    def _status_to_state(cls, item, jira_string):
+        if cls._item_is_closed_done(item, jira_string):
             jira_string = "Done"
         return JIRA_STATUS_TO_STATE.get(jira_string, "irrelevant")
 
