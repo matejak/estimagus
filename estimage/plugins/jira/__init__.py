@@ -111,11 +111,6 @@ def get_name_from_person_field(field_contents):
     return field_contents.emailAddress.split("@", 1)[0]
 
 
-def inherit_attributes(parent, child):
-    parent.add_element(child)
-    child.tier = parent.tier
-
-
 def save_exported_jira_tasks(all_cards_by_id, id_selection, card_io_class):
     to_save = [all_cards_by_id[tid] for tid in id_selection]
     card_io_class.bulk_save_metadata(to_save)
@@ -331,12 +326,16 @@ class Importer:
         for root_name in root_names:
             self.resolve_inheritance_of_attributes(root_name)
 
+    def inherit_attributes(self, parent, child):
+        parent.add_element(child)
+        child.tier = parent.tier
+
     def resolve_inheritance_of_attributes(self, name):
         item = self._cards_by_id[name]
         child_names = self._parent_name_to_children_names.get(item.name, [])
         for child_name in child_names:
             child = self._cards_by_id[child_name]
-            inherit_attributes(item, child)
+            self.inherit_attributes(item, child)
             self.resolve_inheritance_of_attributes(child_name)
 
     def _get_contents_of_rendered_field(self, item, field_name):

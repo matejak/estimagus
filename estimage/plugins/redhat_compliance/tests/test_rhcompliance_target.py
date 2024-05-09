@@ -1,7 +1,6 @@
 import pytest
 
 from estimage import plugins, PluginResolver, persistence
-from estimage.data import BaseCard
 import estimage.plugins.redhat_compliance as tm
 
 from tests.test_card import base_card_load_save, fill_card_instance_with_stuff, assert_cards_are_equal
@@ -10,7 +9,7 @@ from tests.test_inidata import temp_filename, cardio_inifile_cls
 
 @pytest.fixture(params=("ini",))
 def card_io(request, cardio_inifile_cls):
-    cls = tm.BaseCard
+    cls = tm.BaseCardWithStatus
     choices = dict(
         ini=cardio_inifile_cls,
     )
@@ -26,7 +25,6 @@ def plugin_fill(t):
     fill_card_instance_with_stuff(t)
 
     t.status_summary = "Lorem Ipsum and So On"
-    # t.status_summary_time = datetime.datetime(1918, 8, 3)
 
 
 def plugin_test(lhs, rhs):

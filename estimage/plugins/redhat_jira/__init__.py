@@ -1,5 +1,7 @@
 import datetime
 
+from ...entities import status
+from ...visualize.burndown import StatusStyle
 from ... import persistence
 from .. import jira
 
@@ -25,6 +27,21 @@ RHELPLAN_STATUS_TO_STATE = {
     "POST": "rhel-in_progress",
     "MODIFIED": "rhel-integration",
     "ON_QA": "rhel-integration",
+}
+
+
+OJA_ETC_STATUS_TO_STATE = {
+    "New": "todo",
+    "Refinement": "todo",
+    "Backlog": "todo",
+    "To Do": "todo",
+    "Stakeholder Review": "todo",
+    "In Progress": "in_progress",
+    "Closed": "irrelevant",
+    "Review": "review",
+    "Stakeholder Acceptance": "review",
+    "Resolved": "done",
+    "Done": "done", # not really a state, but used
 }
 
 
@@ -79,20 +96,19 @@ class Importer(jira.Importer):
 
         item_name = item.key
 
-        if item_name.startswith("RHELPLAN"):
+        if item_name.startswith("RHELPLAN-"):
             return RHELPLAN_STATUS_TO_STATE.get(jira_string, "irrelevant")
-        elif item_name.startswith("RHEL"):
+        elif item_name.startswith("RHEL-"):
             return RHEL_STATUS_TO_STATE.get(jira_string, "irrelevant")
         else:
-            return super()._status_to_state(item, jira_string)
+            return OJA_ETC_STATUS_TO_STATE.get(jira_string, "irrelevant")
 
     def merge_jira_item_without_children(self, item):
 
         result = super().merge_jira_item_without_children(item)
 
         result.point_cost = self._get_points_of(item)
-        result.status_summary = self._get_status_summary(item)
-        result.loading_plugin = "jira-rhcompliance"
+        result.loading_plugin = "jira-redhat"
         self._record_collaborators(result, item)
         self._record_work_span(result, item)
         return result
@@ -170,6 +186,13 @@ class ImporterWithStatus(Importer):
         ret = self._get_contents_of_rendered_field(item, self.STATUS_SUMMARY_NEW)
         return ret
 
+    def merge_jira_item_without_children(self, item):
+
+        result = super().merge_jira_item_without_children(item)
+
+        result.status_summary = self._get_status_summary(item)
+        return result
+
 
 class BaseCardWithStatus:
     status_summary: str
@@ -215,3 +238,22 @@ class CardSynchronizer(jira.CardSynchronizer):
         kwargs["token"] = form.token.data
         kwargs["importer_cls"] = Importer
         return cls(** kwargs)
+
+
+class Statuses:
+    def __init__(self):
+        super().__init__()
+        self.statuses.extend([
+            status.Status.create("review", started=True, wip=False, done=False),
+            status.Status.create("rhel-in_progress", started=True, wip=True, done=False),
+            status.Status.create("rhel-integration", started=True, wip=False, done=False),
+        ])
+
+
+class MPLPointPlot:
+    def get_styles(self):
+        ret = super().get_styles()
+        ret["review"] = StatusStyle(color=(0.1, 0.2, 0.7, 0.6), label="Needs Review", weight=80)
+        ret["rhel-in_progress"] = StatusStyle(color=(0.1, 0.2, 0.5, 0.4), label="BZ In Progress", weight=60)
+        ret["rhel-integration"] = StatusStyle(color=(0.2, 0.4, 0.7, 0.6), label="BZ Integration", weight=61)
+        return ret

@@ -6,13 +6,15 @@ import typing
 
 import flask
 
-from ... import simpledata, data, persistence
-from .. import jira, redhat_compliance
+from ... import simpledata, data
+from .. import jira, redhat_jira
 from ...webapp import web_utils
-from ...entities import status
-from ...visualize.burndown import StatusStyle
 from .forms import CryptoForm
 from ..jira.forms import AuthoritativeForm, ProblemForm
+
+
+Statuses = redhat_jira.Statuses
+MPLPointPlot = redhat_jira.MPLPointPlot
 
 
 EXPORTS = dict(
@@ -26,57 +28,32 @@ EXPORTS = dict(
 
 PROJECT_NAME = "CRYPTO"
 
-class Statuses:
-    def __init__(self):
-        super().__init__()
-        self.statuses.extend([
-            status.Status.create("rhel-in_progress", started=True, wip=True, done=False),
-            status.Status.create("rhel-integration", started=True, wip=False, done=False),
-        ])
-
-
-class MPLPointPlot:
-    def get_styles(self):
-        ret = super().get_styles()
-        ret["rhel-in_progress"] = StatusStyle(color=(0.1, 0.2, 0.5, 0.4), label="BZ In Progress", weight=60)
-        ret["rhel-integration"] = StatusStyle(color=(0.2, 0.4, 0.7, 0.6), label="BZ Integration", weight=61)
-        return ret
-
-
 
 TEMPLATE_OVERRIDES = {
     "tree_view_retrospective.html": "crypto-retrotree.html",
 }
 
-class InputSpec(jira.InputSpec):
+
+class InputSpec(redhat_jira.InputSpec):
     @classmethod
     def from_form_and_app(cls, form, app) -> "InputSpec":
-        ret = cls()
-        ret.server_url = "https://issues.redhat.com"
-        ret.token = form.token.data
+        ret = super().from_form_and_app(form, app)
         ret.cutoff_date = app.get_config_option("RETROSPECTIVE_PERIOD")[0]
-        sprint = "openSprints()"
-        query = f"project = {PROJECT_NAME} AND type = Task AND sprint in openSprints()"
-        query = "filter = 12350823 AND Sprint in openSprints() AND labels = committed AND issuetype in (task, bug, Story)"
-        query_tpl = "filter = 12350823 AND Sprint in {sprint} AND issuetype in (task, bug, Story)"
-        ret.retrospective_query = query_tpl.format(sprint=sprint)
-        if form.project_next.data:
-            sprint = "futureSprints()"
-        ret.projective_query = query_tpl.format(sprint=sprint)
-        ret.item_class = app.get_final_class("BaseCard")
         return ret
 
+    def set_cutoff_date(self, input_form):
+        pass
 
-class Importer(jira.Importer):
-    STORY_POINTS = "customfield_12310243"
-    EPIC_LINK = "customfield_12311140"
+    def set_queries(self, input_form):
+        sprint = "openSprints()"
+        query_tpl = "filter = 12350823 AND Sprint in {sprint} AND issuetype in (task, bug, Story)"
+        self.retrospective_query = query_tpl.format(sprint=sprint)
+        if input_form.project_next.data:
+            sprint = "futureSprints()"
+        self.projective_query = query_tpl.format(sprint=sprint)
 
-    def _get_points_of(self, item):
-        return float(item.get_field(self.STORY_POINTS) or 0)
 
-    # def _set_points_of(self, item, points):
-        # item.update({self.STORY_POINTS: round(points, 2)})
-
+class Importer(redhat_jira.Importer):
     def _get_owner_epic_of(self, assignee, committed):
         if not assignee:
             assignee = "nobody"
@@ -152,22 +129,6 @@ class Importer(jira.Importer):
         result.point_cost = self._get_points_of(item)
         return result
 
-    def update_points_of(self, our_task, points):
-        jira_task = self.find_card(our_task.name)
-        remote_points = self._get_points_of(jira_task)
-        if remote_points == points:
-            return jira_task
-        if remote_points != our_task.point_cost:
-            msg = (
-                f"Trying to update issue {our_task.name} "
-                f"with cached value {our_task.point_cost}, "
-                f"while it has {remote_points}."
-            )
-            raise ValueError(msg)
-        self._set_points_of(jira_task, points)
-        jira_task.find(jira_task.key)
-        return self.merge_jira_item_without_children(jira_task)
-
     @classmethod
     def _accepted(cls, jira_string, item):
         resolution = item.get_field("resolution")
@@ -177,8 +138,10 @@ class Importer(jira.Importer):
         if jira_string == "Closed":
             if "Accepted" in item.get_field("labels"):
                 return "Done"
-            elif resolution_text == "Done":
+            elif resolution_text == "Done" and item.get_field("issuetype").name == "Sub-task":
                 return "Done"
+            elif resolution_text == "Done":
+                return "Review"
             else:
                 jira_string = "not_done_therefore_irrelevant"
         return jira_string
@@ -187,18 +150,12 @@ class Importer(jira.Importer):
     def _status_to_state(cls, item, jira_string):
         item_name = item.key
 
-        if item_name.startswith(PROJECT_NAME):
+        if item_name.startswith(PROJECT_NAME + "-"):
             jira_string = cls._accepted(jira_string, item)
             return super()._status_to_state(item, jira_string)
-        elif item_name.startswith("RHELPLAN"):
-            jira_string = cls._accepted(jira_string, item)
-            return redhat_compliance.RHELPLAN_STATUS_TO_STATE.get(jira_string, "irrelevant")
-        elif item_name.startswith("RHEL"):
-            jira_string = cls._accepted(jira_string, item)
-            return redhat_compliance.RHEL_STATUS_TO_STATE.get(jira_string, "irrelevant")
         else:
             jira_string = cls._accepted(jira_string, item)
-            return redhat_compliance.JIRA_STATUS_TO_STATE.get(jira_string, "irrelevant")
+            return super()._status_to_state(item, jira_string)
 
 
 def do_stuff(spec):

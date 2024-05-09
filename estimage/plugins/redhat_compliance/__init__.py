@@ -4,16 +4,17 @@ import collections
 import dateutil.relativedelta
 import typing
 
-from ... import simpledata, data, persistence
-from ...entities import status
+from ... import simpledata, data
 from ...webapp import web_utils
-from ...visualize.burndown import StatusStyle
 from .. import jira, redhat_jira
 from ..jira.forms import AuthoritativeForm, ProblemForm
 
 
 BaseCardWithStatus = redhat_jira.BaseCardWithStatus
 CardSynchronizer = redhat_jira.CardSynchronizer
+Statuses = redhat_jira.Statuses
+MPLPointPlot = redhat_jira.MPLPointPlot
+
 
 EXPORTS = dict(
     AuthoritativeForm="AuthoritativeForm",
@@ -37,17 +38,9 @@ TEMPLATE_OVERRIDES = {
 
 
 OPENSCAP_STATUS_TO_STATE = {
-    "Backlog": "todo",
-    "Refinement": "todo",
-    "New": "todo",
-    "Done": "done",
-    "Abandoned": "irrelevant",
-    "Closed": "irrelevant",
-    "In Progress": "in_progress",
     "Needs Peer Review": "review",
-    "Review": "review",
-    "To Do": "todo",
 }
+OPENSCAP_STATUS_TO_STATE.update(redhat_jira.OJA_ETC_STATUS_TO_STATE)
 
 
 class InputSpec(redhat_jira.InputSpec):
@@ -129,10 +122,9 @@ class Importer(redhat_jira.ImporterWithStatus):
     def _status_to_state(cls, item, jira_string):
         if cls._item_is_closed_done(item, jira_string):
             return "done"
-
         item_name = item.key
 
-        if item_name.startswith("OPENSCAP"):
+        if item_name.startswith(PROJECT_NAME + "-"):
             return OPENSCAP_STATUS_TO_STATE.get(jira_string, "irrelevant")
         else:
             return super()._status_to_state(item, jira_string)
@@ -145,25 +137,6 @@ def do_stuff(spec):
     proj_io = web_utils.get_proj_loader()[1]
     importer.save(retro_io, proj_io, simpledata.EventManager)
     return importer.get_collected_stats()
-
-
-class Statuses:
-    def __init__(self):
-        super().__init__()
-        self.statuses.extend([
-            status.Status.create("review", started=True, wip=False, done=False),
-            status.Status.create("rhel-in_progress", started=True, wip=True, done=False),
-            status.Status.create("rhel-integration", started=True, wip=False, done=False),
-        ])
-
-
-class MPLPointPlot:
-    def get_styles(self):
-        ret = super().get_styles()
-        ret["review"] = StatusStyle(color=(0.1, 0.2, 0.7, 0.6), label="Needs Review", weight=80)
-        ret["rhel-in_progress"] = StatusStyle(color=(0.1, 0.2, 0.5, 0.4), label="BZ In Progress", weight=60)
-        ret["rhel-integration"] = StatusStyle(color=(0.2, 0.4, 0.7, 0.6), label="BZ Integration", weight=61)
-        return ret
 
 
 class Workloads:
