@@ -1,24 +1,12 @@
 import dataclasses
 import datetime
 import collections
-import time
 import typing
 
-from jira import JIRA, exceptions
-
+from . import importer
 from ...entities import card
-from ... import simpledata
 from ...entities import event as evts
 from ... import simpledata
-
-
-JIRA_STATUS_TO_STATE = {
-    "New": "todo",
-    "Done": "done",
-    "Closed": "irrelevant",
-    "In Progress": "in_progress",
-    "To Do": "todo",
-}
 
 
 JIRA_PRIORITY_TO_VALUE = {
@@ -79,8 +67,8 @@ class InputSpec:
         ret.token = input_form.token.data
         ret.server_url = input_form.server.data
         ret.item_class = app.get_final_class("BaseCard")
-        self.set_cutoff_date(input_form)
-        self.set_queries(input_form)
+        cls.set_cutoff_date(input_form)
+        cls.set_queries(input_form)
         return ret
 
     def set_cutoff_date(self, input_form):
@@ -89,22 +77,6 @@ class InputSpec:
     def set_queries(self, input_form):
         self.retrospective_query = input_form.retroQuery.data
         self.projective_query = input_form.projQuery.data
-
-
-def jira_retry(func, * args, ** kwargs):
-    return jira_retry_n(5, 5, func, * args, ** kwargs)
-
-
-def jira_retry_n(retries, longest_pause, func, * args, ** kwargs):
-    try:
-        result = func(* args, ** kwargs)
-    except exceptions.JIRAError:
-        if retries <= 0:
-            raise
-        time.sleep(longest_pause / retries)
-        print(f"Failed {func.__name__}, retrying {retries} more times")
-        result = jira_retry_n(retries - 1, longest_pause, func, * args, ** kwargs)
-    return result
 
 
 def get_name_from_person_field(field_contents):
@@ -132,7 +104,7 @@ class EventExtractor:
         if cutoff_date:
             self.cutoff_datetime = datetime.datetime(
                 cutoff_date.year, cutoff_date.month, cutoff_date.day)
-        self.importer = Importer
+        self.importer = importer.BareboneImporter
 
     def get_histories(self):
         return [
@@ -181,34 +153,7 @@ class EventExtractor:
         return events
 
 
-class JiraWithRetry(JIRA):
-    def search_issues(self, * args, ** kwargs):
-        return jira_retry(super().search_issues, * args, ** kwargs)
-
-    def issue(self, * args, ** kwargs):
-        return jira_retry(super().issue, * args, ** kwargs)
-
-
-class Importer:
-    def __init__(self, spec):
-        self._cards_by_id = dict()
-        self._all_issues_by_name = dict()
-        self._parent_name_to_children_names = dict()
-
-        self._retro_cards = set()
-        self._projective_cards = set()
-        self._all_events = []
-
-        try:
-            self.jira = JiraWithRetry(spec.server_url, token_auth=spec.token, validate=True)
-        except exceptions.JIRAError as exc:
-            msg = f"Error establishing a Jira session: {exc.text}"
-            raise RuntimeError(msg) from exc
-        self.item_class = spec.item_class
-
-    def report(self, msg):
-        print(msg)
-
+class Importer(importer.BareboneImporter):
     def _execute_search_query(self, query):
         items = self.jira.search_issues(query, expand="changelog,renderedFields", maxResults=0)
         return items
@@ -279,15 +224,6 @@ class Importer:
             exported_cards_by_id.update(chain)
         return exported_cards_by_id
 
-    def find_card(self, name: str):
-        card = self.jira.issue(name)
-        if not card:
-            msg = (
-                f"{card} not found"
-            )
-            raise ValueError(msg)
-        return card
-
     def _get_and_record_jira_tree(self, query):
         core_results = self._perform_and_process_query(query)
         self._expand_primary_query_to_tree(core_results)
@@ -300,8 +236,6 @@ class Importer:
         return set(new_cards.keys())
 
     def import_data(self, spec, extractor_cls=EventExtractor):
-        issue_names_requiring_events = set()
-
         if spec.retrospective_query:
             self.report("Gathering retro stuff")
             root_results = self._get_and_record_jira_tree(spec.retrospective_query)
@@ -338,30 +272,6 @@ class Importer:
             self.inherit_attributes(item, child)
             self.resolve_inheritance_of_attributes(child_name)
 
-    def _get_contents_of_rendered_field(self, item, field_name):
-        ret = self._get_contents_of_field(item, field_name, "")
-        try:
-            ret = getattr(item.renderedFields, field_name)
-        except AttributeError:
-            pass
-        ret = ret.replace("\r", "")
-        return ret
-
-    def _get_contents_of_field(self, item, field_name, default_value=None):
-        ret = default_value
-        try:
-            ret = item.get_field(field_name) or default_value
-        except AttributeError:
-            pass
-        return ret
-
-    @classmethod
-    def status_to_state(cls, item, jira_string=""):
-        if not jira_string:
-            jira_string = item.get_field("status").name
-        ret = cls._status_to_state(item, jira_string)
-        return ret
-
     @classmethod
     def _item_is_closed_done(cls, item, jira_string):
         resolution = item.get_field("resolution")
@@ -371,12 +281,6 @@ class Importer:
         if jira_string == "Closed" and resolution_text == "Done":
             return True
         return False
-
-    @classmethod
-    def _status_to_state(cls, item, jira_string):
-        if cls._item_is_closed_done(item, jira_string):
-            jira_string = "Done"
-        return JIRA_STATUS_TO_STATE.get(jira_string, "irrelevant")
 
     def merge_jira_item_without_children(self, item):
         result = self.item_class(item.key)
@@ -453,7 +357,7 @@ def stats_to_summary(stats):
 def do_stuff(spec):
     importer = Importer(spec)
     importer.import_data(spec)
-    retro_io = web_utils.get_retro_loader()[1]
-    proj_io = web_utils.get_proj_loader()[1]
+    retro_io = simpledata.get_retro_loader()[1]
+    proj_io = simpledata.get_proj_loader()[1]
     importer.save(retro_io, proj_io, simpledata.EventManager)
     return importer.get_collected_stats()
