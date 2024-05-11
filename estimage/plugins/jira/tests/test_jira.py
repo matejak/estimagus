@@ -3,12 +3,6 @@ import estimage.plugins.jira as tm
 from estimage import data
 
 
-def test_resolve_inheritance_trivial():
-    a = data.BaseCard("")
-    tm.resolve_inheritance_of_attributes("a", dict(a=a), dict())
-
-
-
 def test_format_stats():
     data = tm.Collected(Retrospective=0, Projective=0, Events=0)
     assert tm.stats_to_summary(data) == "Collected nothing."

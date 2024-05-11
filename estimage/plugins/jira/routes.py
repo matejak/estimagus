@@ -1,6 +1,8 @@
 import flask
 import flask_login
 
+from jira import exceptions
+
 from ...webapp import web_utils
 from .. import jira
 from . import forms
@@ -13,7 +15,7 @@ def try_callback_and_produce_error_msg(argument, callback):
     try:
         stats = callback(argument)
         flask.flash(jira.stats_to_summary(stats))
-    except jira.exceptions.JIRAError as exc:
+    except exceptions.JIRAError as exc:
         if 500 <= exc.status_code < 600:
             error_msg = f"Error {exc.status_code} when interacting with Jira, accessing URL {exc.url}"
         else:

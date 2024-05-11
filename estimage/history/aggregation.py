@@ -148,6 +148,7 @@ class Aggregation:
     def __init__(self, statuses=None):
         self.repres = []
         self.statuses = statuses
+        self._card_names = set()
         if not self.statuses:
             self.statuses = status.Statuses()
 
@@ -164,6 +165,7 @@ class Aggregation:
             start: datetime.datetime, end: datetime.datetime,
             statuses: status.Statuses=None) -> "Aggregation":
         ret = cls(statuses)
+        known_cards = set()
         for s in sources:
             for r in convert_card_to_representations_of_leaves(s, start, end, ret.statuses):
                 ret.add_repre(r)
@@ -211,10 +213,15 @@ class Aggregation:
                 raise ValueError(msg) from exc
 
     def add_repre(self, repre):
+        card_name = repre.task_name
         if (self.end and self.end != repre.end) or (self.start and self.start != repre.start):
-            msg = "Incompatible timespan of the representation"
+            msg = f"Incompatible timespan of progress of '{card_name}' {repre.start}--{repre.end}"
+            raise ValueError(msg)
+        if card_name in self._card_names:
+            msg = f"Attempted repeated insertion of progress of '{card_name}'"
             raise ValueError(msg)
         self.repres.append(repre)
+        self._card_names.add(card_name)
 
     def statuses_on(self, when):
         states = set()

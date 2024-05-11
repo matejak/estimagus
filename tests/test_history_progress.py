@@ -44,14 +44,6 @@ def test_irrelevant_statuses():
 
 
 @pytest.fixture
-def simple_card():
-    ret = card.BaseCard("task")
-    ret.point_cost = 8
-    ret.status = "todo"
-    return ret
-
-
-@pytest.fixture
 def repre():
     start = PERIOD_START
     end = LONG_PERIOD_END
