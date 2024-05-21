@@ -10,7 +10,7 @@ import scipy as sp
 import matplotlib
 
 from . import bp
-from .. import web_utils
+from .. import web_utils, routers
 from ... import history, utilities
 from ...statops import func
 from ... import simpledata as webdata
@@ -70,19 +70,12 @@ def get_aggregation(cards_tree_without_duplicates):
 @bp.route('/completion.svg')
 @flask_login.login_required
 def visualize_completion():
-    user = flask_login.current_user
-    user_id = user.get_id()
-
-    all_cards_by_id, model = web_utils.get_all_tasks_by_id_and_user_model("retro", user_id)
-    all_cards = list(all_cards_by_id.values())
-    cards_tree_without_duplicates = utilities.reduce_subsets_from_sets([t for t in all_cards if t.tier == 0])
-
-    aggregation = get_aggregation(cards_tree_without_duplicates)
-
-    model = web_utils.get_user_model(user_id, cards_tree_without_duplicates)
+    router = routers.AggregationRouter(mode="retro")
+    tier0_cards = [c for c in router.cards_tree_without_duplicates if c.tier == 0]
+    aggregation = router.get_aggregation_of_cards(tier0_cards)
 
     # TODO: There may be inconsistencies when the data are newer than when the cutoff ends
-    todo = model.remaining_point_estimate.expected
+    todo = router.model.remaining_point_estimate.expected
     summary = history.aggregation.Summary(aggregation, min(aggregation.end, datetime.datetime.today()))
     todo = summary.cutoff_todo + summary.cutoff_underway
 
