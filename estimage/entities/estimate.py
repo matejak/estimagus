@@ -9,6 +9,24 @@ from .. import utilities
 from ..statops import func
 
 
+def calculate_o_p_ext(m, E, V, L=4):
+    """Given data, calculate optimistic and pessimistic numbers
+    Args:
+        m: Most likely
+        E: Expected
+        V: Variance
+        L: PERT Lambda parameter
+    """
+    dis = math.sqrt(
+        L**2 * E**2
+        - 2 * E * L**2 * m
+        + L**2 * m**2
+        + (4 * L + 12) * V)
+    o = - (dis + L * m - E * L - 2 * E) / 2
+    p = - (-dis + L * m - E * L - 2 * E) / 2
+    return o, p
+
+
 def calculate_o_p(m, E, V):
     """Given data, calculate optimistic and pessimistic numbers
     Args:
@@ -16,7 +34,11 @@ def calculate_o_p(m, E, V):
         E: Expected
         V: Variance
     """
-    dis = math.sqrt(4 * E ** 2 - 8 * E * m + 4 * m ** 2 + 7 * V)
+    dis = math.sqrt(
+        4 * E ** 2
+        - 8 * E * m
+        + 4 * m ** 2
+        + 7 * V)
     o = 3 * E - 2 * m - dis
     p = 3 * E - 2 * m + dis
     return o, p
@@ -45,6 +67,7 @@ class EstimInput:
     optimistic: float
     most_likely: float
     pessimistic: float
+    LAMBDA = 4
 
     def __init__(self, value=0):
         self.optimistic = value
@@ -71,11 +94,12 @@ class EstimInput:
             return cls(expected)
         ballpark_input = cls.from_pert_only(dom, values)
         m = ballpark_input.most_likely
-        o, p = calculate_o_p(m, expected, sigma ** 2)
+        o, p = calculate_o_p_ext(m, expected, sigma ** 2, cls.LAMBDA)
 
         ret = cls(m)
         ret.optimistic = min(o, m)
         ret.pessimistic = max(p, m)
+        ret.LAMBDA = cls.LAMBDA
         return ret
 
     @classmethod
@@ -103,6 +127,7 @@ class Estimate:
     sigma: float
 
     source: EstimInput
+    LAMBDA = 4
 
     def __init__(self, expected, sigma):
         self.expected = expected
@@ -114,12 +139,14 @@ class Estimate:
 
     @classmethod
     def from_input(cls, inp: EstimInput):
-        ret = cls.from_triple(inp.most_likely, inp.optimistic, inp.pessimistic)
+        ret = cls.from_triple(inp.most_likely, inp.optimistic, inp.pessimistic, inp.LAMBDA)
         ret.source = inp.copy()
         return ret
 
     @classmethod
-    def from_triple(cls, most_likely, optimistic, pessimistic):
+    def from_triple(cls, most_likely, optimistic, pessimistic, LAMBDA=None):
+        if LAMBDA is None:
+            LAMBDA = cls.LAMBDA
         if not optimistic <= most_likely <= pessimistic:
             msg = (
                 "The optimistic<=most likely<=pessimistic inequality "
@@ -127,14 +154,15 @@ class Estimate:
                 f"{optimistic:.4g} <= {most_likely:.4g} <= {pessimistic:.4g}"
             )
             raise ValueError(msg)
-        expected = (optimistic + pessimistic + 4 * most_likely) / 6
+        expected = (optimistic + pessimistic + LAMBDA * most_likely) / (LAMBDA + 2)
 
-        variance = (expected - optimistic) * (pessimistic - expected) / 7.0
+        variance = (expected - optimistic) * (pessimistic - expected) / (LAMBDA + 3)
         if variance < 0 and variance > - 1e-10:
             variance = 0
         sigma = math.sqrt(variance)
 
         ret = cls(expected, sigma)
+        ret.LAMBDA = LAMBDA
         ret.source = EstimInput(most_likely)
         ret.source.optimistic = optimistic
         ret.source.pessimistic = pessimistic
@@ -227,11 +255,11 @@ class Estimate:
     # see https://en.wikipedia.org/wiki/PERT_distribution
     @property
     def pert_beta_a(self):
-        return 1 + 4 * (self.source.most_likely - self.source.optimistic) / self.width
+        return 1 + self.LAMBDA * (self.source.most_likely - self.source.optimistic) / self.width
 
     @property
     def pert_beta_b(self):
-        return 1 + 4 * (self.source.pessimistic - self.source.most_likely) / self.width
+        return 1 + self.LAMBDA * (self.source.pessimistic - self.source.most_likely) / self.width
 
     def _get_rv(self):
         return sp.stats.beta(

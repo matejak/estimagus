@@ -1,6 +1,6 @@
 import pytest
 
-from test_data import estiminput_1, estiminput_2
+from test_estimate import estiminput_1, estiminput_2
 from test_inidata import temp_filename
 
 import estimage.data as tm
