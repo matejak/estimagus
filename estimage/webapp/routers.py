@@ -29,9 +29,11 @@ class CardRouter(UserRouter):
 
         try:
             flavor = simpledata.IOs[self.mode][self.IO_BACKEND]
+            saver_type = persistence.SAVERS[self.card_class][self.IO_BACKEND]
+            loader_type = persistence.LOADERS[self.card_class][self.IO_BACKEND]
             # in the special case of the ini backend, the registered loader doesn't call super()
             # when looking up CONFIG_FILENAME
-            self.io = type("io", (flavor, persistence.SAVERS[self.card_class][self.IO_BACKEND], persistence.LOADERS[self.card_class][self.IO_BACKEND]), dict())
+            self.io = type("io", (flavor, saver_type, loader_type), dict())
         except KeyError as exc:
             msg = "Unknown specification of source: {self.mode}"
             raise KeyError(msg) from exc
@@ -57,9 +59,14 @@ class AggregationRouter(ModelRouter):
         self.all_events = simpledata.EventManager()
         self.all_events.load()
 
+    @property
+    def aggregation(self):
+        cards = self.cards_tree_without_duplicates
+        return self.get_aggregation_of_cards(cards)
+
     def get_aggregation_of_names(self, names):
         cards = [self.all_cards_by_id[n] for n in names]
-        return get_aggregation_of_cards(cards)
+        return self.get_aggregation_of_cards(cards)
 
     def get_aggregation_of_cards(self, cards):
         statuses = flask.current_app.get_final_class("Statuses")()

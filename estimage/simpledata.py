@@ -1,4 +1,5 @@
 import typing
+import collections
 import pathlib
 import datetime
 import dataclasses
@@ -27,6 +28,9 @@ class IniInDirMixin:
         return ret
 
 
+IOs = collections.defaultdict(dict)
+
+
 class RetroCardIO(IniInDirMixin):
     CONFIG_BASENAME = "retrospective.ini"
     WHAT_IS_THIS = "retrospective card"
@@ -35,6 +39,10 @@ class RetroCardIO(IniInDirMixin):
 class ProjCardIO(IniInDirMixin):
     CONFIG_BASENAME = "projective.ini"
     WHAT_IS_THIS = "projective card"
+
+
+IOs["retro"]["ini"] = RetroCardIO
+IOs["proj"]["ini"] = ProjCardIO
 
 
 class UserPollsterBase(data.Pollster):
