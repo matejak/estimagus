@@ -21,5 +21,9 @@ s: algsys([e1, e2, e3, e4], [a, b, o, p]);
 
 sol: first(s);
 
-o: sol[3];
-p: sol[4];
+o_expr: sol[3];
+p_expr: sol[4];
+
+s2: algsys([e1, e2, e3, e4], [V, a, b, m]);
+
+v_expr: first(s2)[1];

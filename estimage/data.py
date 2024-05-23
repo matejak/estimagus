@@ -10,9 +10,3 @@ from .entities.composition import Composition, MemoryComposition
 from .entities.pollster import Pollster
 from .entities.model import EstiModel
 from .entities.event import Event, EventManager
-
-
-def pert_compute_expected_value(dom, values):
-    contributions = dom * values
-    imbalance = contributions.sum() / values.sum()
-    return imbalance

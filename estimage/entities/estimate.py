@@ -15,7 +15,7 @@ def calculate_o_p_ext(m, E, V, L=4):
         m: Most likely
         E: Expected
         V: Variance
-        L: Pert's Lambda parameter
+        L: PERT Lambda parameter
     """
     dis = math.sqrt(
         L**2 * E**2
@@ -67,6 +67,7 @@ class EstimInput:
     optimistic: float
     most_likely: float
     pessimistic: float
+    LAMBDA = 4
 
     def __init__(self, value=0):
         self.optimistic = value
@@ -98,6 +99,7 @@ class EstimInput:
         ret = cls(m)
         ret.optimistic = min(o, m)
         ret.pessimistic = max(p, m)
+        ret.LAMBDA = cls.LAMBDA
         return ret
 
     @classmethod
@@ -137,12 +139,14 @@ class Estimate:
 
     @classmethod
     def from_input(cls, inp: EstimInput):
-        ret = cls.from_triple(inp.most_likely, inp.optimistic, inp.pessimistic)
+        ret = cls.from_triple(inp.most_likely, inp.optimistic, inp.pessimistic, inp.LAMBDA)
         ret.source = inp.copy()
         return ret
 
     @classmethod
-    def from_triple(cls, most_likely, optimistic, pessimistic):
+    def from_triple(cls, most_likely, optimistic, pessimistic, LAMBDA=None):
+        if LAMBDA is None:
+            LAMBDA = cls.LAMBDA
         if not optimistic <= most_likely <= pessimistic:
             msg = (
                 "The optimistic<=most likely<=pessimistic inequality "
@@ -150,14 +154,15 @@ class Estimate:
                 f"{optimistic:.4g} <= {most_likely:.4g} <= {pessimistic:.4g}"
             )
             raise ValueError(msg)
-        expected = (optimistic + pessimistic + cls.LAMBDA * most_likely) / (cls.LAMBDA + 2)
+        expected = (optimistic + pessimistic + LAMBDA * most_likely) / (LAMBDA + 2)
 
-        variance = (expected - optimistic) * (pessimistic - expected) / 7.0
+        variance = (expected - optimistic) * (pessimistic - expected) / (LAMBDA + 3)
         if variance < 0 and variance > - 1e-10:
             variance = 0
         sigma = math.sqrt(variance)
 
         ret = cls(expected, sigma)
+        ret.LAMBDA = LAMBDA
         ret.source = EstimInput(most_likely)
         ret.source.optimistic = optimistic
         ret.source.pessimistic = pessimistic
