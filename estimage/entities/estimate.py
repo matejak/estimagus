@@ -9,6 +9,24 @@ from .. import utilities
 from ..statops import func
 
 
+def calculate_o_p_ext(m, E, V, L=4):
+    """Given data, calculate optimistic and pessimistic numbers
+    Args:
+        m: Most likely
+        E: Expected
+        V: Variance
+        L: Pert's Lambda parameter
+    """
+    dis = math.sqrt(
+        L**2 * E**2
+        - 2 * E * L**2 * m
+        + L**2 * m**2
+        + (4 * L + 12) * V)
+    o = - (dis + L * m - E * L - 2 * E) / 2
+    p = - (-dis + L * m - E * L - 2 * E) / 2
+    return o, p
+
+
 def calculate_o_p(m, E, V):
     """Given data, calculate optimistic and pessimistic numbers
     Args:
@@ -16,7 +34,11 @@ def calculate_o_p(m, E, V):
         E: Expected
         V: Variance
     """
-    dis = math.sqrt(4 * E ** 2 - 8 * E * m + 4 * m ** 2 + 7 * V)
+    dis = math.sqrt(
+        4 * E ** 2
+        - 8 * E * m
+        + 4 * m ** 2
+        + 7 * V)
     o = 3 * E - 2 * m - dis
     p = 3 * E - 2 * m + dis
     return o, p
@@ -71,7 +93,7 @@ class EstimInput:
             return cls(expected)
         ballpark_input = cls.from_pert_only(dom, values)
         m = ballpark_input.most_likely
-        o, p = calculate_o_p(m, expected, sigma ** 2)
+        o, p = calculate_o_p_ext(m, expected, sigma ** 2, cls.LAMBDA)
 
         ret = cls(m)
         ret.optimistic = min(o, m)
