@@ -38,7 +38,7 @@ def late_event():
 
 @pytest.fixture
 def mgr():
-    return data.EventManager(memory.MemoryEventsIO)
+    return data.EventManager()
 
 
 def test_event_manager_trivial(mgr, early_event):

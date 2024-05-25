@@ -315,8 +315,8 @@ def tree_view():
 
 
 def executive_summary_of_points_and_velocity(cards, cls=history.Summary):
-    all_events = webdata.EventManager()
-    all_events.load()
+    all_events = data.EventManager()
+    all_events.load(webdata.IOs["events"]["ini"])
 
     start, end = flask.current_app.get_config_option("RETROSPECTIVE_PERIOD")
     cutoff_date = min(datetime.datetime.today(), end)

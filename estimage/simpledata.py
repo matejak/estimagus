@@ -41,8 +41,14 @@ class ProjCardIO(IniInDirMixin):
     WHAT_IS_THIS = "projective card"
 
 
+class EventsIO(IniInDirMixin, event.ini.IniEventsIO):
+    CONFIG_BASENAME = "events.ini"
+    WHAT_IS_THIS = "events manager"
+
+
 IOs["retro"]["ini"] = RetroCardIO
 IOs["proj"]["ini"] = ProjCardIO
+IOs["events"]["ini"] = EventsIO
 
 
 class UserPollsterBase(data.Pollster):
@@ -160,17 +166,6 @@ class Context:
         if self.own_estimation_exists:
             ret = "own"
         return ret
-
-
-class EventManager(data.EventManager):
-    CONFIG_BASENAME = "events.ini"
-
-    def __init__(self, * args, ** kwargs):
-        class eventmgr_io_class(IniInDirMixin, event.ini.IniEventsIO):
-            CONFIG_BASENAME = self.CONFIG_BASENAME
-            WHAT_IS_THIS = "events manager"
-
-        super().__init__(* args, io_cls=eventmgr_io_class, ** kwargs)
 
 
 class AppData(inidata.IniAppdata):

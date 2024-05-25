@@ -1,8 +1,8 @@
 import flask
 import flask_login
 
-from .. import simpledata, persistence, utilities, history
-from . import web_utils
+from .. import data, simpledata, persistence, utilities, history
+from . import web_utils, CACHE
 
 
 class Router:
@@ -18,29 +18,51 @@ class UserRouter(Router):
         self.user_id = self.user.get_id()
 
 
-class CardRouter(UserRouter):
+class IORouter(Router):
     IO_BACKEND = "ini"
 
     def __init__(self, ** kwargs):
         super().__init__(** kwargs)
 
-        self.mode = kwargs["mode"]
-        self.card_class = flask.current_app.get_final_class("BaseCard")
+        self.event_io = simpledata.IOs["events"][self.IO_BACKEND]
 
+    def get_card_io(self, mode):
         try:
             flavor = simpledata.IOs[self.mode][self.IO_BACKEND]
             saver_type = persistence.SAVERS[self.card_class][self.IO_BACKEND]
             loader_type = persistence.LOADERS[self.card_class][self.IO_BACKEND]
             # in the special case of the ini backend, the registered loader doesn't call super()
             # when looking up CONFIG_FILENAME
-            self.io = type("io", (flavor, saver_type, loader_type), dict())
+            cards_io = type("cards_io", (flavor, saver_type, loader_type), dict())
         except KeyError as exc:
             msg = "Unknown specification of source: {self.mode}"
             raise KeyError(msg) from exc
+        return cards_io
 
-        self.all_cards_by_id = self.io.get_loaded_cards_by_id(self.card_class)
+    def get_ios_by_target(self):
+        ret = dict()
+        ret["events"] = self.event_io
+        ret["retro"] = get_card_io("retro")
+        ret["proj"] = get_card_io("proj")
+        return ret
+
+
+class CardRouter(UserRouter, IORouter):
+    def __init__(self, ** kwargs):
+        super().__init__(** kwargs)
+
+        self.mode = kwargs["mode"]
+        self.card_class = flask.current_app.get_final_class("BaseCard")
+        self.cards_io = self.get_card_io(self.mode)
+
+        self.all_cards_by_id = self.get_all_cards_by_id()
         cards_list = list(self.all_cards_by_id.values())
         self.cards_tree_without_duplicates = utilities.reduce_subsets_from_sets(cards_list)
+
+    @CACHE.cached(timeout=300, key_prefix='all_cards_by_id')
+    def get_all_cards_by_id(self):
+        ret = self.cards_io.get_loaded_cards_by_id(self.card_class)
+        return ret
 
 
 class ModelRouter(CardRouter):
@@ -56,8 +78,13 @@ class AggregationRouter(ModelRouter):
         super().__init__(** kwargs)
 
         self.start, self.end = flask.current_app.get_config_option("RETROSPECTIVE_PERIOD")
-        self.all_events = simpledata.EventManager()
-        self.all_events.load()
+        self.all_events = self.get_all_events()
+
+    @CACHE.cached(timeout=300, key_prefix='all_events')
+    def get_all_events(self):
+        all_events = data.EventManager()
+        all_events.load(self.event_io)
+        return all_events
 
     @property
     def aggregation(self):

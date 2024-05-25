@@ -5,6 +5,7 @@ matplotlib
 flask
 flask-login
 flask-wtf
+flask-caching
 bootstrap-flask
 
 oauthlib

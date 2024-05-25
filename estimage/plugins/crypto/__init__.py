@@ -158,12 +158,10 @@ class Importer(redhat_jira.Importer):
             return super()._status_to_state(item, jira_string)
 
 
-def do_stuff(spec):
+def do_stuff(spec, ios_by_target):
     importer = Importer(spec)
-    importer.import_data(spec)
-    retro_io = web_utils.get_retro_loader()[1]
-    proj_io = web_utils.get_proj_loader()[1]
-    importer.save(retro_io, proj_io, simpledata.EventManager)
+    importer.import_data()
+    importer.save(ios_by_target)
     return importer.get_collected_stats()
 
 

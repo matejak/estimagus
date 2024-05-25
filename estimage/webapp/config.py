@@ -21,6 +21,8 @@ class CommonConfig:
         "https://accounts.google.com/.well-known/openid-configuration"
     )
 
+    CACHE_TYPE = os.environ.get("CACHE_TYPE", "NullCache")
+
 
 class Config(CommonConfig):
     DATA_DIR = os.environ.get("DATA_DIR", "data")

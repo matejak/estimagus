@@ -115,8 +115,8 @@ def save_data(what):
 def reset_data():
     with open("/tmp/estimage_demo.json", "w") as f:
         json.dump(dict(), f)
-    mgr = simpledata.EventManager()
-    pathlib.Path(mgr._io_cls.CONFIG_FILENAME).unlink(missing_ok=True)
+    io_cls = simpledata.IOs["events"]["ini"]
+    pathlib.Path(io_cls.CONFIG_FILENAME).unlink(missing_ok=True)
 
 
 class NotToday:
@@ -134,7 +134,7 @@ class NotToday:
 
 def start(cards, loader, start_date):
     date = start_date - datetime.timedelta(days=20)
-    mgr = simpledata.EventManager()
+    mgr = data.EventManager()
     for t in cards:
         evt = data.Event(t.name, "state", date)
         evt.value_before = "irrelevant"
@@ -143,19 +143,19 @@ def start(cards, loader, start_date):
 
         t.status = "todo"
         t.save_metadata(loader)
-    mgr.save()
+    mgr.save(simpledata.IOs["events"]["ini"])
 
 
 def begin_card(card, loader, start_date, day_index):
     date = start_date + datetime.timedelta(days=day_index)
-    mgr = simpledata.EventManager()
-    mgr.load()
+    mgr = data.EventManager()
+    mgr.load(simpledata.IOs["events"]["ini"])
     if len(mgr.get_chronological_task_events_by_type(card.name)["state"]) < 2:
         evt = data.Event(card.name, "state", date)
         evt.value_before = "todo"
         evt.value_after = "in_progress"
         mgr.add_event(evt)
-        mgr.save()
+        mgr.save(simpledata.IOs["events"]["ini"])
 
     card.status = "in_progress"
     card.save_metadata(loader)
@@ -163,13 +163,13 @@ def begin_card(card, loader, start_date, day_index):
 
 def conclude_card(card, loader, start_date, day_index):
     date = start_date + datetime.timedelta(days=day_index)
-    mgr = simpledata.EventManager()
-    mgr.load()
+    mgr = data.EventManager()
+    mgr.load(simpledata.IOs["events"]["ini"])
     evt = data.Event(card.name, "state", date)
     evt.value_before = "in_progress"
     evt.value_after = "done"
     mgr.add_event(evt)
-    mgr.save()
+    mgr.save(simpledata.IOs["events"]["ini"])
 
     card.status = "done"
     card.save_metadata(loader)

@@ -51,7 +51,11 @@ class BareboneImporter:
         except exceptions.JIRAError as exc:
             msg = f"Error establishing a Jira session: {exc.text}"
             raise RuntimeError(msg) from exc
+
         self.item_class = spec.item_class
+        self.retrospective_query = spec.retrospective_query
+        self.projective_query = spec.projective_query
+        self.cutoff_date = spec.cutoff_date
 
     def report(self, msg):
         print(msg)

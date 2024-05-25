@@ -119,12 +119,12 @@ def test_save_something2_load_same(cardio_inifile_cls):
 
 
 def test_eventmgr_storage(eventmgr_relevant_io, early_event, less_early_event):
-    mgr_one = data.EventManager(eventmgr_relevant_io)
+    mgr_one = data.EventManager()
     mgr_one.add_event(early_event)
-    mgr_one.save()
+    mgr_one.save(eventmgr_relevant_io)
 
-    mgr_two = data.EventManager(eventmgr_relevant_io)
-    mgr_two.load()
+    mgr_two = data.EventManager()
+    mgr_two.load(eventmgr_relevant_io)
     assert mgr_two.get_chronological_task_events_by_type(early_event.task_name) == {None: [early_event]}
 
     less_early_event.value_before = "rano"
@@ -132,9 +132,9 @@ def test_eventmgr_storage(eventmgr_relevant_io, early_event, less_early_event):
     less_early_event.task_name = "den"
     mgr_one.add_event(less_early_event)
 
-    mgr_one.save()
-    mgr_two = data.EventManager(eventmgr_relevant_io)
-    mgr_two.load()
+    mgr_one.save(eventmgr_relevant_io)
+    mgr_two = data.EventManager()
+    mgr_two.load(eventmgr_relevant_io)
 
     assert mgr_two.get_chronological_task_events_by_type(
         less_early_event.task_name) == {None: [less_early_event]}
@@ -142,36 +142,36 @@ def test_eventmgr_storage(eventmgr_relevant_io, early_event, less_early_event):
     less_early_event.task_name = early_event.task_name
     mgr_one.add_event(less_early_event)
 
-    mgr_one.save()
-    mgr_two = data.EventManager(eventmgr_relevant_io)
-    mgr_two.load()
+    mgr_one.save(eventmgr_relevant_io)
+    mgr_two = data.EventManager()
+    mgr_two.load(eventmgr_relevant_io)
 
     assert mgr_two.get_chronological_task_events_by_type(early_event.task_name) == {None: [early_event, less_early_event]}
 
 
 def test_eventmgr_storage_float(eventmgr_relevant_io, early_event):
-    mgr_one = data.EventManager(eventmgr_relevant_io)
+    mgr_one = data.EventManager()
     early_event.value_after = 8.5
     early_event.value_before = 5.4
     early_event.quantity = "points"
     mgr_one.add_event(early_event)
-    mgr_one.save()
+    mgr_one.save(eventmgr_relevant_io)
 
-    mgr_two = data.EventManager(eventmgr_relevant_io)
-    mgr_two.load()
+    mgr_two = data.EventManager()
+    mgr_two.load(eventmgr_relevant_io)
     assert mgr_two.get_chronological_task_events_by_type(early_event.task_name) == {"points": [early_event]}
 
 
 def test_eventmgr_storage_state(eventmgr_relevant_io, early_event):
-    mgr_one = data.EventManager(eventmgr_relevant_io)
+    mgr_one = data.EventManager()
     early_event.value_after = "abandoned"
     early_event.value_before = "in_progress"
     early_event.quantity = "state"
     mgr_one.add_event(early_event)
-    mgr_one.save()
+    mgr_one.save(eventmgr_relevant_io)
 
-    mgr_two = data.EventManager(eventmgr_relevant_io)
-    mgr_two.load()
+    mgr_two = data.EventManager()
+    mgr_two.load(eventmgr_relevant_io)
     assert mgr_two.get_chronological_task_events_by_type(early_event.task_name) == {"state": [early_event]}
 
 
