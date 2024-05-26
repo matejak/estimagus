@@ -175,9 +175,9 @@ class ImporterWithStatus(Importer):
     STATUS_SUMMARY_OLD = "customfield_12317299"
     STATUS_SUMMARY_NEW = "customfield_12320841"
 
-    def save(self, retro_card_io_class, proj_card_io_class, events_io_class):
+    def save(self, ios_by_target):
         apply_some_events_into_issues(self._cards_by_id, self._all_events)
-        return super().save(retro_card_io_class, proj_card_io_class, events_io_class)
+        return super().save(ios_by_target)
 
     def _get_status_summary(self, item):
         ret = self._get_contents_of_rendered_field(item, self.STATUS_SUMMARY_OLD)

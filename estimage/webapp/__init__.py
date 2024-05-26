@@ -11,6 +11,7 @@ from jinja2 import loaders
 LOGIN = LoginManager()
 CACHE = Cache()
 
+
 from .. import data, simpledata, plugins, PluginResolver
 from . import users, config
 
@@ -101,6 +102,7 @@ class PluginFriendlyMultiheadFlask(PluginFriendlyFlask):
 
     def _new_head(self, name):
         self._plugin_resolvers[name] = PluginResolver()
+        self._plugin_resolvers[name].global_symbol_prefix = name
         self._plugin_resolvers[name].add_known_extendable_classes()
 
         self._template_overrides_maps[name] = dict()
@@ -147,14 +149,14 @@ def create_app():
     return app
 
 
-def create_app_common(app, config_class):
+def create_app_common(app):
     Bootstrap5(app)
 
     LOGIN.init_app(app)
     LOGIN.user_loader(users.load_user)
     LOGIN.login_view = "login.auto_login"
 
-    CACHE.init_app(app, config={'CACHE_TYPE': 'SimpleCache'})
+    CACHE.init_app(app, config=app.config)
 
     if not app.debug and not app.testing:
         pass
@@ -181,7 +183,7 @@ def create_app_singlehead(config_class=config.Config):
         if bp:
             app.register_blueprint(bp, url_prefix="/plugins")
 
-    create_app_common(app, config_class)
+    create_app_common(app)
 
     return app
 
@@ -198,7 +200,7 @@ def create_app_multihead(config_class=config.MultiheadConfig):
     app.register_blueprint(login_bp)
     app.register_blueprint(neck_bp)
 
-    create_app_common(app, config_class)
+    create_app_common(app)
 
     return app
 

@@ -118,8 +118,8 @@ class Importer(redhat_jira.Importer):
         new_epic_names = self.put_cards_under_artificial_epics(root_results)
         return new_cards.union(new_epic_names)
 
-    def import_data(self, spec):
-        super().import_data(spec)
+    def import_data(self):
+        super().import_data()
         self.distribute_subtasks_points_to_tasks()
 
     def merge_jira_item_without_children(self, item):

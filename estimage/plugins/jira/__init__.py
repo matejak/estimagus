@@ -304,12 +304,14 @@ class Importer(importer.BareboneImporter):
         return result
 
     def save(self, ios_by_target):
+        retro_card_io_class = ios_by_target["retro"]
         if self._retro_cards:
             retro_card_io_class.forget_all()
-            save_exported_jira_tasks(self._cards_by_id, self._retro_cards, ios_by_target["retro"])
+            save_exported_jira_tasks(self._cards_by_id, self._retro_cards, retro_card_io_class)
+        proj_card_io_class = ios_by_target["proj"]
         if self._projective_cards:
             proj_card_io_class.forget_all()
-            save_exported_jira_tasks(self._cards_by_id, self._projective_cards, ios_by_target["proj"])
+            save_exported_jira_tasks(self._cards_by_id, self._projective_cards, proj_card_io_class)
 
         storer = data.EventManager()
         for e in self._all_events:

@@ -3,7 +3,7 @@ import flask_login
 
 from jira import exceptions
 
-from ...webapp import web_utils
+from ...webapp import web_utils, routers
 from .. import jira
 from . import forms
 
