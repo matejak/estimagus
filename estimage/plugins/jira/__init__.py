@@ -4,9 +4,7 @@ import collections
 import typing
 
 from . import importer
-from ...entities import card
-from ...entities import event as evts
-from ... import simpledata
+from ... import data, simpledata
 
 
 JIRA_PRIORITY_TO_VALUE = {
@@ -36,16 +34,16 @@ class CardSynchronizer:
         ret = InputSpec()
         ret.server_url = self.server_url
         ret.token = self.token
-        ret.item_class = card.BaseCard
+        ret.item_class = data.BaseCard
         return ret
 
-    def get_tracker_points_of(self, c: card.BaseCard) -> float:
+    def get_tracker_points_of(self, c: data.BaseCard) -> float:
         spec = self._get_spec()
         spec.item_class = c.__class__
         importer = self.importer_cls(spec)
         return importer.get_points_of(c)
 
-    def insert_points_into_tracker(self, c: card.BaseCard, target_points: float):
+    def insert_points_into_tracker(self, c: data.BaseCard, target_points: float):
         spec = self._get_spec()
         spec.item_class = c.__class__
         importer = self.importer_cls(spec)
@@ -115,7 +113,7 @@ class EventExtractor:
     def _field_to_event(self, date, field_name, former_value, new_value):
         evt = None
         if field_name == "status":
-            evt = evts.Event(self.task.key, "state", date)
+            evt = data.Event(self.task.key, "state", date)
             evt.value_before = self.importer.status_to_state(self.task, former_value)
             evt.value_after = self.importer.status_to_state(self.task, new_value)
             evt.msg = f"Status changed from '{former_value}' to '{new_value}'"
@@ -212,7 +210,7 @@ class Importer(importer.BareboneImporter):
             card = self.merge_jira_item_without_children(issue)
         return card
 
-    def export_issue_tree_to_cards(self, root_names: typing.Iterable[str]) -> dict[str, card.BaseCard]:
+    def export_issue_tree_to_cards(self, root_names: typing.Iterable[str]) -> dict[str, data.BaseCard]:
         exported_cards_by_id = dict()
         for name in root_names:
             exported_cards_by_id[name] = self._get_or_create_card(name)
@@ -235,16 +233,16 @@ class Importer(importer.BareboneImporter):
         self.resolve_inheritance(new_cards)
         return set(new_cards.keys())
 
-    def import_data(self, spec, extractor_cls=EventExtractor):
-        if spec.retrospective_query:
+    def import_data(self, extractor_cls=EventExtractor):
+        if self.retrospective_query:
             self.report("Gathering retro stuff")
-            root_results = self._get_and_record_jira_tree(spec.retrospective_query)
+            root_results = self._get_and_record_jira_tree(self.retrospective_query)
             new_cards = self._export_jira_tree_to_cards(root_results)
             self._retro_cards.update(new_cards)
 
-        if spec.projective_query:
+        if self.projective_query:
             self.report("Gathering proj stuff")
-            root_results = self._get_and_record_jira_tree(spec.projective_query)
+            root_results = self._get_and_record_jira_tree(self.projective_query)
             new_cards = self._export_jira_tree_to_cards(root_results)
             self._projective_cards.update(new_cards)
 
@@ -252,7 +250,7 @@ class Importer(importer.BareboneImporter):
         for name in new_cards:
             if name not in self._all_issues_by_name:
                 continue
-            extractor = extractor_cls(self._all_issues_by_name[name], spec.cutoff_date)
+            extractor = extractor_cls(self._all_issues_by_name[name], self.cutoff_date)
             new_events = extractor.get_task_events(self)
             self._all_events.extend(new_events)
 
@@ -305,18 +303,20 @@ class Importer(importer.BareboneImporter):
 
         return result
 
-    def save(self, retro_card_io_class, proj_card_io_class, event_manager_class):
+    def save(self, ios_by_target):
+        retro_card_io_class = ios_by_target["retro"]
         if self._retro_cards:
             retro_card_io_class.forget_all()
             save_exported_jira_tasks(self._cards_by_id, self._retro_cards, retro_card_io_class)
+        proj_card_io_class = ios_by_target["proj"]
         if self._projective_cards:
             proj_card_io_class.forget_all()
             save_exported_jira_tasks(self._cards_by_id, self._projective_cards, proj_card_io_class)
 
-        storer = event_manager_class()
+        storer = data.EventManager()
         for e in self._all_events:
             storer.add_event(e)
-        storer.save()
+        storer.save(ios_by_target["events"])
 
     def get_collected_stats(self):
         ret = Collected(
@@ -354,10 +354,8 @@ def stats_to_summary(stats):
     return _format_string_stats_into_sentence(pieces)
 
 
-def do_stuff(spec):
+def do_stuff(spec, ios_by_target):
     importer = Importer(spec)
-    importer.import_data(spec)
-    retro_io = simpledata.get_retro_loader()[1]
-    proj_io = simpledata.get_proj_loader()[1]
-    importer.save(retro_io, proj_io, simpledata.EventManager)
+    importer.import_data()
+    importer.save(ios_by_target)
     return importer.get_collected_stats()

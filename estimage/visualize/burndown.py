@@ -6,7 +6,7 @@ import numpy as np
 
 from ..entities import status
 from . import utils
-from .. import history, PluginResolver
+from .. import history, PluginResolver, utilities
 
 
 class StatusStyle(typing.NamedTuple):

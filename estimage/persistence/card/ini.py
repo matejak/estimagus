@@ -74,6 +74,10 @@ class IniCardSaver(IniCardSaverBase):
 
 @persistence.loader_of(data.BaseCard, "ini")
 class IniCardLoader(IniCardLoaderBase):
+    def __init__(self):
+        super().__init__()
+        self._card_cache = dict()
+
     def load_title_and_desc(self, t):
         t.title = self._get_our(t, "title")
         t.description = self._get_our(t, "description")
@@ -81,20 +85,28 @@ class IniCardLoader(IniCardLoaderBase):
     def load_costs(self, t):
         t.point_cost = float(self._get_our(t, "point_cost"))
 
+    def _get_or_create_card_named(self, name, parent=None):
+        if name in self._card_cache:
+            c = self._card_cache[name]
+        else:
+            c = data.BaseCard(name)
+            if parent:
+                c.parent = parent
+            c.load_data_by_loader(self)
+            self._card_cache[name] = c
+        return c
+
     def load_family_records(self, t):
         all_deps = self._get_our(t, "depnames", "")
         for n in self._unpack_list(all_deps):
             if not n:
                 continue
-            new = data.BaseCard(n)
-            new.parent = t
-            new.load_data_by_loader(self)
+            new = self._get_or_create_card_named(n, t)
             t.add_element(new)
         parent_id = self._get_our(t, "parent", "")
         parent_known_notyet_fetched = parent_id and t.parent is None
         if parent_known_notyet_fetched:
-            parent = data.BaseCard(parent_id)
-            parent.load_data_by_loader(self)
+            parent = self._get_or_create_card_named(parent_id)
             t.parent = parent
 
     def load_assignee_and_collab(self, t):

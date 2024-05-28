@@ -11,7 +11,16 @@ def parse_csv(csv):
         return csv.split(",")
 
 
-class CommonConfig:
+class CacheConfig:
+    CACHE_TYPE = os.environ.get("CACHE_TYPE", "NullCache")
+
+
+for key, val in os.environ.items():
+    if key.startswith("CACHE_"):
+        setattr(CacheConfig, key, val)
+
+
+class CommonConfig(CacheConfig):
     SECRET_KEY = os.environ.get("SECRET_KEY")
     LOGIN_PROVIDER_NAME = os.environ.get("LOGIN_PROVIDER_NAME", "autologin")
 

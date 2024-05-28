@@ -3,17 +3,17 @@ import flask_login
 
 from jira import exceptions
 
-from ...webapp import web_utils
+from ...webapp import web_utils, routers
 from .. import jira
 from . import forms
 
 bp = flask.Blueprint("jira", __name__, template_folder="templates")
 
 
-def try_callback_and_produce_error_msg(argument, callback):
+def try_callback_and_produce_error_msg(callback, * args):
     error_msg = ""
     try:
-        stats = callback(argument)
+        stats = callback(* args)
         flask.flash(jira.stats_to_summary(stats))
     except exceptions.JIRAError as exc:
         if 500 <= exc.status_code < 600:
@@ -26,7 +26,8 @@ def try_callback_and_produce_error_msg(argument, callback):
 
 
 def do_stuff_and_flash_messages(task_spec, callback):
-    error_msg = try_callback_and_produce_error_msg(task_spec, callback)
+    io_router = routers.IORouter()
+    error_msg = try_callback_and_produce_error_msg(callback, task_spec, io_router.get_ios_by_target())
 
     if "auth" in error_msg:
         error_msg += " Perhaps there is a typo in the token, or the token expired?"

@@ -48,9 +48,8 @@ class Event:
 class EventManager:
     _events: typing.Dict[str, typing.List[Event]]
 
-    def __init__(self, io_cls):
+    def __init__(self):
         self._events = collections.defaultdict(list)
-        self._io_cls = io_cls
 
     def add_event(self, event: Event):
         events = self._events[event.task_name]
@@ -71,13 +70,13 @@ class EventManager:
 
         return events_by_type
 
-    def save(self):
-        with self._io_cls.get_saver() as saver:
+    def save(self, io_cls):
+        with io_cls.get_saver() as saver:
             for subject_name, its_events in self._events.items():
                 saver.save_events(subject_name, its_events)
 
-    def load(self):
-        with self._io_cls.get_loader() as loader:
+    def load(self, io_cls):
+        with io_cls.get_loader() as loader:
             events_task_names = loader.load_event_names()
             for name in events_task_names:
                 self._events[name] = loader.load_events_of(name)

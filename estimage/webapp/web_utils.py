@@ -27,8 +27,6 @@ def head_url_for(endpoint, * args, ** kwargs):
 
 def _get_card_loader(flavor, backend):
     card_class = flask.current_app.get_final_class("BaseCard")
-    # in the special case of the ini backend, the registered loader doesn't call super()
-    # when looking up CONFIG_FILENAME
     loader = type("loader", (flavor, persistence.SAVERS[card_class][backend], persistence.LOADERS[card_class][backend]), dict())
     return card_class, loader
 

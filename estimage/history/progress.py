@@ -185,6 +185,12 @@ class Progress:
             events_by_type[evt.quantity].append(evt)
         self.process_events_by_type(events_by_type)
 
+    def _create_int_status_event(self, status_event):
+        ret = data.Event(status_event.task_name, status_event.quantity, status_event.time)
+        ret.value_before = self.statuses.int(status_event.value_before)
+        ret.value_after = self.statuses.int(status_event.value_after)
+        return ret
+
     def process_events_by_type(self, events_by_type: typing.Mapping[str, typing.List[data.Event]]):
         TYPES_TO_TIMELINE = {
             "time": self.time_timeline,
@@ -192,11 +198,12 @@ class Progress:
             "state": self.status_timeline,
             "project": self.relevancy_timeline,
         }
+
+        int_status_events = list()
         for status_event in events_by_type.get("state", frozenset()):
-            val = status_event.value_before
-            status_event.value_before = self.statuses.int(val)
-            val = status_event.value_after
-            status_event.value_after = self.statuses.int(val)
+            int_evt = self._create_int_status_event(status_event)
+            int_status_events.append(int_evt)
+        events_by_type["state"] = int_status_events
 
         for event_type, tline in TYPES_TO_TIMELINE.items():
             events = events_by_type.get(event_type, [])

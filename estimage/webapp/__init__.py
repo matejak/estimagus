@@ -4,8 +4,13 @@ import os
 
 import flask
 from flask_login import LoginManager
+from flask_caching import Cache
 from flask_bootstrap import Bootstrap5
 from jinja2 import loaders
+
+LOGIN = LoginManager()
+CACHE = Cache()
+
 
 from .. import data, simpledata, plugins, PluginResolver
 from . import users, config
@@ -15,8 +20,6 @@ from .main import bp as main_bp
 from .vis import bp as vis_bp
 from .login import bp as login_bp
 from .persons import bp as persons_bp
-
-login = LoginManager()
 
 
 class PluginFriendlyFlask(flask.Flask):
@@ -99,6 +102,7 @@ class PluginFriendlyMultiheadFlask(PluginFriendlyFlask):
 
     def _new_head(self, name):
         self._plugin_resolvers[name] = PluginResolver()
+        self._plugin_resolvers[name].global_symbol_prefix = name
         self._plugin_resolvers[name].add_known_extendable_classes()
 
         self._template_overrides_maps[name] = dict()
@@ -145,9 +149,21 @@ def create_app():
     return app
 
 
+def create_app_common(app):
+    Bootstrap5(app)
+
+    LOGIN.init_app(app)
+    LOGIN.user_loader(users.load_user)
+    LOGIN.login_view = "login.auto_login"
+
+    CACHE.init_app(app, config=app.config)
+
+    if not app.debug and not app.testing:
+        pass
+
+
 def create_app_singlehead(config_class=config.Config):
     app = PluginFriendlySingleheadFlask(__name__)
-    # app.jinja_env.globals.update(dict(State=data.State))
     app.config.from_object(config_class)
     config_class = simpledata.AppData
     config_class.DATADIR = pathlib.Path(app.config["DATA_DIR"])
@@ -165,21 +181,14 @@ def create_app_singlehead(config_class=config.Config):
         bp = plugins.get_plugin_blueprint(plugin)
         if bp:
             app.register_blueprint(bp, url_prefix="/plugins")
-    Bootstrap5(app)
 
-    login.init_app(app)
-    login.user_loader(users.load_user)
-    login.login_view = "login.auto_login"
-
-    if not app.debug and not app.testing:
-        pass
+    create_app_common(app)
 
     return app
 
 
 def create_app_multihead(config_class=config.MultiheadConfig):
     app = PluginFriendlyMultiheadFlask(__name__)
-    # app.jinja_env.globals.update(dict(State=data.State))
     app.config.from_object(config_class)
     app.config["head"] = collections.defaultdict(dict)
 
@@ -189,14 +198,7 @@ def create_app_multihead(config_class=config.MultiheadConfig):
     app.register_blueprint(login_bp)
     app.register_blueprint(neck_bp)
 
-    Bootstrap5(app)
-
-    login.init_app(app)
-    login.user_loader(users.load_user)
-    login.login_view = "login.auto_login"
-
-    if not app.debug and not app.testing:
-        pass
+    create_app_common(app)
 
     return app
 
