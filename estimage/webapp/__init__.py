@@ -164,7 +164,6 @@ def create_app_common(app):
 
 def create_app_singlehead(config_class=config.Config):
     app = PluginFriendlySingleheadFlask(__name__)
-    # app.jinja_env.globals.update(dict(State=data.State))
     app.config.from_object(config_class)
     config_class = simpledata.AppData
     config_class.DATADIR = pathlib.Path(app.config["DATA_DIR"])
@@ -190,7 +189,6 @@ def create_app_singlehead(config_class=config.Config):
 
 def create_app_multihead(config_class=config.MultiheadConfig):
     app = PluginFriendlyMultiheadFlask(__name__)
-    # app.jinja_env.globals.update(dict(State=data.State))
     app.config.from_object(config_class)
     app.config["head"] = collections.defaultdict(dict)
 
