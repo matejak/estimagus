@@ -100,6 +100,7 @@ def days_to_next_epoch(date: datetime.datetime) -> int:
 
 
 class Importer(redhat_jira.ImporterWithStatus):
+    COMMITMENT = "customfield_12317404"
 
     def merge_jira_item_without_children(self, item):
 

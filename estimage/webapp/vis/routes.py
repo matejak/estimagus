@@ -102,19 +102,8 @@ def visualize_completion():
 @bp.route('/velocity-fit.svg')
 @flask_login.login_required
 def visualize_velocity_fit():
-    user = flask_login.current_user
-    user_id = user.get_id()
-    all_events = webdata.EventManager()
-    all_events.load()
-
-    all_cards_by_id, _ = web_utils.get_all_tasks_by_id_and_user_model("retro", user_id)
-    all_cards = list(all_cards_by_id.values())
-    cards_tree_without_duplicates = utilities.reduce_subsets_from_sets([t for t in all_cards if t.tier == 0])
-
-    statuses = flask.current_app.get_final_class("Statuses")()
-    start, end = flask.current_app.get_config_option("RETROSPECTIVE_PERIOD")
-    aggregation = history.Aggregation.from_cards(cards_tree_without_duplicates, start, end, statuses)
-    aggregation.process_event_manager(all_events)
+    router = routers.AggregationRouter(mode="retro")
+    aggregation = router.aggregation
 
     velocity_array = aggregation.get_velocity_array()
     nonzero_weekly_velocity = func.get_nonzero_velocity(velocity_array) * 7
