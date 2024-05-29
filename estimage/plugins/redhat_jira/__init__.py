@@ -1,6 +1,6 @@
 import datetime
 
-from ...entities import status
+from ... import data
 from ...visualize.burndown import StatusStyle
 from ... import persistence
 from .. import jira
@@ -51,12 +51,12 @@ class EventExtractor(jira.EventExtractor):
     def _field_to_event(self, date, field_name, former_value, new_value):
         evt = super()._field_to_event(date, field_name, former_value, new_value)
         if field_name == self.STORY_POINTS:
-            evt = evts.Event(self.task.key, "points", date)
+            evt = data.Event(self.task.key, "points", date)
             evt.value_before = float(former_value or 0)
             evt.value_after = float(new_value or 0)
             evt.msg = f"Points changed from {former_value} to {new_value}"
         elif field_name in ("Latest Status Summary", "Status Summary"):
-            evt = evts.Event(self.task.key, "status_summary", date)
+            evt = data.Event(self.task.key, "status_summary", date)
             evt.value_before = former_value
             evt.value_after = new_value
             evt.msg = f"Event summary changed to {new_value}"
@@ -102,6 +102,9 @@ class Importer(jira.Importer):
             return RHEL_STATUS_TO_STATE.get(jira_string, "irrelevant")
         else:
             return OJA_ETC_STATUS_TO_STATE.get(jira_string, "irrelevant")
+
+    def import_data(self, extractor_cls=EventExtractor):
+        return super().import_data(extractor_cls)
 
     def merge_jira_item_without_children(self, item):
 
@@ -244,9 +247,9 @@ class Statuses:
     def __init__(self):
         super().__init__()
         self.statuses.extend([
-            status.Status.create("review", started=True, wip=False, done=False),
-            status.Status.create("rhel-in_progress", started=True, wip=True, done=False),
-            status.Status.create("rhel-integration", started=True, wip=False, done=False),
+            data.Status.create("review", started=True, wip=False, done=False),
+            data.Status.create("rhel-in_progress", started=True, wip=True, done=False),
+            data.Status.create("rhel-integration", started=True, wip=False, done=False),
         ])
 
 
