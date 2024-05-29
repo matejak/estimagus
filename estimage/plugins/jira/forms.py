@@ -43,7 +43,11 @@ class EncryptedTokenForm(BaseForm):
     def validate_on_submit(self):
         ret = super().validate_on_submit()
         if ret:
-            self._perform_work_with_token_encryption()
+            try:
+                ret = self._perform_work_with_token_encryption()
+            except cryptography.fernet.InvalidToken:
+                ret = False
+                flask.flash("Couldn't decrypt the supplied token. May not be your fault, but please input a fresh one to proceed.")
         return ret
 
     def _perform_work_with_token_encryption(self):
@@ -52,6 +56,7 @@ class EncryptedTokenForm(BaseForm):
         if self.store_token.data:
             self.encrypted_token.data = encrypt_stuff(self.token.data)
             self.encrypted_meant_for_storage.data = "yes"
+        return True
 
     @classmethod
     def supporting_js(cls, forms):
