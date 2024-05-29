@@ -46,11 +46,9 @@ OJA_ETC_STATUS_TO_STATE = {
 
 
 class EventExtractor(jira.EventExtractor):
-    STORY_POINTS = "customfield_12310243"
-
     def _field_to_event(self, date, field_name, former_value, new_value):
         evt = super()._field_to_event(date, field_name, former_value, new_value)
-        if field_name == self.STORY_POINTS:
+        if field_name == "Story Points":
             evt = data.Event(self.task.key, "points", date)
             evt.value_before = float(former_value or 0)
             evt.value_after = float(new_value or 0)
