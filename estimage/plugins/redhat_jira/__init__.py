@@ -73,12 +73,8 @@ class InputSpec(jira.InputSpec):
         return ret
 
 
-class Importer(jira.Importer):
+class SyncImporter(jira.importer.BareboneImporter):
     STORY_POINTS = "customfield_12310243"
-    EPIC_LINK = "customfield_12311140"
-    CONTRIBUTORS = "customfield_12315950"
-    WORK_START = "customfield_12313941"
-    WORK_END = "customfield_12313942"
 
     def _get_points_of(self, item):
         ret = self._get_contents_of_field(item, self.STORY_POINTS, 0)
@@ -86,6 +82,24 @@ class Importer(jira.Importer):
 
     def _set_points_of(self, item, points):
         item.update({self.STORY_POINTS: round(points, 2)})
+
+    def get_points_of(self, our_task):
+        jira_task = self.find_card(our_task.name)
+        remote_points = self._get_points_of(jira_task)
+        return remote_points
+
+    def update_points_of(self, our_task, points):
+        jira_task = self.find_card(our_task.name)
+        self._set_points_of(jira_task, points)
+        our_task.point_cost = points
+        return our_task
+
+
+class Importer(jira.Importer, SyncImporter):
+    EPIC_LINK = "customfield_12311140"
+    CONTRIBUTORS = "customfield_12315950"
+    WORK_START = "customfield_12313941"
+    WORK_END = "customfield_12313942"
 
     @classmethod
     def _status_to_state(cls, item, jira_string):
@@ -132,17 +146,6 @@ class Importer(jira.Importer):
 
         if work_span[0] or work_span[-1]:
             result.work_span = tuple(work_span)
-
-    def get_points_of(self, our_task):
-        jira_task = self.find_card(our_task.name)
-        remote_points = self._get_points_of(jira_task)
-        return remote_points
-
-    def update_points_of(self, our_task, points):
-        jira_task = self.find_card(our_task.name)
-        self._set_points_of(jira_task, points)
-        our_task.point_cost = points
-        return our_task
 
 
 def extract_status_updates(all_events):
@@ -237,7 +240,7 @@ class CardSynchronizer(jira.CardSynchronizer):
         kwargs = dict()
         kwargs["server_url"] = "https://issues.redhat.com"
         kwargs["token"] = form.token.data
-        kwargs["importer_cls"] = Importer
+        kwargs["importer_cls"] = SyncImporter
         return cls(** kwargs)
 
 

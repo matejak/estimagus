@@ -152,6 +152,13 @@ class EventExtractor:
 
 
 class Importer(importer.BareboneImporter):
+    def __init__(self, spec):
+        super().__init__(spec)
+
+        self.retrospective_query = spec.retrospective_query
+        self.projective_query = spec.projective_query
+        self.cutoff_date = spec.cutoff_date
+
     def _execute_search_query(self, query):
         items = self.jira.search_issues(query, expand="changelog,renderedFields", maxResults=0)
         return items
