@@ -64,7 +64,7 @@
 	{%- endif %}
         </div>
         <div class="col">
-        <img src="{{ head_url_for('vis.visualize_task', task_name=task.name, nominal_or_remaining='nominal') }}" alt="PERT prob density function for {{ task.name }}"/>
+        <img src="{{ head_url_for('vis.visualize_task_nominal', task_name=task.name, mode=mode) }}" alt="PERT prob density function for {{ task.name }}"/>
         </div>
 	{% if not forms %}
         <div class="col">

@@ -64,6 +64,10 @@ def get_all_tasks_by_id_and_user_model(spec, user_id):
 def get_user_model(user_id, cards_tree_without_duplicates):
     authoritative_pollster = webdata.AuthoritativePollster()
     user_pollster = webdata.UserPollster(user_id)
+    return get_user_model_given_pollsters(user_pollster, authoritative_pollster, cards_tree_without_duplicates)
+
+
+def get_user_model_given_pollsters(user_pollster, authoritative_pollster, cards_tree_without_duplicates):
     statuses = flask.current_app.get_final_class("Statuses")()
     model = webdata.get_model(cards_tree_without_duplicates, None, statuses)
     try:

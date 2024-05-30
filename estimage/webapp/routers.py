@@ -1,7 +1,7 @@
 import flask
 import flask_login
 
-from .. import data, simpledata, persistence, utilities, history
+from .. import data, simpledata, persistence, utilities, history, problems
 from . import web_utils, CACHE
 
 
@@ -71,12 +71,32 @@ class CardRouter(IORouter):
         return ret
 
 
-class ModelRouter(UserRouter, CardRouter):
+class PollsterRouter(UserRouter):
     def __init__(self, ** kwargs):
         super().__init__(** kwargs)
 
-        self.model = web_utils.get_user_model(self.user_id, self.cards_tree_without_duplicates)
+        self.private_pollster = simpledata.AuthoritativePollster()
+        self.global_pollster = simpledata.UserPollster(self.user_id)
+
+
+class ModelRouter(PollsterRouter, CardRouter):
+    def __init__(self, ** kwargs):
+        super().__init__(** kwargs)
+
+        self.model = web_utils.get_user_model_given_pollsters(
+            self.private_pollster, self.global_pollster, self.cards_tree_without_duplicates)
         self.model.update_cards_with_values(self.cards_tree_without_duplicates)
+
+
+class ProblemRouter(ModelRouter):
+    def __init__(self, ** kwargs):
+        super().__init__(** kwargs)
+
+        all_cards = list(self.all_cards_by_id.values())
+        self.problem_detector = problems.ProblemDetector(self.model, all_cards)
+
+        self.classifier = problems.groups.ProblemClassifier()
+        self.classifier.classify(self.problem_detector.problems)
 
 
 class AggregationRouter(ModelRouter):
