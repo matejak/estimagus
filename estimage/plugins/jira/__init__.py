@@ -155,6 +155,7 @@ class Importer(importer.BareboneImporter):
     def __init__(self, spec):
         super().__init__(spec)
 
+        self._import_context = "none"
         self.retrospective_query = spec.retrospective_query
         self.projective_query = spec.projective_query
         self.cutoff_date = spec.cutoff_date
@@ -242,17 +243,20 @@ class Importer(importer.BareboneImporter):
 
     def import_data(self, extractor_cls=EventExtractor):
         if self.retrospective_query:
+            self._import_context = "retro"
             self.report("Gathering retro stuff")
             root_results = self._get_and_record_jira_tree(self.retrospective_query)
             new_cards = self._export_jira_tree_to_cards(root_results)
             self._retro_cards.update(new_cards)
 
         if self.projective_query:
+            self._import_context = "proj"
             self.report("Gathering proj stuff")
             root_results = self._get_and_record_jira_tree(self.projective_query)
             new_cards = self._export_jira_tree_to_cards(root_results)
             self._projective_cards.update(new_cards)
 
+        self._import_context = "none"
         new_cards = self._retro_cards.union(self._projective_cards)
         for name in new_cards:
             if name not in self._all_issues_by_name:

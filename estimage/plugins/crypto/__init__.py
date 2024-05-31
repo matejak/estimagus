@@ -60,6 +60,8 @@ class Importer(redhat_jira.Importer):
         name = f"{PROJECT_NAME}-{assignee}"
         if committed:
             name += "-C"
+        if self._import_context == "proj":
+            name += "-future"
 
         epic = self._cards_by_id.get(name)
 
@@ -67,6 +69,8 @@ class Importer(redhat_jira.Importer):
             epic = self.item_class(name)
             epic.assignee = assignee
             epic.title = f"Issues of {assignee}"
+            if self._import_context == "proj":
+                epic.title = f"Future issues of {assignee}"
             epic.tier = 1
             epic.status = "in_progress"
             if committed:
