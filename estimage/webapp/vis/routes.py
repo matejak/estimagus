@@ -13,7 +13,6 @@ from . import bp
 from .. import web_utils, routers
 from ... import history, utilities
 from ...statops import func
-from ... import simpledata as webdata
 from ...visualize import utils, pert
 # need to import those to ensure that they are discovered by the app
 from ...visualize import velocity, completion

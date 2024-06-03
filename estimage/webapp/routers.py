@@ -105,6 +105,7 @@ class AggregationRouter(ModelRouter):
 
         self.start, self.end = flask.current_app.get_config_option("RETROSPECTIVE_PERIOD")
         self.all_events = self.get_all_events()
+        self.statuses = flask.current_app.get_final_class("Statuses")()
 
     @CACHE.cached(timeout=60, key_prefix=lambda: gen_cache_key("get_all_events"))
     def get_all_events(self):
@@ -122,7 +123,6 @@ class AggregationRouter(ModelRouter):
         return self.get_aggregation_of_cards(cards)
 
     def get_aggregation_of_cards(self, cards):
-        statuses = flask.current_app.get_final_class("Statuses")()
-        ret = history.Aggregation.from_cards(cards, self.start, self.end, statuses)
+        ret = history.Aggregation.from_cards(cards, self.start, self.end, self.statuses)
         ret.process_event_manager(self.all_events)
         return ret

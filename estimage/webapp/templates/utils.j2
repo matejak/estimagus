@@ -198,8 +198,11 @@
     <h4>Tasks of similar sizes</h4>
     <p>
     <ul>
-    {%- for card in similar_sized_cards %}
+    {%- for card in similar_sized_cards["proj"] %}
     <li>{{ render_task_basic(card, "projective", None) }}: {{ render_estimate(card.point_estimate) }}</li>
+    {%- endfor %}
+    {%- for card in similar_sized_cards["retro"] %}
+    <li>{{ render_task_basic(card, "retrospective", None) }}: {{ render_estimate(card.point_estimate) }}</li>
     {%- endfor %}
     </ul>
     </p>

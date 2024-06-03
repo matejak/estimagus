@@ -1,4 +1,8 @@
-{% extends base %}
+{%- if mode == "proj" %}
+{% extends "general_plan.html" %}
+{%- else %}
+{% extends "general_retro.html" %}
+{%- endif %}
 
 {% import "utils.j2" as utils with context %}
 {% from 'bootstrap5/form.html' import render_form %}
@@ -98,7 +102,7 @@
     </div>
     </div>
     {%- if similar_sized_cards %}
-        {{ utils.render_similar_sized_tasks(similar_sized_cards[:8]) }}
+        {{ utils.render_similar_sized_tasks(similar_sized_cards) }}
     {%- endif %}
     {%- endif %}
 </div>
