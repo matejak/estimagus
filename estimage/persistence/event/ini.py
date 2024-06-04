@@ -21,12 +21,8 @@ class IniEventsSaver(inidata.IniSaverBase):
             task_name=event.task_name
         )
         if (val := event.value_before) is not None:
-            if event.quantity == "state":
-                val = val
             to_save["value_before"] = str(val)
         if (val := event.value_after) is not None:
-            if event.quantity == "state":
-                val = val
             to_save["value_after"] = str(val)
 
         return to_save

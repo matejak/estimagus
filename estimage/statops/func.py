@@ -133,14 +133,8 @@ def get_time_to_completion(velocity_mean, velocity_stdev, distance, confidence=0
 
 
 def get_prob_of_completion(velocity_mean, velocity_stdev, distance, time):
-    if distance == 0:
-        return 1
-    if velocity_stdev == 0:
-        return 0 if velocity_mean * time < distance else 1
-    if time == 0:
-        return 0
-    dist = sp.stats.norm(loc=velocity_mean * time, scale=np.sqrt(velocity_stdev ** 2 * time))
-    return 1 - dist.cdf(distance)
+    times = np.ones(1) * time
+    return get_prob_of_completion_vector(velocity_mean, velocity_stdev, distance, times)[0]
 
 
 def get_prob_of_completion_vector(velocity_mean, velocity_stdev, distance, times):
@@ -212,17 +206,20 @@ def estimate_lognorm(grids, samples):
     return result
 
 
+
+def autoestimage_lognorm_general(samples, first_grid, radii, counts):
+    mean = samples.mean()
+    res = estimate_lognorm(first_grid, samples)
+    for (radius, count) in zip(radii, counts):
+        grid = get_1d_lognorm_grid(res[1] - radius, res[1] + radius, mean, count)
+        res = estimate_lognorm(grid, samples)
+    return res
+
+
 def autoestimate_lognorm(samples):
     grids = get_1d_lognorm_grid(0.01, 5.0, samples.mean(), 10)
-    res = estimate_lognorm(grids, samples)
-
-    grids = get_1d_lognorm_grid(res[1] - 0.5, res[1] + 0.5, samples.mean(), 10)
-    res2 = estimate_lognorm(grids, samples)
-
-    grids = get_1d_lognorm_grid(res2[1] - 0.2, res2[1] + 0.2, samples.mean(), 20)
-    res3 = estimate_lognorm(grids, samples)
-
-    return res3
+    res = autoestimage_lognorm_general(samples, grids, (0.5, 0.2), (10, 20))
+    return res
 
 
 def get_nonzero_velocity(velocity):

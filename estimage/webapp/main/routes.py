@@ -101,6 +101,16 @@ def move_consensus_estimate_to_authoritative(task_name):
     return view_projective_task(task_name, dict(authoritative=form))
 
 
+def _attempt_record_of_estimate(task_name, form, pollster):
+    if form.submit.data:
+        tell_pollster_about_obtained_data(pollster, task_name, form)
+    elif form.delete.data:
+        if pollster.knows_points(task_name):
+            pollster.forget_points(task_name)
+        else:
+            flask.flash("Told to forget something that we don't know")
+
+
 @bp.route('/estimate/<task_name>', methods=['POST'])
 @flask_login.login_required
 def estimate(task_name):
@@ -109,13 +119,7 @@ def estimate(task_name):
     form = forms.NumberEstimationForm()
 
     if form.validate_on_submit():
-        if form.submit.data:
-            tell_pollster_about_obtained_data(pollster, task_name, form)
-        elif form.delete.data:
-            if pollster.knows_points(task_name):
-                pollster.forget_points(task_name)
-            else:
-                flask.flash("Told to forget something that we don't know")
+        _attempt_record_of_estimate(task_name, form, pollster)
     else:
         msg = "There were following errors: "
         msg += ", ".join(form.get_all_errors())
