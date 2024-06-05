@@ -41,29 +41,33 @@ def feed_estimation_to_form(estimation, form_data):
     form_data.pessimistic.data = estimation.source.pessimistic
 
 
+def _move_estimate_from_private_to_global(form, task_name, pollster_router):
+    user_point = pollster_router.private_pollster.ask_points(task_name)
+    pollster_router.global_pollster.tell_points(task_name, user_point)
+
+    if form.forget_own_estimate.data:
+        pollster_router.private_pollster.forget_points(task_name)
+
+
+def _delete_global_estimate(task_name, pollster_router):
+    pollster_cons = pollster_router.global_pollster
+
+    if pollster_cons.knows_points(task_name):
+        pollster_cons.forget_points(task_name)
+    else:
+        flask.flash("Told to forget something that we don't know")
+
+
 @bp.route('/consensus/<task_name>', methods=['POST'])
 @flask_login.login_required
-def move_issue_estimate_to_consensus(task_name):
-    user = flask_login.current_user
-    user_id = user.get_id()
+def act_on_global_estimate(task_name):
+    r = routers.PollsterRouter()
     form = forms.ConsensusForm()
     if form.validate_on_submit():
         if form.submit.data and form.i_kid_you_not.data:
-            pollster_user = webdata.UserPollster(user_id)
-            pollster_cons = webdata.AuthoritativePollster()
-
-            user_point = pollster_user.ask_points(task_name)
-            pollster_cons.tell_points(task_name, user_point)
-
-            if form.forget_own_estimate.data:
-                pollster_user.forget_points(task_name)
+            _move_estimate_from_private_to_global(form, task_name, r)
         elif form.delete.data:
-            pollster_cons = webdata.AuthoritativePollster()
-
-            if pollster_cons.knows_points(task_name):
-                pollster_cons.forget_points(task_name)
-            else:
-                flask.flash("Told to forget something that we don't know")
+            _delete_global_estimate(task_name, r)
         else:
             flask.flash("Consensus not updated, request was not serious")
 
