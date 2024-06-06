@@ -6,7 +6,7 @@ import flask_login
 
 from . import bp
 from . import forms
-from .. import web_utils
+from .. import web_utils, routers
 from ... import data
 from ... import utilities, statops
 from ...statops import summary
@@ -41,41 +41,33 @@ def feed_estimation_to_form(estimation, form_data):
     form_data.pessimistic.data = estimation.source.pessimistic
 
 
-def projective_retrieve_task(task_id):
-    cls, loader = web_utils.get_proj_loader()
-    ret = cls.load_metadata(task_id, loader)
-    return ret
+def _move_estimate_from_private_to_global(form, task_name, pollster_router):
+    user_point = pollster_router.private_pollster.ask_points(task_name)
+    pollster_router.global_pollster.tell_points(task_name, user_point)
+
+    if form.forget_own_estimate.data:
+        pollster_router.private_pollster.forget_points(task_name)
 
 
-def retro_retrieve_task(task_id):
-    cls, loader = web_utils.get_retro_loader()
-    ret = cls.load_metadata(task_id, loader)
-    return ret
+def _delete_global_estimate(task_name, pollster_router):
+    pollster_cons = pollster_router.global_pollster
+
+    if pollster_cons.knows_points(task_name):
+        pollster_cons.forget_points(task_name)
+    else:
+        flask.flash("Told to forget something that we don't know")
 
 
 @bp.route('/consensus/<task_name>', methods=['POST'])
 @flask_login.login_required
-def move_issue_estimate_to_consensus(task_name):
-    user = flask_login.current_user
-    user_id = user.get_id()
+def act_on_global_estimate(task_name):
+    r = routers.PollsterRouter()
     form = forms.ConsensusForm()
     if form.validate_on_submit():
         if form.submit.data and form.i_kid_you_not.data:
-            pollster_user = webdata.UserPollster(user_id)
-            pollster_cons = webdata.AuthoritativePollster()
-
-            user_point = pollster_user.ask_points(task_name)
-            pollster_cons.tell_points(task_name, user_point)
-
-            if form.forget_own_estimate.data:
-                pollster_user.forget_points(task_name)
+            _move_estimate_from_private_to_global(form, task_name, r)
         elif form.delete.data:
-            pollster_cons = webdata.AuthoritativePollster()
-
-            if pollster_cons.knows_points(task_name):
-                pollster_cons.forget_points(task_name)
-            else:
-                flask.flash("Told to forget something that we don't know")
+            _delete_global_estimate(task_name, r)
         else:
             flask.flash("Consensus not updated, request was not serious")
 
@@ -113,24 +105,25 @@ def move_consensus_estimate_to_authoritative(task_name):
     return view_projective_task(task_name, dict(authoritative=form))
 
 
+def _attempt_record_of_estimate(task_name, form, pollster):
+    if form.submit.data:
+        tell_pollster_about_obtained_data(pollster, task_name, form)
+    elif form.delete.data:
+        if pollster.knows_points(task_name):
+            pollster.forget_points(task_name)
+        else:
+            flask.flash("Told to forget something that we don't know")
+
+
 @bp.route('/estimate/<task_name>', methods=['POST'])
 @flask_login.login_required
 def estimate(task_name):
-    user = flask_login.current_user
-
-    user_id = user.get_id()
-
+    r = routers.PollsterRouter()
+    pollster = r.private_pollster
     form = forms.NumberEstimationForm()
-    pollster = webdata.UserPollster(user_id)
 
     if form.validate_on_submit():
-        if form.submit.data:
-            tell_pollster_about_obtained_data(pollster, task_name, form)
-        elif form.delete.data:
-            if pollster.knows_points(task_name):
-                pollster.forget_points(task_name)
-            else:
-                flask.flash("Told to forget something that we don't know")
+        _attempt_record_of_estimate(task_name, form, pollster)
     else:
         msg = "There were following errors: "
         msg += ", ".join(form.get_all_errors())
@@ -158,25 +151,30 @@ def give_data_to_context(context, user_pollster, global_pollster):
         flask.flash(msg)
 
 
-def get_similar_cards_with_estimations(user_id, task_name):
-    cls, loader = web_utils.get_proj_loader()
-    all_cards = loader.get_loaded_cards_by_id(cls)
-    cls, loader = web_utils.get_retro_loader()
-    all_cards.update(loader.get_loaded_cards_by_id(cls))
+def get_similar_cards_with_estimations(task_name):
+    rs = dict(
+        proj=routers.ModelRouter(mode="proj"),
+        retro=routers.ModelRouter(mode="retro"),
+    )
+    ref_task = rs["proj"].model.get_element(task_name)
 
-    similar_cards = []
-    similar_tasks = get_similar_tasks(user_id, task_name, all_cards)
-    for task in similar_tasks:
-        card = all_cards[task.name]
-        card.point_estimate = task.nominal_point_estimate
-        similar_cards.append(card)
-    return similar_cards
+    ret = dict()
+    for mode in ("proj", "retro"):
+        similar_cards = []
+
+        r = rs[mode]
+        similar_tasks = get_similar_tasks(r, ref_task)
+        for task in similar_tasks:
+            card = r.all_cards_by_id[task.name]
+            card.point_estimate = task.nominal_point_estimate
+            similar_cards.append(card)
+        ret[mode] = similar_cards
+    return ret
 
 
 @bp.route('/projective/task/<task_name>')
 @flask_login.login_required
 def view_projective_task(task_name, known_forms=None):
-    t = projective_retrieve_task(task_name)
     if known_forms is None:
         known_forms = dict()
 
@@ -188,18 +186,14 @@ def view_projective_task(task_name, known_forms=None):
     request_forms.update(known_forms)
 
     breadcrumbs = get_projective_breadcrumbs()
-    append_card_to_breadcrumbs(breadcrumbs, t, lambda n: web_utils.head_url_for("main.view_epic", epic_name=n))
-    return view_task(t, breadcrumbs, request_forms)
+    return view_task(task_name, breadcrumbs, "proj", request_forms)
 
 
 @bp.route('/retrospective/task/<task_name>')
 @flask_login.login_required
 def view_retro_task(task_name):
-    t = retro_retrieve_task(task_name)
-
     breadcrumbs = get_retro_breadcrumbs()
-    append_card_to_breadcrumbs(breadcrumbs, t, lambda n: web_utils.head_url_for("main.view_epic_retro", epic_name=n))
-    return view_task(t, breadcrumbs)
+    return view_task(task_name, breadcrumbs, "retro")
 
 
 def _setup_forms_according_to_context(request_forms, context):
@@ -219,12 +213,17 @@ def _setup_forms_according_to_context(request_forms, context):
         feed_estimation_to_form(context.estimation, request_forms["estimation"])
 
 
-def view_task(task, breadcrumbs, request_forms=None):
-    user = flask_login.current_user
-    user_id = user.get_id()
-    pollster = webdata.UserPollster(user_id)
+def view_task(task_name, breadcrumbs, mode, request_forms=None):
+    card_r = routers.CardRouter(mode=mode)
+    task = card_r.all_cards_by_id[task_name]
 
-    c_pollster = webdata.AuthoritativePollster()
+    name_to_url = lambda n: web_utils.head_url_for(f"main.view_epic_{mode}", epic_name=n)
+    append_card_to_breadcrumbs(breadcrumbs, task, name_to_url)
+
+    poll_r = routers.PollsterRouter()
+    pollster = poll_r.private_pollster
+    c_pollster = poll_r.global_pollster
+
     context = webdata.Context(task)
     give_data_to_context(context, pollster, c_pollster)
 
@@ -233,11 +232,14 @@ def view_task(task, breadcrumbs, request_forms=None):
 
     similar_cards = []
     if context.estimation_source != "none":
-        similar_cards = get_similar_cards_with_estimations(user_id, task.name)
+        similar_cards = get_similar_cards_with_estimations(task_name)
+        LIMIT = 8
+        similar_cards["proj"] = similar_cards["proj"][:LIMIT]
+        similar_cards["retro"] = similar_cards["retro"][:LIMIT - len(similar_cards["proj"])]
 
     return web_utils.render_template(
-        'issue_view.html', title='Estimate Issue', breadcrumbs=breadcrumbs,
-        user=user, forms=request_forms, task=task, context=context, similar_sized_cards=similar_cards)
+        'issue_view.html', title='Estimate Issue', breadcrumbs=breadcrumbs, mode=mode,
+        user=poll_r.user, forms=request_forms, task=task, context=context, similar_sized_cards=similar_cards)
 
 
 def get_projective_breadcrumbs():
@@ -265,34 +267,25 @@ def append_card_to_breadcrumbs(breadcrumbs, card, name_to_url):
 
 @bp.route('/projective/epic/<epic_name>')
 @flask_login.login_required
-def view_epic(epic_name):
-    user = flask_login.current_user
+def view_epic_proj(epic_name):
+    r = routers.ModelRouter(mode="proj")
 
-    user_id = user.get_id()
-    cls, loader = web_utils.get_proj_loader()
-    all_cards = loader.load_all_cards(cls)
-    cards_tree_without_duplicates = utilities.reduce_subsets_from_sets(all_cards)
-    model = web_utils.get_user_model(user_id, cards_tree_without_duplicates)
+    estimate = r.model.nominal_point_estimate_of(epic_name)
 
-    estimate = model.nominal_point_estimate_of(epic_name)
-
-    t = projective_retrieve_task(epic_name)
+    t = r.all_cards_by_id[epic_name]
 
     breadcrumbs = get_projective_breadcrumbs()
-    append_card_to_breadcrumbs(breadcrumbs, t, lambda n: web_utils.head_url_for("main.view_epic", epic_name=n))
+    append_card_to_breadcrumbs(breadcrumbs, t, lambda n: web_utils.head_url_for("main.view_epic_proj", epic_name=n))
 
     return web_utils.render_template(
-        'epic_view.html', title='View epic', epic=t, estimate=estimate, model=model, breadcrumbs=breadcrumbs,
+        'epic_view_projective.html', title='View epic', epic=t, estimate=estimate, model=r.model, breadcrumbs=breadcrumbs,
     )
 
 
-def get_similar_tasks(user_id, task_name, all_cards_by_id):
-    all_tasks = []
-    all_cards = list(all_cards_by_id.values())
-    cards_tree_without_duplicates = utilities.reduce_subsets_from_sets(all_cards)
-    model = web_utils.get_user_model(user_id, cards_tree_without_duplicates)
-    all_tasks.extend(model.get_all_task_models())
-    return webdata.order_nearby_tasks(model.get_element(task_name), all_tasks, 0.5, 2)
+def get_similar_tasks(model_router, ref_task):
+    model = model_router.model
+    all_tasks = model.get_all_task_models()
+    return webdata.order_nearby_tasks(ref_task, all_tasks, 0.5, 2)
 
 
 @bp.route('/')
@@ -303,26 +296,15 @@ def index():
 @bp.route('/projective')
 @flask_login.login_required
 def tree_view():
-    user = flask_login.current_user
-    user_id = user.get_id()
-
-    all_cards_by_id, model = web_utils.get_all_tasks_by_id_and_user_model("proj", user_id)
-    all_cards = list(all_cards_by_id.values())
-    cards_tree_without_duplicates = utilities.reduce_subsets_from_sets(all_cards)
+    r = routers.ModelRouter(mode="proj")
     return web_utils.render_template(
         "tree_view.html", title="Tasks tree view",
-        cards=cards_tree_without_duplicates, model=model)
+        cards=r.cards_tree_without_duplicates, model=r.model)
 
 
-def executive_summary_of_points_and_velocity(cards, cls=history.Summary):
-    all_events = data.EventManager()
-    all_events.load(webdata.IOs["events"]["ini"])
-
-    start, end = flask.current_app.get_config_option("RETROSPECTIVE_PERIOD")
-    cutoff_date = min(datetime.datetime.today(), end)
-    statuses = flask.current_app.get_final_class("Statuses")()
-    aggregation = history.Aggregation.from_cards(cards, start, end, statuses)
-    aggregation.process_event_manager(all_events)
+def executive_summary_of_points_and_velocity(agg_router, cards, cls=history.Summary):
+    aggregation = agg_router.get_aggregation_of_cards(cards)
+    cutoff_date = min(datetime.datetime.today(), aggregation.end)
     summary = cls(aggregation, cutoff_date)
 
     return summary
@@ -331,14 +313,12 @@ def executive_summary_of_points_and_velocity(cards, cls=history.Summary):
 @bp.route('/retrospective')
 @flask_login.login_required
 def overview_retro():
-    user = flask_login.current_user
-    user_id = user.get_id()
+    r = routers.AggregationRouter(mode="retro")
 
-    all_cards_by_id, model = web_utils.get_all_tasks_by_id_and_user_model("retro", user_id)
-    tier0_cards = [t for t in all_cards_by_id.values() if t.tier == 0]
+    tier0_cards = [t for t in r.all_cards_by_id.values() if t.tier == 0]
     tier0_cards_tree_without_duplicates = utilities.reduce_subsets_from_sets(tier0_cards)
 
-    summary = executive_summary_of_points_and_velocity(tier0_cards_tree_without_duplicates)
+    summary = executive_summary_of_points_and_velocity(r, tier0_cards_tree_without_duplicates)
 
     return web_utils.render_template(
         "retrospective_overview.html",
@@ -349,14 +329,12 @@ def overview_retro():
 @bp.route('/completion')
 @flask_login.login_required
 def completion():
-    user = flask_login.current_user
-    user_id = user.get_id()
+    r = routers.AggregationRouter(mode="retro")
 
-    all_cards_by_id, model = web_utils.get_all_tasks_by_id_and_user_model("retro", user_id)
-    tier0_cards = [t for t in all_cards_by_id.values() if t.tier == 0]
+    tier0_cards = [t for t in r.all_cards_by_id.values() if t.tier == 0]
     tier0_cards_tree_without_duplicates = utilities.reduce_subsets_from_sets(tier0_cards)
 
-    summary = executive_summary_of_points_and_velocity(tier0_cards_tree_without_duplicates, statops.summary.StatSummary)
+    summary = executive_summary_of_points_and_velocity(r, tier0_cards_tree_without_duplicates, statops.summary.StatSummary)
 
     return web_utils.render_template(
         "completion.html",
@@ -367,69 +345,46 @@ def completion():
 @bp.route('/retrospective_tree')
 @flask_login.login_required
 def tree_view_retro():
-    user = flask_login.current_user
-    user_id = user.get_id()
+    r = routers.AggregationRouter(mode="retro")
 
-    all_cards_by_id, model = web_utils.get_all_tasks_by_id_and_user_model("retro", user_id)
-    all_cards = list(all_cards_by_id.values())
-    cards_tree_without_duplicates = utilities.reduce_subsets_from_sets(all_cards)
-
-    tier0_cards = [t for t in all_cards_by_id.values() if t.tier == 0]
+    tier0_cards = [t for t in r.all_cards_by_id.values() if t.tier == 0]
     tier0_cards_tree_without_duplicates = utilities.reduce_subsets_from_sets(tier0_cards)
-    cards_tree_without_duplicates = utilities.reduce_subsets_from_sets(all_cards)
 
-    summary = executive_summary_of_points_and_velocity(tier0_cards_tree_without_duplicates)
-    priority_sorted_cards = sorted(cards_tree_without_duplicates, key=lambda x: - x.priority)
-    statuses = flask.current_app.get_final_class("Statuses")()
+    summary = executive_summary_of_points_and_velocity(r, tier0_cards_tree_without_duplicates)
+    priority_sorted_cards = sorted(r.cards_tree_without_duplicates, key=lambda x: - x.priority)
 
     return web_utils.render_template(
         "tree_view_retrospective.html",
         title="Retrospective Tasks tree view",
-        cards=priority_sorted_cards, today=datetime.datetime.today(), model=model,
-        summary=summary, status_of=lambda c: statuses.get(c.status))
+        cards=priority_sorted_cards, today=datetime.datetime.today(), model=r.model,
+        summary=summary, status_of=lambda c: r.statuses.get(c.status))
 
 
 @bp.route('/retrospective/epic/<epic_name>')
 @flask_login.login_required
 def view_epic_retro(epic_name):
-    user = flask_login.current_user
-    user_id = user.get_id()
+    r = routers.AggregationRouter(mode="retro")
 
-    all_cards_by_id, model = web_utils.get_all_tasks_by_id_and_user_model("retro", user_id)
-    t = all_cards_by_id[epic_name]
+    t = r.all_cards_by_id[epic_name]
 
-    summary = executive_summary_of_points_and_velocity(t.children)
+    summary = executive_summary_of_points_and_velocity(r, t.children)
     breadcrumbs = get_retro_breadcrumbs()
     append_card_to_breadcrumbs(breadcrumbs, t, lambda n: web_utils.head_url_for("main.view_epic_retro", epic_name=n))
 
     return web_utils.render_template(
         'epic_view_retrospective.html', title='View epic', breadcrumbs=breadcrumbs,
-        today=datetime.datetime.today(), epic=t, model=model, summary=summary)
-
-
-class RetroProblem(problems.Problem):
-    def format_task_name(self):
-        return f"{self.affected_card_name}"
+        today=datetime.datetime.today(), epic=t, model=r.model, summary=summary)
 
 
 @bp.route('/problems')
 @flask_login.login_required
 def view_problems():
-    user = flask_login.current_user
-    user_id = user.get_id()
-
-    all_cards_by_id, model = web_utils.get_all_tasks_by_id_and_user_model("proj", user_id)
-    all_cards = list(all_cards_by_id.values())
-
-    problem_detector = problems.ProblemDetector(model, all_cards, RetroProblem)
-
-    classifier = problems.groups.ProblemClassifier()
-    classifier.classify(problem_detector.problems)
-    categories = classifier.get_categories_with_problems()
+    r = routers.ProblemRouter(mode="proj")
+    categories = r.classifier.get_categories_with_problems()
 
     cat_forms = []
     for cat in categories:
-        probs = classifier.classified_problems[cat.name].values()
+        probs = r.classifier.classified_problems[cat.name].values()
 
         form = flask.current_app.get_final_class("ProblemForm")(prefix=cat.name)
         form.add_problems_and_cat(cat, probs)
@@ -438,7 +393,7 @@ def view_problems():
 
     return web_utils.render_template(
         'problems.html', title='Problems', category_forms=[cf[1] for cf in cat_forms],
-        all_cards_by_id=all_cards_by_id, catforms=cat_forms)
+        all_cards_by_id=r.all_cards_by_id, catforms=cat_forms)
 
 
 def _solve_problem(form, classifier, all_cards_by_id):
@@ -457,21 +412,12 @@ def _solve_problem(form, classifier, all_cards_by_id):
 @bp.route('/problems/fix/<category>', methods=['POST'])
 @flask_login.login_required
 def fix_problems(category):
-    user = flask_login.current_user
-    user_id = user.get_id()
-
-    all_cards_by_id, model = web_utils.get_all_tasks_by_id_and_user_model("retro", user_id)
-    all_cards = list(all_cards_by_id.values())
-
-    problem_detector = problems.ProblemDetector(model, all_cards)
-
-    classifier = problems.groups.ProblemClassifier()
-    classifier.classify(problem_detector.problems)
+    r = routers.ProblemRouter(mode="proj")
 
     form = flask.current_app.get_final_class("ProblemForm")(prefix=category)
-    form.add_problems(problem_detector.problems)
+    form.add_problems(r.problem_detector.problems)
     if form.validate_on_submit():
-        _solve_problem(form, classifier, all_cards_by_id)
+        _solve_problem(form, r.classifier, r.all_cards_by_id)
     else:
         flask.flash(f"Error handing over solution: {form.errors}")
     return flask.redirect(

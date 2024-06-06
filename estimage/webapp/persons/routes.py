@@ -5,7 +5,7 @@ import flask
 import flask_login
 
 from . import bp
-from .. import web_utils
+from .. import web_utils, routers
 from ... import persons, utilities
 
 
@@ -39,22 +39,12 @@ def render_workload(title, mode, cards_tree, model):
 @bp.route('/retrospective_workload')
 @flask_login.login_required
 def retrospective_workload():
-    user = flask_login.current_user
-    user_id = user.get_id()
-
-    all_cards_by_id, model = web_utils.get_all_tasks_by_id_and_user_model("retro", user_id)
-    all_cards = list(all_cards_by_id.values())
-    cards_tree_without_duplicates = utilities.reduce_subsets_from_sets(all_cards)
-    return render_workload('Retrospective Workloads', "retro", cards_tree_without_duplicates, model)
+    r = routers.ModelRouter(mode="retro")
+    return render_workload('Retrospective Workloads', "retro", r.cards_tree_without_duplicates, r.model)
 
 
 @bp.route('/planning_workload')
 @flask_login.login_required
 def planning_workload():
-    user = flask_login.current_user
-    user_id = user.get_id()
-
-    all_cards_by_id, model = web_utils.get_all_tasks_by_id_and_user_model("proj", user_id)
-    all_cards = list(all_cards_by_id.values())
-    cards_tree_without_duplicates = utilities.reduce_subsets_from_sets(all_cards)
-    return render_workload('Planning Workloads', "plan", cards_tree_without_duplicates, model)
+    r = routers.ModelRouter(mode="proj")
+    return render_workload('Planning Workloads', "proj", r.cards_tree_without_duplicates, r.model)

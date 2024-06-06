@@ -13,7 +13,6 @@ from . import bp
 from .. import web_utils, routers
 from ... import history, utilities
 from ...statops import func
-from ... import simpledata as webdata
 from ...visualize import utils, pert
 # need to import those to ensure that they are discovered by the app
 from ...visualize import velocity, completion
@@ -175,33 +174,23 @@ def visualize_all_projective_tasks(nominal_or_remaining):
     return send_figure_as(fig, "all", "svg")
 
 
-@bp.route('/<task_name>-<nominal_or_remaining>-pert.svg')
+@bp.route('/<task_name>-<mode>-remaining-pert.svg')
 @flask_login.login_required
-def visualize_task(task_name, nominal_or_remaining):
-    allowed_modes = ("nominal", "remaining")
-    if nominal_or_remaining not in allowed_modes:
-        msg = (
-            f"Attempt to visualize {task_name} "
-            "and not setting mode to one of {allowed_modes}, "
-            f"but to '{nominal_or_remaining}'."
-        )
-        flask.flash(msg)
-        raise ValueError(msg)
+def visualize_task_remaining(task_name, mode):
+    r = routers.ModelRouter(mode=mode)
+    estimation = r.model.remaining_point_estimate_of(task_name)
+    return visualize_estimation(task_name, estimation)
 
-    user = flask_login.current_user
-    user_id = user.get_id()
 
-    tasks, model = web_utils.get_all_tasks_by_id_and_user_model("proj", user_id)
-    if task_name not in tasks:
-        tasks, model = web_utils.get_all_tasks_by_id_and_user_model("retro", user_id)
-    if task_name not in tasks:
-        return (f"Unable to find task '{markupsafe.escape(task_name)}'", 500)
+@bp.route('/<task_name>-<mode>-nominal-pert.svg')
+@flask_login.login_required
+def visualize_task_nominal(task_name, mode):
+    r = routers.ModelRouter(mode=mode)
+    estimation = r.model.nominal_point_estimate_of(task_name)
+    return visualize_estimation(task_name, estimation)
 
-    if nominal_or_remaining == "nominal":
-        estimation = model.nominal_point_estimate_of(task_name)
-    else:
-        estimation = model.remaining_point_estimate_of(task_name)
 
+def visualize_estimation(task_name, estimation):
     matplotlib.use("svg")
     fig = get_pert_in_figure(estimation, task_name)
 

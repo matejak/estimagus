@@ -155,6 +155,9 @@ def create_app_common(app):
     LOGIN.init_app(app)
     LOGIN.user_loader(users.load_user)
     LOGIN.login_view = "login.auto_login"
+    # Don't display the "log in to proceed" message, as it is often more confusing than helpful
+    # in connection with random logouts and autologins
+    LOGIN.login_message = ""
 
     CACHE.init_app(app, config=app.config)
 

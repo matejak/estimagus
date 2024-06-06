@@ -8,8 +8,8 @@
     <div class="row">
     <h1>Execution Demo</h1>
     <p>Day {{ day_index + 1 }}</p>
-    {{ render_form(plugin_form, action=url_for("demo.next_day")) }}
-    {{ render_form(reset_form, button_map={"reset": "danger"}, action=url_for("demo.reset")) }}
+    {{ render_form(plugin_form, action=head_url_for("demo.next_day")) }}
+    {{ render_form(reset_form, button_map={"reset": "danger"}, action=head_url_for("demo.reset")) }}
     </div>
 </div>
 {% endblock %}

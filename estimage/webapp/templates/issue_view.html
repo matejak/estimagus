@@ -1,4 +1,8 @@
-{% extends base %}
+{%- if mode == "proj" %}
+{% extends "general_plan.html" %}
+{%- else %}
+{% extends "general_retro.html" %}
+{%- endif %}
 
 {% import "utils.j2" as utils with context %}
 {% from 'bootstrap5/form.html' import render_form %}
@@ -64,7 +68,7 @@
 	{%- endif %}
         </div>
         <div class="col">
-        <img src="{{ head_url_for('vis.visualize_task', task_name=task.name, nominal_or_remaining='nominal') }}" alt="PERT prob density function for {{ task.name }}"/>
+        <img src="{{ head_url_for('vis.visualize_task_nominal', task_name=task.name, mode=mode) }}" alt="PERT prob density function for {{ task.name }}"/>
         </div>
 	{% if not forms %}
         <div class="col">
@@ -89,7 +93,7 @@
 	<p>Point cost: {{ utils.render_estimate(context.global_estimate) }}</p>
 	{% endif %}
 	{% if "consensus" in forms %}
-        {{ render_form(forms["consensus"], button_map={"submit": "primary", "delete": "danger"}, action=head_url_for("main.move_issue_estimate_to_consensus", task_name=task.name)) }}
+        {{ render_form(forms["consensus"], button_map={"submit": "primary", "delete": "danger"}, action=head_url_for("main.act_on_global_estimate", task_name=task.name)) }}
 	{% endif %}
     </div>
     <div class="col">
@@ -98,7 +102,7 @@
     </div>
     </div>
     {%- if similar_sized_cards %}
-        {{ utils.render_similar_sized_tasks(similar_sized_cards[:8]) }}
+        {{ utils.render_similar_sized_tasks(similar_sized_cards) }}
     {%- endif %}
     {%- endif %}
 </div>
