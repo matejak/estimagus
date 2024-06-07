@@ -30,7 +30,6 @@ class DeleteMixin:
 class PromotionMixin(BaseForm):
     def __init__(self, id_prefix, * args, ** kwargs):
         super().__init__(* args, ** kwargs)
-        self.i_kid_you_not.id = id_prefix + self.i_kid_you_not.id
         self.submit.id = id_prefix + self.submit.id
         self.disable_submit_button()
 
@@ -44,6 +43,7 @@ class ConsensusForm(PromotionMixin, SubmitMixin, DeleteMixin):
     def __init__(self, * args, ** kwargs):
         id_prefix = "consensus_"
         super().__init__(* args, id_prefix=id_prefix, ** kwargs)
+        self.i_kid_you_not.id = id_prefix + self.i_kid_you_not.id
         self.disable_delete_button()
 
 
@@ -61,23 +61,16 @@ class AuthoritativeForm(PromotionMixin, SubmitMixin):
 
     task_name = wtforms.HiddenField('task_name')
     point_cost = wtforms.HiddenField('point_cost')
-    i_kid_you_not = BooleanField("Consensus should be published to the tracker")
     submit = SubmitField("Publish Consensus Estimate")
 
 
 FIB = [0, 1, 2, 3, 5, 8, 13, 21, 34]
 
 
-class NumberEstimationForm(BaseForm, SubmitMixin, DeleteMixin):
+class NumberEstimationBase(BaseForm):
     optimistic = wtforms.DecimalField("Optimistic")
     most_likely = wtforms.DecimalField("Most Likely")
     pessimistic = wtforms.DecimalField("Pessimistic")
-    submit = SubmitField("Save Estimate")
-    delete = SubmitField("Forget Estimate")
-
-    def __init__(self, * args, ** kwargs):
-        super().__init__(* args, ** kwargs)
-        self.disable_delete_button()
 
     def validate_optimistic(self, field):
         if field.data and field.data > self.most_likely.data:
@@ -94,6 +87,22 @@ class NumberEstimationForm(BaseForm, SubmitMixin, DeleteMixin):
         for field_errors in self.errors.values():
             all_errors.update(set(field_errors))
         return all_errors
+
+
+class NumberEstimationForm(NumberEstimationBase, SubmitMixin, DeleteMixin):
+    submit = SubmitField("Save Estimate")
+    delete = SubmitField("Forget Estimate")
+
+    def __init__(self, * args, ** kwargs):
+        super().__init__(* args, ** kwargs)
+        self.disable_delete_button()
+
+
+class SimpleEstimationForm(NumberEstimationBase, SubmitMixin):
+    submit = SubmitField("Save to Estimagus")
+
+    def enable_delete_button(self):
+        pass
 
 
 class PointEstimationForm(BaseForm):

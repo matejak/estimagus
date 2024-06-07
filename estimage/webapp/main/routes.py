@@ -88,19 +88,16 @@ def _update_tracker_and_local_point_cost(card_name, io_cls, form):
 def move_consensus_estimate_to_authoritative(task_name):
     form = flask.current_app.get_final_class("AuthoritativeForm")()
     if form.validate_on_submit():
-        if form.i_kid_you_not.data:
-            pollster_cons = webdata.AuthoritativePollster()
-            est_input = pollster_cons.ask_points(form.task_name.data)
-            estimate = data.Estimate.from_input(est_input)
-            form.point_cost.data = str(estimate.expected)
-            io_cls = web_utils.get_proj_loader()[1]
-            try:
-                _update_tracker_and_local_point_cost(task_name, io_cls, form)
-            except Exception as exc:
-                msg = f"Error updating the record: {exc}"
-                flask.flash(msg)
-        else:
-            flask.flash("Authoritative estimate not updated, request was not serious")
+        pollster_cons = webdata.AuthoritativePollster()
+        est_input = pollster_cons.ask_points(form.task_name.data)
+        estimate = data.Estimate.from_input(est_input)
+        form.point_cost.data = str(estimate.expected)
+        io_cls = web_utils.get_proj_loader()[1]
+        try:
+            _update_tracker_and_local_point_cost(task_name, io_cls, form)
+        except Exception as exc:
+            msg = f"Error updating the record: {exc}"
+            flask.flash(msg)
 
     return view_projective_task(task_name, dict(authoritative=form))
 
@@ -119,11 +116,13 @@ def _attempt_record_of_estimate(task_name, form, pollster):
 @flask_login.login_required
 def estimate(task_name):
     r = routers.PollsterRouter()
-    pollster = r.private_pollster
-    form = forms.NumberEstimationForm()
+    pollster = r.global_pollster
+    form = forms.SimpleEstimationForm()
 
     if form.validate_on_submit():
         _attempt_record_of_estimate(task_name, form, pollster)
+        if r.private_pollster.knows_points(task_name):
+            r.private_pollster.forget_points(task_name)
     else:
         msg = "There were following errors: "
         msg += ", ".join(form.get_all_errors())
@@ -179,8 +178,7 @@ def view_projective_task(task_name, known_forms=None):
         known_forms = dict()
 
     request_forms = dict(
-        estimation=forms.NumberEstimationForm(),
-        consensus=forms.ConsensusForm(),
+        estimation=forms.SimpleEstimationForm(),
         authoritative=flask.current_app.get_final_class("AuthoritativeForm")(),
     )
     request_forms.update(known_forms)
@@ -213,6 +211,21 @@ def _setup_forms_according_to_context(request_forms, context):
         feed_estimation_to_form(context.estimation, request_forms["estimation"])
 
 
+def _setup_simple_forms_according_to_context(request_forms, context):
+    if context.own_estimation_exists:
+        request_forms["estimation"].enable_delete_button()
+    if context.global_estimation_exists:
+        request_forms["authoritative"].clear_to_go()
+        request_forms["authoritative"].task_name.data = context.task_name
+        request_forms["authoritative"].point_cost.data = ""
+
+    if context.estimation_source == "none":
+        fallback_estimation = data.Estimate.from_input(data.EstimInput(context.task_point_cost))
+        feed_estimation_to_form(fallback_estimation, request_forms["estimation"])
+    else:
+        feed_estimation_to_form(context.estimation, request_forms["estimation"])
+
+
 def view_task(task_name, breadcrumbs, mode, request_forms=None):
     card_r = routers.CardRouter(mode=mode)
     task = card_r.all_cards_by_id[task_name]
@@ -228,7 +241,7 @@ def view_task(task_name, breadcrumbs, mode, request_forms=None):
     give_data_to_context(context, pollster, c_pollster)
 
     if request_forms:
-        _setup_forms_according_to_context(request_forms, context)
+        _setup_simple_forms_according_to_context(request_forms, context)
 
     similar_cards = []
     if context.estimation_source != "none":

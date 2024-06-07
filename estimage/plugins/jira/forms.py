@@ -131,7 +131,6 @@ class AuthoritativeForm(EncryptedTokenForm):
             self.point_cost,
             self.token,
             self.store_token,
-            self.i_kid_you_not,
             self.encrypted_token,
             self.encrypted_meant_for_storage,
             self.submit,
