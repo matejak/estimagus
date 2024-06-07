@@ -88,11 +88,11 @@ def _update_tracker_and_local_point_cost(card_name, io_cls, form):
 def move_consensus_estimate_to_authoritative(task_name):
     form = flask.current_app.get_final_class("AuthoritativeForm")()
     if form.validate_on_submit():
-        pollster_cons = webdata.AuthoritativePollster()
-        est_input = pollster_cons.ask_points(form.task_name.data)
+        r = routers.PollsterRouter()
+        est_input = r.global_pollster.ask_points(form.task_name.data)
         estimate = data.Estimate.from_input(est_input)
         form.point_cost.data = str(estimate.expected)
-        io_cls = web_utils.get_proj_loader()[1]
+        io_cls = routers.IORouter().get_card_io("proj")
         try:
             _update_tracker_and_local_point_cost(task_name, io_cls, form)
         except Exception as exc:
@@ -409,17 +409,25 @@ def view_problems():
         all_cards_by_id=r.all_cards_by_id, catforms=cat_forms)
 
 
-def _solve_problem(form, classifier, all_cards_by_id):
+def _solve_problem(solution, card, synchro, io_cls):
+    try:
+        solution.solve(card, synchro, io_cls)
+    except Exception as exc:
+        msg = f"Failed to solve problem of {card.name}: {exc}"
+        flask.flash(msg)
+
+
+def _solve_problem_category(form, classifier, all_cards_by_id, io_cls):
     cat_name = form.problem_category.data
     problems_cat = classifier.CATEGORIES[cat_name]
     if not problems_cat.solution.solvable:
         flask.flash(f"Problem of kind '{cat_name}' can't be solved automatically.")
     else:
         synchro = flask.current_app.get_final_class("CardSynchronizer").from_form(form)
-        io_cls = web_utils.get_proj_loader()[1]
         for name in form.problems.data:
             problem = classifier.classified_problems[cat_name][name]
-            problems_cat.solution(problem).solve(all_cards_by_id[name], synchro, io_cls)
+            solution = problems_cat.solution(problem)
+            _solve_problem(solution, all_cards_by_id[name], synchro, io_cls)
 
 
 @bp.route('/problems/fix/<category>', methods=['POST'])
@@ -430,7 +438,7 @@ def fix_problems(category):
     form = flask.current_app.get_final_class("ProblemForm")(prefix=category)
     form.add_problems(r.problem_detector.problems)
     if form.validate_on_submit():
-        _solve_problem(form, r.classifier, r.all_cards_by_id)
+        _solve_problem_category(form, r.classifier, r.all_cards_by_id, r.cards_io)
     else:
         flask.flash(f"Error handing over solution: {form.errors}")
     return flask.redirect(
