@@ -84,6 +84,7 @@ class ProblemDetector:
 
     def __init__(self, model: EstiModel, cards: typing.Iterable[BaseCard], base_problem_t=Problem):
         self.model = model
+        self.pollster = None
         self.cards = cards
         self.problems = []
         self.base_problem_t = base_problem_t

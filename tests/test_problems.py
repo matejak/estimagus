@@ -1,5 +1,7 @@
 import pytest
 
+import estimage.data as data
+from estimage.persistence.pollster import memory
 import estimage.problems.problem as tm
 
 
@@ -25,7 +27,7 @@ def test_model_picks_no_problem():
     assert len(problems) == 0
 
 
-def get_problems_of_cards(cards):
+def get_problems_of_cards(cards, pollster=None):
     model = tm.EstiModel()
     comp = cards[0].to_tree(cards)
     model.use_composition(comp)
@@ -121,3 +123,14 @@ def test_model_finds_status_problem(cards_one_two):
     card_two.point_cost = card_one.point_cost
     problem = get_problem_of_cards(cards_one_two)
     assert "one" == problem.affected_card_name
+
+
+def test_model_finds_estimation_problem(cards_one_two):
+    card_one, card_two = cards_one_two
+    pollster = data.Pollster(memory.MemoryPollsterIO)
+    pollster.tell_points(card_two.name, data.EstimInput(card_two.point_cost + 1))
+    problems = get_problems_of_cards([card_two], pollster)
+    assert len(problems) == 1
+    pollster.tell_points(card_two.name, data.EstimInput(card_two.point_cost))
+    problems = get_problems_of_cards([card_two], pollster)
+    assert len(problems) == 0
