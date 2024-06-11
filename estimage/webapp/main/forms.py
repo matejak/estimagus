@@ -61,7 +61,7 @@ class AuthoritativeForm(PromotionMixin, SubmitMixin):
 
     task_name = wtforms.HiddenField('task_name')
     point_cost = wtforms.HiddenField('point_cost')
-    submit = SubmitField("Publish Consensus Estimate")
+    submit = SubmitField("Save Estimate to Tracker")
 
 
 FIB = [0, 1, 2, 3, 5, 8, 13, 21, 34]
