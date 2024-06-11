@@ -119,6 +119,9 @@ class JiraForm(JiraFormStart, EncryptedTokenForm, JiraFormEnd):
 
 class AuthoritativeForm(EncryptedTokenForm):
     token = wtforms.PasswordField('Jira Token')
+    def __init__(self, ** kwargs):
+        super().__init__(** kwargs)
+        self.submit.label.text = "Save Estimate to Jira"
 
     def clear_to_go(self):
         self.enable_submit_button()
