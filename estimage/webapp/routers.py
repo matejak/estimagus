@@ -64,9 +64,22 @@ class CardRouter(IORouter):
         cards_list = list(self.all_cards_by_id.values())
         self.cards_tree_without_duplicates = utilities.reduce_subsets_from_sets(cards_list)
 
-
-    @CACHE.cached(timeout=60, key_prefix=lambda: gen_cache_key("get_all_cards_by_id"))
     def get_all_cards_by_id(self):
+        if self.mode == "retro":
+            ret = self._get_cached_retro_cards()
+        else:
+            ret = self._get_cached_proj_cards()
+        return ret
+
+    @CACHE.cached(timeout=60, key_prefix=lambda: gen_cache_key(f"get_all_cards_by_id-retro"))
+    def _get_cached_retro_cards(self):
+        return self._get_all_cards_by_id()
+
+    @CACHE.cached(timeout=60, key_prefix=lambda: gen_cache_key(f"get_all_cards_by_id-proj"))
+    def _get_cached_proj_cards(self):
+        return self._get_all_cards_by_id()
+
+    def _get_all_cards_by_id(self):
         ret = self.cards_io.get_loaded_cards_by_id(self.card_class)
         return ret
 
