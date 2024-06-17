@@ -34,6 +34,7 @@ MONTHS_IN_QUARTER = 3
 
 TEMPLATE_OVERRIDES = {
     "tree_view_retrospective.html": "rhcompliance-retrotree.html",
+    "issue_view.html": "rhcompliance-issue_view.html",
 }
 
 
