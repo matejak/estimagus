@@ -47,9 +47,7 @@ OPENSCAP_STATUS_TO_STATE.update(redhat_jira.OJA_ETC_STATUS_TO_STATE)
 class InputSpec(redhat_jira.InputSpec):
     def _get_epochs(self, input_form):
         epoch = input_form.quarter.data
-        planning_epoch = epoch
-        if input_form.project_next.data:
-            planning_epoch = next_epoch_of(planning_epoch)
+        planning_epoch = input_form.planning_quarter.data
 
         return epoch, planning_epoch
 

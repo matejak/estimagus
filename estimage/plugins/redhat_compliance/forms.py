@@ -5,8 +5,8 @@ from ..base.forms import BaseForm
 
 
 class RedhatComplianceFormEnd(BaseForm):
-    quarter = wtforms.StringField('Quarter String')
-    project_next = wtforms.BooleanField('Plan for the Next Quarter')
+    quarter = wtforms.StringField('Retrospective Quarter String')
+    planning_quarter = wtforms.StringField('Planning Quarter String')
     submit = wtforms.SubmitField("Import Data")
 
 

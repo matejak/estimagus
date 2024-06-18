@@ -22,7 +22,10 @@ def sync():
     else:
         form.quarter.data = redhat_compliance.datetime_to_epoch(datetime.datetime.today())
         next_starts_soon = redhat_compliance.days_to_next_epoch(datetime.datetime.today()) < 30
-        form.project_next.data = next_starts_soon
+        planning_quarter = form.quarter.data
+        if next_starts_soon:
+            planning_quarter = redhat_compliance.next_epoch_of(planning_quarter)
+        form.planning_quarter.data = planning_quarter
 
     return web_utils.render_template(
         'rhcompliance.html', title='Red Hat Compliacne Plugin', plugin_form=form, )
