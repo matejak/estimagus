@@ -110,6 +110,20 @@ class UnestimatedChildren(ProblemCategory):
 
 
 @problem_category
+class UnestimatedParent(ProblemCategory):
+    name = "unestimated_parent"
+    summary = "Unestimated Parent"
+    description = "Parent has no size estimated, and children have."
+    solution = solutions.SolutionByUpdatingSelf
+    weight = 15
+
+    required_tags = set([
+        "inconsistent_estimate",
+        "unestimated_parent",
+    ])
+
+
+@problem_category
 class GenericInconsistent(ProblemCategory):
     name = "generic_inconsistent"
     summary = "Generic Inconsistency"

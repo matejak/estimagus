@@ -6,6 +6,7 @@ import numpy as np
 
 from ..entities.card import BaseCard
 from ..entities.model import EstiModel
+from .. import PluginResolver
 
 
 TAG_TO_PROBLEM_TYPE = dict()
@@ -77,6 +78,7 @@ class Analysis:
             self.expected_computed_cost = computed_remaining_cost
 
 
+@PluginResolver.class_is_extendable("ProblemDetector")
 class ProblemDetector:
     POINT_THRESHOLD = 0.4
 
@@ -150,6 +152,12 @@ class ProblemDetector:
         )
         data["value_expected"] = analysis.expected_computed_cost
 
+    def card_consistent_by_definition(self, card):
+        return self._card_is_not_estimated_but_has_children(card)
+
+    def card_consistent_enough(self, recorded_cost, expected_computed_cost):
+        return not self._numbers_differ_significantly(recorded_cost, expected_computed_cost)
+
     def _analyze_inconsistent_record(self, card):
         recorded_cost = card.point_cost
 
@@ -157,10 +165,10 @@ class ProblemDetector:
         computed_nominal_cost = self.model.nominal_point_estimate_of(card.name).expected
         analysis = Analysis(card, computed_remaining_cost, computed_nominal_cost)
 
-        if self._card_is_not_estimated_but_has_children(card):
+        if self.card_consistent_by_definition(card):
             return
 
-        if not self._numbers_differ_significantly(recorded_cost, analysis.expected_computed_cost):
+        if self.card_consistent_enough(recorded_cost, analysis.expected_computed_cost):
             return
 
         self._treat_inconsistent_estimate(analysis)

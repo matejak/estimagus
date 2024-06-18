@@ -4,7 +4,7 @@ import collections
 import dateutil.relativedelta
 import typing
 
-from ... import simpledata, data
+from ... import simpledata, data, problems
 from ...webapp import web_utils
 from .. import jira, redhat_jira
 from ..jira.forms import AuthoritativeForm, ProblemForm
@@ -23,6 +23,7 @@ EXPORTS = dict(
     MPLPointPlot="MPLPointPlot",
     Statuses="Statuses",
     CardSynchronizer="CardSynchronizer",
+    ProblemDetector="ProblemDetector",
     Workloads="Workloads",
 )
 
@@ -135,6 +136,17 @@ def do_stuff(spec, ios_by_target):
     importer.import_data()
     importer.save(ios_by_target)
     return importer.get_collected_stats()
+
+
+class ProblemDetector(problems.problem.ProblemDetector):
+    def card_consistent_by_definition(self, card):
+        super().card_consistent_by_definition(card)
+        return False
+
+    def _inconsistent_card_differing_estimate(self, data, card, analysis):
+        if card.point_cost == 0:
+            data["tags"].add("unestimated_parent")
+        super()._inconsistent_card_differing_estimate(data, card, analysis)
 
 
 class Workloads:

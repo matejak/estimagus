@@ -106,7 +106,8 @@ class ProblemRouter(ModelRouter):
         super().__init__(** kwargs)
 
         all_cards = list(self.all_cards_by_id.values())
-        self.problem_detector = problems.ProblemDetector(self.model, all_cards)
+        detector_cls = flask.current_app.get_final_class("ProblemDetector")
+        self.problem_detector = detector_cls(self.model, all_cards)
 
         self.classifier = problems.groups.ProblemClassifier()
         self.classifier.classify(self.problem_detector.problems)
