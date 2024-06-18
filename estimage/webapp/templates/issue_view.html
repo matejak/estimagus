@@ -26,7 +26,11 @@ populate-{{ sp }}
 {%- endmacro %}
 
 {% macro populate_btn(sp) -%}
-<a type="button" class="btn btn-outline-primary" id="{{ id_of_populate_btn(sp) }}">{{ sp }} SP</a>
+<div><a type="button" class="btn btn-outline-primary" id="{{ id_of_populate_btn(sp) }}">{{ sp }} SP</a></div>
+{%- endmacro %}
+
+{% macro space_evenly(elements) -%}
+<div class="d-flex justify-content-evenly">{{ "".join(elements) | safe }}</div>
 {%- endmacro %}
 
 {% macro estimation_form_in_accordion(estimate_exists) -%}
@@ -37,7 +41,7 @@ populate-{{ sp }}
 {{ utils.accordion_with_stuff(
 	"Estimation", estimate_exists,
 	("Modify" if estimate_exists else "Create") ~ " the estimate",
-	"".join(fillers_str) | safe ~
+	space_evenly(fillers_str) | safe ~
 	render_form(forms["estimation"], button_map={"submit": "primary", "delete": "danger"}, action=head_url_for("main.estimate", task_name=task.name))
 	)
 }}
