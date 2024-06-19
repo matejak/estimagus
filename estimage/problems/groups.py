@@ -113,7 +113,7 @@ class UnestimatedChildren(ProblemCategory):
 class UnestimatedParent(ProblemCategory):
     name = "unestimated_parent"
     summary = "Unestimated Parent"
-    description = "Parent has no size estimated, and children have."
+    description = "Task with children has no size estimated, while children have estimates."
     solution = solutions.SolutionByUpdatingSelf
     weight = 15
 
