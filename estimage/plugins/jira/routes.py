@@ -15,6 +15,7 @@ def try_callback_and_produce_error_msg(callback, * args):
     try:
         stats = callback(* args)
         flask.flash(jira.stats_to_summary(stats))
+        web_utils.updated_cards_and_events_from_tracker()
     except exceptions.JIRAError as exc:
         if 500 <= exc.status_code < 600:
             error_msg = f"Error {exc.status_code} when interacting with Jira, accessing URL {exc.url}"

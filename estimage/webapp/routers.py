@@ -14,6 +14,10 @@ class Router:
     def __init__(self, ** kwargs):
         pass
 
+    @classmethod
+    def clear_cache(cls):
+        pass
+
 
 class UserRouter(Router):
     def __init__(self, ** kwargs):
@@ -54,6 +58,9 @@ class IORouter(Router):
 
 
 class CardRouter(IORouter):
+    CACHE_STEM_PROJ = "get_all_cards_by_id-proj"
+    CACHE_STEM_RETRO = "get_all_cards_by_id-retro"
+
     def __init__(self, ** kwargs):
         super().__init__(** kwargs)
 
@@ -71,13 +78,19 @@ class CardRouter(IORouter):
             ret = self._get_cached_proj_cards()
         return ret
 
-    @CACHE.cached(timeout=60, key_prefix=lambda: gen_cache_key(f"get_all_cards_by_id-retro"))
+    @CACHE.cached(timeout=60, key_prefix=lambda: gen_cache_key(CardRouter.CACHE_STEM_RETRO))
     def _get_cached_retro_cards(self):
         return self._get_all_cards_by_id()
 
-    @CACHE.cached(timeout=60, key_prefix=lambda: gen_cache_key(f"get_all_cards_by_id-proj"))
+    @CACHE.cached(timeout=60, key_prefix=lambda: gen_cache_key(CardRouter.CACHE_STEM_PROJ))
     def _get_cached_proj_cards(self):
         return self._get_all_cards_by_id()
+
+    @classmethod
+    def clear_cache(cls):
+        super().clear_cache()
+        keys = [gen_cache_key(stem) for stem in (cls.CACHE_STEM_PROJ, cls.CACHE_STEM_RETRO)]
+        CACHE.delete_many(* keys)
 
     def _get_all_cards_by_id(self):
         ret = self.cards_io.get_loaded_cards_by_id(self.card_class)
@@ -114,6 +127,8 @@ class ProblemRouter(ModelRouter):
 
 
 class AggregationRouter(ModelRouter):
+    CACHE_STEM = "get_all_events"
+
     def __init__(self, ** kwargs):
         super().__init__(** kwargs)
 
@@ -121,11 +136,16 @@ class AggregationRouter(ModelRouter):
         self.all_events = self.get_all_events()
         self.statuses = flask.current_app.get_final_class("Statuses")()
 
-    @CACHE.cached(timeout=60, key_prefix=lambda: gen_cache_key("get_all_events"))
+    @CACHE.cached(timeout=60, key_prefix=lambda: gen_cache_key(AggregationRouter.CACHE_STEM))
     def get_all_events(self):
         all_events = data.EventManager()
         all_events.load(self.event_io)
         return all_events
+
+    @classmethod
+    def clear_cache(cls):
+        super().clear_cache()
+        CACHE.delete(gen_cache_key(cls.CACHE_STEM))
 
     @property
     def aggregation(self):

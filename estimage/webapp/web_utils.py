@@ -2,6 +2,7 @@ import flask
 import flask_login
 import urllib
 
+from . import routers
 from .. import simpledata as webdata
 from .. import PluginResolver
 from .. import utilities, persistence
@@ -93,3 +94,7 @@ def is_primary_menu_of(plugin_name, blueprint, title):
         CUSTOM_MENU_ITEMS[plugin_name] = (title, endpoint)
         return fun
     return wrapper
+
+
+def updated_cards_and_events_from_tracker():
+    routers.AggregationRouter.clear_cache()
