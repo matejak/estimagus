@@ -317,7 +317,10 @@ def tree_view():
 
 def executive_summary_of_points_and_velocity(agg_router, cards, cls=history.Summary):
     aggregation = agg_router.get_aggregation_of_cards(cards)
-    cutoff_date = min(datetime.datetime.today(), aggregation.end)
+    lower_boundary_of_end = aggregation.end
+    if lower_boundary_of_end is None:
+        lower_boundary_of_end = datetime.datetime.today()
+    cutoff_date = min(datetime.datetime.today(), lower_boundary_of_end)
     summary = cls(aggregation, cutoff_date)
 
     return summary
