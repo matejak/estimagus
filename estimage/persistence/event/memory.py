@@ -28,3 +28,6 @@ class MemoryEventsIO(MemoryEventsIOBase):
 
     def load_events_of(self, name):
         return self._memory[name]
+
+    def erase(self):
+        self._memory.clear()

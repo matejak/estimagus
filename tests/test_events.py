@@ -1,14 +1,30 @@
 import datetime
+import os
+import tempfile
 
 import pytest
 
 import estimage.entities.event as data
-from estimage.persistence.event import memory
+from estimage.persistence.event import memory, ini
+
+
+def create_ini_events_io():
+    fd, filename = tempfile.mkstemp()
+    os.close(fd)
+
+    class IniEventsIO(ini.IniEventsIO):
+        CONFIG_FILENAME = filename
+
+    return IniEventsIO
 
 
 ONE_DAY = datetime.timedelta(days=1)
 PERIOD_START = datetime.datetime(2022, 10, 1)
 LONG_PERIOD_END = datetime.datetime(2022, 10, 21)
+BACKENDS = dict(
+    ini=create_ini_events_io(),
+    memory=memory.MemoryEventsIO,
+)
 
 
 @pytest.fixture
@@ -62,9 +78,31 @@ def test_event_manager(mgr, early_event, less_early_event):
 def test_event_manager_erase(mgr, early_event, less_early_event):
     mgr.add_event(less_early_event)
     mgr.add_event(early_event)
-    mgr.erase()
+    mgr.erase(memory.MemoryEventsIO)
     events = mgr.get_chronological_task_events_by_type(early_event.task_name)
     assert not events
+
+
+@pytest.fixture(params=BACKENDS.keys())
+def event_io(request):
+    ret = BACKENDS[request.param]
+    yield ret
+
+
+def test_events_save(mgr, early_event, less_early_event, event_io):
+    mgr.add_event(early_event)
+    mgr.save(event_io)
+    new_mgr = data.EventManager()
+    new_mgr.load(event_io)
+    task_names = new_mgr.get_referenced_task_names()
+    assert len(task_names) == 1
+    assert task_names.pop() == early_event.task_name
+
+    newer_mgr = data.EventManager()
+    mgr.erase(event_io)
+    newer_mgr.load(event_io)
+    task_names = newer_mgr.get_referenced_task_names()
+    assert len(task_names) == 0
 
 
 def test_events_consistency_trivial(early_event):

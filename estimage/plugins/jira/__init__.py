@@ -325,6 +325,7 @@ class Importer(importer.BareboneImporter):
             save_exported_jira_tasks(self._cards_by_id, self._projective_cards, proj_card_io_class)
 
         storer = data.EventManager()
+        storer.erase(ios_by_target["events"])
         for e in self._all_events:
             storer.add_event(e)
         storer.save(ios_by_target["events"])

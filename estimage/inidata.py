@@ -32,8 +32,8 @@ def get_canonical_status(name_or_index):
 class IniStorage:
     CONFIG_FILENAME = ""
 
-    def __init__(self, * args, ** kwargs):
-        super().__init__(* args, ** kwargs)
+    def __init__(self, ** kwargs):
+        super().__init__(** kwargs)
 
     @staticmethod
     def _pack_list(string_list: typing.Container[str]):
@@ -77,8 +77,8 @@ class IniStorage:
 class IniSaverBase(IniStorage):
     WHAT_IS_THIS = "entity"
 
-    def __init__(self, * args, ** kwargs):
-        super().__init__(* args, ** kwargs)
+    def __init__(self, ** kwargs):
+        super().__init__(** kwargs)
         self._data_to_save = collections.defaultdict(dict)
 
     def _write_items_attribute(self, item_id, attribute_id, value):
