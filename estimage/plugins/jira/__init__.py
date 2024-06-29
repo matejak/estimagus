@@ -206,9 +206,11 @@ class Importer(importer.BareboneImporter):
                 new_results = self._expand_primary_query_result(name, order)
             else:
                 new_results = self._parent_name_to_children_names[name]
+        return result_names
 
     def _expand_primary_query_to_tree(self, names_obtained):
-        self._expand_primary_query_results(names_obtained, 1)
+        tree_results = self._expand_primary_query_results(names_obtained, 1)
+        return tree_results
 
     def _get_or_create_card(self, name):
         if name in self._cards_by_id:
@@ -232,8 +234,8 @@ class Importer(importer.BareboneImporter):
 
     def _get_and_record_jira_tree(self, query):
         core_results = self._perform_and_process_query(query)
-        self._expand_primary_query_to_tree(core_results)
-        return core_results
+        tree_results = self._expand_primary_query_to_tree(core_results)
+        return tree_results
 
     def _export_jira_tree_to_cards(self, root_results):
         new_cards = self.export_issue_tree_to_cards(root_results)

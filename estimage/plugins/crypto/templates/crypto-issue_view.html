@@ -1,0 +1,17 @@
+{% extends "issue_view.html" %}
+
+	{% block forms %}
+    <div class="col">
+    <h3>Jira values</h3>
+    <p>
+        {{ format_tracker_task_size() | indent(8) -}}
+        {% if "authoritative" in forms -%}
+        {{ render_form(forms["authoritative"], action=head_url_for("main.move_consensus_estimate_to_authoritative", task_name=task.name)) }}
+        {%- endif %}
+    </p>
+    </div>
+    <div class="col">
+    <h3>Estimagus values</h3>
+        {{ estimation_form_in_accordion(context.own_estimation_exists) }}
+    </div>
+	{% endblock %}

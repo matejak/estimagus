@@ -57,12 +57,19 @@ class BareboneImporter:
     def report(self, msg):
         print(msg)
 
-    def find_card(self, name: str):
-        card = self.jira.issue(name)
+    def find_card(self, name: str, expand=""):
+        card = self.jira.issue(name, expand=expand)
         if not card:
             msg = f"{card} not found"
             raise ValueError(msg)
         return card
+
+    def just_get_or_find_and_store(self, name: str, expand=""):
+        if issue := self._all_issues_by_name.get(name):
+            return issue
+        issue = self.find_card(name, expand)
+        self._all_issues_by_name[name] = issue
+        return issue
 
     @classmethod
     def status_to_state(cls, item, jira_string=""):
