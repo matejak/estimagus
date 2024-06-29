@@ -22,19 +22,6 @@ def tell_pollster_about_obtained_data(pollster, task_id, form_data):
     pollster.tell_points(task_id, est)
 
 
-def ask_pollster_of_existing_data(pollster, task_id):
-    task_estimates = pollster.ask_points(task_id)
-    if not task_estimates:
-        return None
-
-    est = data.Estimate.from_triple(
-        float(task_estimates.most_likely),
-        float(task_estimates.optimistic),
-        float(task_estimates.pessimistic))
-
-    return est
-
-
 def feed_estimation_to_form(estimation, form_data):
     form_data.optimistic.data = estimation.source.optimistic
     form_data.most_likely.data = estimation.source.most_likely

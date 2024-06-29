@@ -4,7 +4,7 @@ import flask
 import flask_login
 
 from .. import data, simpledata, persistence, utilities, history, problems
-from . import web_utils, CACHE
+from . import CACHE
 
 
 def gen_cache_key(basename):
@@ -105,15 +105,29 @@ class PollsterRouter(UserRouter):
 
         self.private_pollster = simpledata.AuthoritativePollster()
         self.global_pollster = simpledata.UserPollster(self.user_id)
+        self.pollsters_as_dict = collections.OrderedDict()
+        self.pollsters_as_dict["global"] = self.global_pollster
+        self.pollsters_as_dict["private"] = self.private_pollster
 
 
 class ModelRouter(PollsterRouter, CardRouter):
     def __init__(self, ** kwargs):
         super().__init__(** kwargs)
 
-        self.model = web_utils.get_user_model_given_pollsters(
-            self.private_pollster, self.global_pollster, self.cards_tree_without_duplicates)
+        self.statuses = flask.current_app.get_final_class("Statuses")()
+        self.model = data.EstiModel()
+        main_composition = self.card_class.to_tree(self.cards_tree_without_duplicates, self.statuses)
+        self.model.use_composition(main_composition)
+        self.serve_pollsters_to_model()
         self.model.update_cards_with_values(self.cards_tree_without_duplicates)
+
+    def serve_pollsters_to_model(self):
+        for pollster_name, pollster in self.pollsters_as_dict.items():
+            try:
+                pollster.supply_valid_estimations_to_tasks(self.model.get_all_task_models())
+            except ValueError as exc:
+                msg = f"There were errors processing saved '{pollster_name}' inputs: {str(exc)}"
+                flask.flash(msg)
 
 
 class ProblemRouter(ModelRouter):
@@ -123,10 +137,7 @@ class ProblemRouter(ModelRouter):
         all_cards = list(self.all_cards_by_id.values())
         detector_cls = flask.current_app.get_final_class("ProblemDetector")
         self.problem_detector = detector_cls()
-        pollsters = collections.OrderedDict()
-        pollsters["global"] = self.global_pollster
-        pollsters["private"] = self.private_pollster
-        self.problem_detector.detect(self.model, all_cards, pollsters)
+        self.problem_detector.detect(self.model, all_cards, self.pollsters_as_dict)
 
         self.classifier = problems.groups.ProblemClassifier()
         self.classifier.classify(self.problem_detector.problems)
@@ -140,7 +151,6 @@ class AggregationRouter(ModelRouter):
 
         self.start, self.end = flask.current_app.get_config_option("RETROSPECTIVE_PERIOD")
         self.all_events = self.get_all_events()
-        self.statuses = flask.current_app.get_final_class("Statuses")()
 
     @CACHE.cached(timeout=60, key_prefix=lambda: gen_cache_key(AggregationRouter.CACHE_STEM))
     def get_all_events(self):
