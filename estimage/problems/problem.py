@@ -4,6 +4,7 @@ import collections
 
 import numpy as np
 
+from .. import data
 from ..entities.card import BaseCard
 from ..entities.model import EstiModel
 from .. import PluginResolver
@@ -42,9 +43,9 @@ class Problem:
         return self.description_template.format(formatted_task_name=self.format_task_name())
 
     @classmethod
-    def get_problem(cls, ** data):
-        tags = frozenset(data.get("tags", set()))
-        data["tags"] = tags
+    def get_problem(cls, ** problem_data):
+        tags = frozenset(problem_data.get("tags", set()))
+        problem_data["tags"] = tags
 
         problem_tag = _get_problem_t_tags(tags)
         if not problem_tag:
@@ -52,7 +53,7 @@ class Problem:
         else:
             problem_t_special = TAG_TO_PROBLEM_TYPE[problem_tag]
             problem_t_final = type("someProblem", (problem_t_special, cls), dict())
-        return problem_t_final(** data)
+        return problem_t_final(** problem_data)
 
 
 @problem_associated_with_tag("inconsistent_estimate")
@@ -82,86 +83,26 @@ class Analysis:
 class ProblemDetector:
     POINT_THRESHOLD = 0.4
 
-    def __init__(self, model: EstiModel, cards: typing.Iterable[BaseCard], base_problem_t=Problem):
-        self.model = model
-        self.pollster = None
-        self.cards = cards
+    def __init__(self, base_problem_t=Problem):
+        self.model = None
+        # ordered dictionary by ascending priority
+        self.pollster_dict = None
+        self.cards = []
         self.problems = []
         self.base_problem_t = base_problem_t
 
+    def detect(self, model: EstiModel, cards: typing.Iterable[BaseCard], pollster_dict: typing.OrderedDict[str, data.Pollster]=None):
+        self.model = model
+        self.cards = cards
+        self.pollster_dict = pollster_dict
         self._get_problems()
+        return self.problems
 
     def _get_problems(self):
         for card in self.cards:
             self._get_card_problem(card)
 
     def _get_card_problem(self, card):
-        self._analyze_inconsistent_record(card)
-
-    def _numbers_differ_significantly(self, lhs, rhs):
-        if np.abs(lhs - rhs) > self.POINT_THRESHOLD:
-            return True
-
-    def _create_card_problem_data(self, card):
-        data = dict()
-        data["affected_card_name"] = card.name
-        data["tags"] = set()
-        return data
-
-    def _card_is_not_estimated_but_has_children(self, card):
-        return card.children and card.point_cost == 0
-
-    def _treat_inconsistent_estimate(self, analysis: Analysis):
-        card = analysis.card
-        data = self._create_card_problem_data(card)
-        data["tags"].add("inconsistent_estimate")
-        data["value_found"] = analysis.recorded_cost
-        if analysis.computed_nominal_cost == 0:
-            self._inconsistent_card_missing_children_estimates(data, card)
-        else:
-            self._inconsistent_card_differing_estimate(data, card, analysis)
-        data["tags"] = frozenset(data["tags"])
-        self.problems.append(self.base_problem_t.get_problem(** data))
-
-    def _card_has_no_children_with_children(self, card):
-        for child in card.children:
-            if child.children:
-                return False
-        return True
-
-    def _inconsistent_card_missing_children_estimates(self, data, card):
-        recorded_cost = data['value_found']
-        data["description_template"] = (
-            "{formatted_task_name} "
-            f"has inconsistent recorded point cost of {recorded_cost:.2g}, "
-            f"as its children appear to lack estimations."
-        )
-        data["tags"].add("missing_children_estimates")
-        if self._card_has_no_children_with_children(card):
-            data["tags"].add("has_only_childless_children")
-
-    def _inconsistent_card_differing_estimate(self, data, card, analysis):
-        recorded_cost = data['value_found']
-        if analysis.expected_computed_cost < analysis.recorded_cost:
-            data["tags"].add("sum_of_children_lower")
-        if analysis.recorded_cost <= analysis.computed_nominal_cost:
-            data["tags"].add("estimate_within_nominal")
-        data["description_template"] = (
-            "{formatted_task_name} "
-            f"has inconsistent recorded point cost of {analysis.recorded_cost:.2g}, "
-            f"while the deduced cost is {analysis.expected_computed_cost:.2g}"
-        )
-        data["value_expected"] = analysis.expected_computed_cost
-
-    def card_consistent_by_definition(self, card):
-        return self._card_is_not_estimated_but_has_children(card)
-
-    def card_consistent_enough(self, recorded_cost, expected_computed_cost):
-        return not self._numbers_differ_significantly(recorded_cost, expected_computed_cost)
-
-    def _analyze_inconsistent_record(self, card):
-        recorded_cost = card.point_cost
-
         computed_remaining_cost = self.model.remaining_point_estimate_of(card.name).expected
         computed_nominal_cost = self.model.nominal_point_estimate_of(card.name).expected
         analysis = Analysis(card, computed_remaining_cost, computed_nominal_cost)
@@ -169,7 +110,113 @@ class ProblemDetector:
         if self.card_consistent_by_definition(card):
             return
 
-        if self.card_consistent_enough(recorded_cost, analysis.expected_computed_cost):
+        if self.card_consistent_enough(analysis):
             return
 
-        self._treat_inconsistent_estimate(analysis)
+        self._analyze_inconsistent_record(analysis)
+
+    def _numbers_differ_significantly(self, lhs, rhs):
+        if np.abs(lhs - rhs) > self.POINT_THRESHOLD:
+            return True
+
+    def _create_card_problem_data(self, card):
+        problem_data = dict()
+        problem_data["affected_card_name"] = card.name
+        problem_data["tags"] = set()
+        return problem_data
+
+    def _card_is_not_estimated_but_has_children(self, card):
+        return card.children and card.point_cost == 0
+
+    def _card_has_no_children_with_children(self, card):
+        for child in card.children:
+            if child.children:
+                return False
+        return True
+
+    def _inconsistent_card_missing_children_estimates(self, problem_data, analysis):
+        card = analysis.card
+        recorded_cost = analysis.recorded_cost
+        problem_data["description_template"] = (
+            "{formatted_task_name} "
+            f"has inconsistent recorded point cost of {recorded_cost:.2g}, "
+            f"as its children appear to lack estimations."
+        )
+        problem_data["tags"].add("missing_children_estimates")
+        if self._card_has_no_children_with_children(card):
+            problem_data["tags"].add("has_only_childless_children")
+
+    def _inconsistent_card_differing_estimate(self, problem_data, analysis):
+        card = analysis.card
+        recorded_cost = analysis.recorded_cost
+        if analysis.expected_computed_cost < analysis.recorded_cost:
+            problem_data["tags"].add("sum_of_children_lower")
+        if analysis.recorded_cost <= analysis.computed_nominal_cost:
+            problem_data["tags"].add("estimate_within_nominal")
+        problem_data["description_template"] = (
+            "{formatted_task_name} "
+            f"has inconsistent recorded point cost of {analysis.recorded_cost:.2g}, "
+            f"while the deduced cost is {analysis.expected_computed_cost:.2g}"
+        )
+        problem_data["value_expected"] = analysis.expected_computed_cost
+
+    def card_consistent_by_definition(self, card):
+        return self._card_is_not_estimated_but_has_children(card)
+
+    def card_consistent_enough(self, analysis):
+        recorded_cost = analysis.recorded_cost
+        expected_computed_cost = analysis.expected_computed_cost
+        return not self._numbers_differ_significantly(recorded_cost, expected_computed_cost)
+
+    def _analyze_inconsistent_record(self, analysis):
+        card = analysis.card
+        problem_data = self._create_card_problem_data(card)
+        problem_data["tags"].add("inconsistent_estimate")
+        problem_data["value_found"] = analysis.recorded_cost
+
+        if card.children:
+            self._analyze_inconsistent_record_of_subtree(problem_data, analysis)
+        else:
+            self._analyze_inconsistent_record_of_leaf(problem_data, analysis)
+
+        problem_data["tags"] = frozenset(problem_data["tags"])
+        self.problems.append(self.base_problem_t.get_problem(** problem_data))
+
+    def _analyze_inconsistent_record_of_subtree(self, problem_data, analysis):
+        if analysis.computed_nominal_cost == 0:
+            self._inconsistent_card_missing_children_estimates(problem_data, analysis)
+        else:
+            self._inconsistent_card_differing_estimate(problem_data, analysis)
+
+    def _pollster_is_fine(self, pollster, analysis):
+        name = analysis.card.name
+        if not pollster.knows_points(name):
+            return True
+
+        pollster_input = pollster.ask_points(name)
+        pollster_expected = data.Estimate.from_input(pollster_input).expected
+        if self._numbers_differ_significantly(analysis.recorded_cost, pollster_expected):
+            return False
+
+        return True
+
+    def _analyze_leaf_wrt_pollsters(self, problem_data, analysis):
+        pollster_names_by_priority_descending = reversed(self.pollster_dict.keys())
+        for pollster_name in pollster_names_by_priority_descending:
+            pollster = self.pollster_dict[pollster_name]
+
+            if self._pollster_is_fine(pollster, analysis):
+                continue
+
+            problem_data["tags"].add("pollster_disagrees")
+            problem_data["description_template"] = (
+                "{formatted_task_name} "
+                f"has recorded point cost of {analysis.recorded_cost:.2g}, "
+                f"that is different from {analysis.expected_computed_cost:.2g}, "
+                f"because the '{pollster_name}' Estimagus data supplies different value."
+            )
+            break
+
+    def _analyze_inconsistent_record_of_leaf(self, problem_data, analysis):
+        if self.pollster_dict:
+            self._analyze_leaf_wrt_pollsters(problem_data, analysis)

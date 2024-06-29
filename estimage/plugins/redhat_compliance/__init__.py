@@ -143,10 +143,10 @@ class ProblemDetector(problems.problem.ProblemDetector):
         super().card_consistent_by_definition(card)
         return False
 
-    def _inconsistent_card_differing_estimate(self, data, card, analysis):
-        if card.point_cost == 0:
-            data["tags"].add("unestimated_parent")
-        super()._inconsistent_card_differing_estimate(data, card, analysis)
+    def _inconsistent_card_differing_estimate(self, problem_data, analysis):
+        if analysis.card.point_cost == 0:
+            problem_data["tags"].add("unestimated_parent")
+        super()._inconsistent_card_differing_estimate(problem_data, analysis)
 
 
 class Workloads:

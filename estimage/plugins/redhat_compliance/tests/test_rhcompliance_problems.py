@@ -10,7 +10,7 @@ def get_problem_of_cards(cards):
     model = problem.EstiModel()
     comp = cards[0].to_tree(cards)
     model.use_composition(comp)
-    problems = tm.ProblemDetector(model, cards).problems
+    problems = tm.ProblemDetector().detect(model, cards)
     assert len(problems) == 1
     return problems[0]
 

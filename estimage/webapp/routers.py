@@ -1,3 +1,5 @@
+import collections
+
 import flask
 import flask_login
 
@@ -120,7 +122,11 @@ class ProblemRouter(ModelRouter):
 
         all_cards = list(self.all_cards_by_id.values())
         detector_cls = flask.current_app.get_final_class("ProblemDetector")
-        self.problem_detector = detector_cls(self.model, all_cards)
+        self.problem_detector = detector_cls()
+        pollsters = collections.OrderedDict()
+        pollsters["global"] = self.global_pollster
+        pollsters["private"] = self.private_pollster
+        self.problem_detector.detect(self.model, all_cards, pollsters)
 
         self.classifier = problems.groups.ProblemClassifier()
         self.classifier.classify(self.problem_detector.problems)

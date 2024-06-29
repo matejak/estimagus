@@ -426,7 +426,6 @@ def test_aggregation_velocity_summary(simple_card, mgr):
     mean_velocity = summary.daily_velocity
     assert 0 < mean_velocity < summary.nonzero_velocity
 
-    mgr.erase()
     a = get_done_aggregation(simple_card, mgr, 2)
     summary = tm.Summary(a, LONG_PERIOD_END)
     assert summary.total_days_with_velocity == 2
