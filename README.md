@@ -56,6 +56,7 @@ Following environmental variables are recognized and used:
 - `LOGIN_PROVIDER_NAME`: one of `autologin` or `google`. Autologin logs in any user, google allows Google login when set up properly.
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`: When using google login, you need to obtain those from Google to have the Google login working.
 - `PLUGINS`: An ordered, comma-separated list of plugin names to load. Plugins are Python packages located in the `plugins` directory of Estimagus.
+- `CACHE_...`: Environment variables used by [flask-caching](https://flask-caching.readthedocs.io/en/latest/#configuring-flask-caching), e.g. `CACHE_TYPE=SimpleCache`.
 
 
 ## Assumptions

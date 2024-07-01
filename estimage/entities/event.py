@@ -81,5 +81,7 @@ class EventManager:
             for name in events_task_names:
                 self._events[name] = loader.load_events_of(name)
 
-    def erase(self):
+    def erase(self, io_cls):
         self._events.clear()
+        with io_cls.get_saver() as saver:
+            saver.erase()

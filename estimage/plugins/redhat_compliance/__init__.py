@@ -4,7 +4,7 @@ import collections
 import dateutil.relativedelta
 import typing
 
-from ... import simpledata, data
+from ... import simpledata, data, problems
 from ...webapp import web_utils
 from .. import jira, redhat_jira
 from ..jira.forms import AuthoritativeForm, ProblemForm
@@ -23,6 +23,7 @@ EXPORTS = dict(
     MPLPointPlot="MPLPointPlot",
     Statuses="Statuses",
     CardSynchronizer="CardSynchronizer",
+    ProblemDetector="ProblemDetector",
     Workloads="Workloads",
 )
 
@@ -34,6 +35,7 @@ MONTHS_IN_QUARTER = 3
 
 TEMPLATE_OVERRIDES = {
     "tree_view_retrospective.html": "rhcompliance-retrotree.html",
+    "issue_view.html": "rhcompliance-issue_view.html",
 }
 
 
@@ -46,9 +48,7 @@ OPENSCAP_STATUS_TO_STATE.update(redhat_jira.OJA_ETC_STATUS_TO_STATE)
 class InputSpec(redhat_jira.InputSpec):
     def _get_epochs(self, input_form):
         epoch = input_form.quarter.data
-        planning_epoch = epoch
-        if input_form.project_next.data:
-            planning_epoch = next_epoch_of(planning_epoch)
+        planning_epoch = input_form.planning_quarter.data
 
         return epoch, planning_epoch
 
@@ -136,6 +136,17 @@ def do_stuff(spec, ios_by_target):
     importer.import_data()
     importer.save(ios_by_target)
     return importer.get_collected_stats()
+
+
+class ProblemDetector(problems.problem.ProblemDetector):
+    def card_consistent_by_definition(self, card):
+        super().card_consistent_by_definition(card)
+        return False
+
+    def _inconsistent_card_differing_estimate(self, problem_data, analysis):
+        if analysis.card.point_cost == 0:
+            problem_data["tags"].add("unestimated_parent")
+        super()._inconsistent_card_differing_estimate(problem_data, analysis)
 
 
 class Workloads:

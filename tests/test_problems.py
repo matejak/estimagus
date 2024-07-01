@@ -1,5 +1,9 @@
 import pytest
 
+import collections
+
+import estimage.data as data
+from estimage.persistence.pollster import memory
 import estimage.problems.problem as tm
 
 
@@ -25,11 +29,15 @@ def test_model_picks_no_problem():
     assert len(problems) == 0
 
 
-def get_problems_of_cards(cards):
+def get_problems_of_cards(cards, pollster_dict=None):
     model = tm.EstiModel()
     comp = cards[0].to_tree(cards)
     model.use_composition(comp)
-    problems = tm.ProblemDetector(model, cards)
+    if pollster_dict:
+        for pollster in pollster_dict.values():
+            pollster.supply_valid_estimations_to_tasks(model.get_all_task_models())
+    problems = tm.ProblemDetector()
+    problems.detect(model, cards, pollster_dict)
     return problems.problems
 
 
@@ -121,3 +129,34 @@ def test_model_finds_status_problem(cards_one_two):
     card_two.point_cost = card_one.point_cost
     problem = get_problem_of_cards(cards_one_two)
     assert "one" == problem.affected_card_name
+
+
+def test_model_finds_estimation_problem(cards_one_two):
+    card_one, card_two = cards_one_two
+    pollster = data.Pollster(memory.MemoryPollsterIO)
+    pollster.tell_points(card_two.name, data.EstimInput(card_two.point_cost + 1))
+    problems = get_problems_of_cards([card_two], collections.OrderedDict(low_prio=pollster))
+    assert len(problems) == 1
+    problem = problems[0]
+    assert "pollster_disagrees" in problem.tags
+
+    pollster.tell_points(card_two.name, data.EstimInput(card_two.point_cost))
+    problems = get_problems_of_cards([card_two], collections.OrderedDict(low_prio=pollster))
+    assert len(problems) == 0
+
+    # The wrong pollster gets picked up if another one is OK
+    pollster_two = data.Pollster(memory.MemoryPollsterIO)
+    pollster_two.set_namespace("p2")
+    pollster_two.tell_points(card_two.name, data.EstimInput(card_two.point_cost + 1))
+    problems = get_problems_of_cards([card_two], collections.OrderedDict(low_prio=pollster, high_prio=pollster_two))
+    assert len(problems) == 1
+    problem = problems[0]
+    assert "pollster_disagrees" in problem.tags
+    assert "high_prio" in problem.description
+
+    # Even if both pollsters are wrong, the one that matters is identified correcly
+    problems = get_problems_of_cards([card_two], collections.OrderedDict(low_prio=pollster_two, high_prio=pollster_two))
+    assert len(problems) == 1
+    problem = problems[0]
+    assert "pollster_disagrees" in problem.tags
+    assert "high_prio" in problem.description

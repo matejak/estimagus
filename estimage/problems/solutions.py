@@ -33,7 +33,7 @@ class SolutionByUpdating(Solution):
 
 class SolutionByUpdatingChildren(SolutionByUpdating):
     action = "update_children_points"
-    description = "Update divide the card's size among its children, so the subtree is consistent"
+    description = "Update children - divide the card's size evenly among them, so the subtree is consistent"
     solvable = True
 
     def describe(self):

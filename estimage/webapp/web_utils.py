@@ -2,6 +2,7 @@ import flask
 import flask_login
 import urllib
 
+from . import routers
 from .. import simpledata as webdata
 from .. import PluginResolver
 from .. import utilities, persistence
@@ -31,27 +32,11 @@ def get_workloads(workload_type):
     return workload_type
 
 
-def get_user_model_given_pollsters(user_pollster, authoritative_pollster, cards_tree_without_duplicates):
-    statuses = flask.current_app.get_final_class("Statuses")()
-    model = webdata.get_model(cards_tree_without_duplicates, None, statuses)
-    try:
-        authoritative_pollster.supply_valid_estimations_to_tasks(model.get_all_task_models())
-    except ValueError as exc:
-        msg = f"There were errors processing own inputs: {str(exc)}"
-        flask.flash(msg)
-    try:
-        user_pollster.supply_valid_estimations_to_tasks(model.get_all_task_models())
-    except ValueError as exc:
-        msg = f"There were errors processing consensus inputs: {str(exc)}"
-        flask.flash(msg)
-    return model
-
-
 def get_head_absolute_endpoint(endpoint):
     return flask.current_app.get_correct_context_endpoint(endpoint)
 
 
-def get_custom_items_dict():
+def get_custom_menu_items_dict():
     custom_items = dict()
     app = flask.current_app
     for plugin, (title, endpoint) in CUSTOM_MENU_ITEMS.items():
@@ -69,7 +54,7 @@ def render_template(path, title, **kwargs):
     if flask_login.current_user.is_authenticated:
         authenticated_user = flask_login.current_user
     maybe_overriden_path = flask.current_app.translate_path(path)
-    custom_menu_items = get_custom_items_dict()
+    custom_menu_items = get_custom_menu_items_dict()
     return flask.render_template(
         maybe_overriden_path, get_head_absolute_endpoint=get_head_absolute_endpoint,
         title=title, authenticated_user=authenticated_user, head_url_for=head_url_for,
@@ -93,3 +78,7 @@ def is_primary_menu_of(plugin_name, blueprint, title):
         CUSTOM_MENU_ITEMS[plugin_name] = (title, endpoint)
         return fun
     return wrapper
+
+
+def updated_cards_and_events_from_tracker():
+    routers.AggregationRouter.clear_cache()

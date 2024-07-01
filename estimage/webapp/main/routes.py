@@ -22,19 +22,6 @@ def tell_pollster_about_obtained_data(pollster, task_id, form_data):
     pollster.tell_points(task_id, est)
 
 
-def ask_pollster_of_existing_data(pollster, task_id):
-    task_estimates = pollster.ask_points(task_id)
-    if not task_estimates:
-        return None
-
-    est = data.Estimate.from_triple(
-        float(task_estimates.most_likely),
-        float(task_estimates.optimistic),
-        float(task_estimates.pessimistic))
-
-    return est
-
-
 def feed_estimation_to_form(estimation, form_data):
     form_data.optimistic.data = estimation.source.optimistic
     form_data.most_likely.data = estimation.source.most_likely
@@ -88,19 +75,16 @@ def _update_tracker_and_local_point_cost(card_name, io_cls, form):
 def move_consensus_estimate_to_authoritative(task_name):
     form = flask.current_app.get_final_class("AuthoritativeForm")()
     if form.validate_on_submit():
-        if form.i_kid_you_not.data:
-            pollster_cons = webdata.AuthoritativePollster()
-            est_input = pollster_cons.ask_points(form.task_name.data)
-            estimate = data.Estimate.from_input(est_input)
-            form.point_cost.data = str(estimate.expected)
-            io_cls = web_utils.get_proj_loader()[1]
-            try:
-                _update_tracker_and_local_point_cost(task_name, io_cls, form)
-            except Exception as exc:
-                msg = f"Error updating the record: {exc}"
-                flask.flash(msg)
-        else:
-            flask.flash("Authoritative estimate not updated, request was not serious")
+        r = routers.PollsterRouter()
+        est_input = r.global_pollster.ask_points(form.task_name.data)
+        estimate = data.Estimate.from_input(est_input)
+        form.point_cost.data = str(estimate.expected)
+        io_cls = routers.IORouter().get_card_io("proj")
+        try:
+            _update_tracker_and_local_point_cost(task_name, io_cls, form)
+        except Exception as exc:
+            msg = f"Error updating the record: {exc}"
+            flask.flash(msg)
 
     return view_projective_task(task_name, dict(authoritative=form))
 
@@ -119,11 +103,13 @@ def _attempt_record_of_estimate(task_name, form, pollster):
 @flask_login.login_required
 def estimate(task_name):
     r = routers.PollsterRouter()
-    pollster = r.private_pollster
-    form = forms.NumberEstimationForm()
+    pollster = r.global_pollster
+    form = forms.SimpleEstimationForm()
 
     if form.validate_on_submit():
         _attempt_record_of_estimate(task_name, form, pollster)
+        if r.private_pollster.knows_points(task_name):
+            r.private_pollster.forget_points(task_name)
     else:
         msg = "There were following errors: "
         msg += ", ".join(form.get_all_errors())
@@ -179,8 +165,7 @@ def view_projective_task(task_name, known_forms=None):
         known_forms = dict()
 
     request_forms = dict(
-        estimation=forms.NumberEstimationForm(),
-        consensus=forms.ConsensusForm(),
+        estimation=forms.SimpleEstimationForm(),
         authoritative=flask.current_app.get_final_class("AuthoritativeForm")(),
     )
     request_forms.update(known_forms)
@@ -213,6 +198,21 @@ def _setup_forms_according_to_context(request_forms, context):
         feed_estimation_to_form(context.estimation, request_forms["estimation"])
 
 
+def _setup_simple_forms_according_to_context(request_forms, context):
+    if context.own_estimation_exists:
+        request_forms["estimation"].enable_delete_button()
+    if context.global_estimation_exists:
+        request_forms["authoritative"].clear_to_go()
+        request_forms["authoritative"].task_name.data = context.task_name
+        request_forms["authoritative"].point_cost.data = ""
+
+    if context.estimation_source == "none":
+        fallback_estimation = data.Estimate.from_input(data.EstimInput(context.task_point_cost))
+        feed_estimation_to_form(fallback_estimation, request_forms["estimation"])
+    else:
+        feed_estimation_to_form(context.estimation, request_forms["estimation"])
+
+
 def view_task(task_name, breadcrumbs, mode, request_forms=None):
     card_r = routers.CardRouter(mode=mode)
     task = card_r.all_cards_by_id[task_name]
@@ -228,7 +228,7 @@ def view_task(task_name, breadcrumbs, mode, request_forms=None):
     give_data_to_context(context, pollster, c_pollster)
 
     if request_forms:
-        _setup_forms_according_to_context(request_forms, context)
+        _setup_simple_forms_according_to_context(request_forms, context)
 
     similar_cards = []
     if context.estimation_source != "none":
@@ -304,7 +304,10 @@ def tree_view():
 
 def executive_summary_of_points_and_velocity(agg_router, cards, cls=history.Summary):
     aggregation = agg_router.get_aggregation_of_cards(cards)
-    cutoff_date = min(datetime.datetime.today(), aggregation.end)
+    lower_boundary_of_end = aggregation.end
+    if lower_boundary_of_end is None:
+        lower_boundary_of_end = datetime.datetime.today()
+    cutoff_date = min(datetime.datetime.today(), lower_boundary_of_end)
     summary = cls(aggregation, cutoff_date)
 
     return summary
@@ -396,17 +399,25 @@ def view_problems():
         all_cards_by_id=r.all_cards_by_id, catforms=cat_forms)
 
 
-def _solve_problem(form, classifier, all_cards_by_id):
+def _solve_problem(solution, card, synchro, io_cls):
+    try:
+        solution.solve(card, synchro, io_cls)
+    except Exception as exc:
+        msg = f"Failed to solve problem of {card.name}: {exc}"
+        flask.flash(msg)
+
+
+def _solve_problem_category(form, classifier, all_cards_by_id, io_cls):
     cat_name = form.problem_category.data
     problems_cat = classifier.CATEGORIES[cat_name]
     if not problems_cat.solution.solvable:
         flask.flash(f"Problem of kind '{cat_name}' can't be solved automatically.")
     else:
         synchro = flask.current_app.get_final_class("CardSynchronizer").from_form(form)
-        io_cls = web_utils.get_proj_loader()[1]
         for name in form.problems.data:
             problem = classifier.classified_problems[cat_name][name]
-            problems_cat.solution(problem).solve(all_cards_by_id[name], synchro, io_cls)
+            solution = problems_cat.solution(problem)
+            _solve_problem(solution, all_cards_by_id[name], synchro, io_cls)
 
 
 @bp.route('/problems/fix/<category>', methods=['POST'])
@@ -417,7 +428,7 @@ def fix_problems(category):
     form = flask.current_app.get_final_class("ProblemForm")(prefix=category)
     form.add_problems(r.problem_detector.problems)
     if form.validate_on_submit():
-        _solve_problem(form, r.classifier, r.all_cards_by_id)
+        _solve_problem_category(form, r.classifier, r.all_cards_by_id, r.cards_io)
     else:
         flask.flash(f"Error handing over solution: {form.errors}")
     return flask.redirect(

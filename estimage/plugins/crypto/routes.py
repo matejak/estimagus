@@ -22,5 +22,6 @@ def sync():
     else:
         next_starts_soon = redhat_compliance.days_to_next_epoch(datetime.datetime.today()) < 30
         form.project_next.data = next_starts_soon
+        form.import_method.data = "product-centric"
     return web_utils.render_template(
         'crypto.html', title='Red Hat Crypto Plugin', plugin_form=form, )

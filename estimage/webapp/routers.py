@@ -1,8 +1,10 @@
+import collections
+
 import flask
 import flask_login
 
 from .. import data, simpledata, persistence, utilities, history, problems
-from . import web_utils, CACHE
+from . import CACHE
 
 
 def gen_cache_key(basename):
@@ -12,6 +14,10 @@ def gen_cache_key(basename):
 
 class Router:
     def __init__(self, ** kwargs):
+        pass
+
+    @classmethod
+    def clear_cache(cls):
         pass
 
 
@@ -54,6 +60,9 @@ class IORouter(Router):
 
 
 class CardRouter(IORouter):
+    CACHE_STEM_PROJ = "get_all_cards_by_id-proj"
+    CACHE_STEM_RETRO = "get_all_cards_by_id-retro"
+
     def __init__(self, ** kwargs):
         super().__init__(** kwargs)
 
@@ -64,9 +73,28 @@ class CardRouter(IORouter):
         cards_list = list(self.all_cards_by_id.values())
         self.cards_tree_without_duplicates = utilities.reduce_subsets_from_sets(cards_list)
 
-
-    @CACHE.cached(timeout=60, key_prefix=lambda: gen_cache_key("get_all_cards_by_id"))
     def get_all_cards_by_id(self):
+        if self.mode == "retro":
+            ret = self._get_cached_retro_cards()
+        else:
+            ret = self._get_cached_proj_cards()
+        return ret
+
+    @CACHE.cached(timeout=60, key_prefix=lambda: gen_cache_key(CardRouter.CACHE_STEM_RETRO))
+    def _get_cached_retro_cards(self):
+        return self._get_all_cards_by_id()
+
+    @CACHE.cached(timeout=60, key_prefix=lambda: gen_cache_key(CardRouter.CACHE_STEM_PROJ))
+    def _get_cached_proj_cards(self):
+        return self._get_all_cards_by_id()
+
+    @classmethod
+    def clear_cache(cls):
+        super().clear_cache()
+        keys = [gen_cache_key(stem) for stem in (cls.CACHE_STEM_PROJ, cls.CACHE_STEM_RETRO)]
+        CACHE.delete_many(* keys)
+
+    def _get_all_cards_by_id(self):
         ret = self.cards_io.get_loaded_cards_by_id(self.card_class)
         return ret
 
@@ -77,15 +105,29 @@ class PollsterRouter(UserRouter):
 
         self.private_pollster = simpledata.AuthoritativePollster()
         self.global_pollster = simpledata.UserPollster(self.user_id)
+        self.pollsters_as_dict = collections.OrderedDict()
+        self.pollsters_as_dict["global"] = self.global_pollster
+        self.pollsters_as_dict["private"] = self.private_pollster
 
 
 class ModelRouter(PollsterRouter, CardRouter):
     def __init__(self, ** kwargs):
         super().__init__(** kwargs)
 
-        self.model = web_utils.get_user_model_given_pollsters(
-            self.private_pollster, self.global_pollster, self.cards_tree_without_duplicates)
+        self.statuses = flask.current_app.get_final_class("Statuses")()
+        self.model = data.EstiModel()
+        main_composition = self.card_class.to_tree(self.cards_tree_without_duplicates, self.statuses)
+        self.model.use_composition(main_composition)
+        self.serve_pollsters_to_model()
         self.model.update_cards_with_values(self.cards_tree_without_duplicates)
+
+    def serve_pollsters_to_model(self):
+        for pollster_name, pollster in self.pollsters_as_dict.items():
+            try:
+                pollster.supply_valid_estimations_to_tasks(self.model.get_all_task_models())
+            except ValueError as exc:
+                msg = f"There were errors processing saved '{pollster_name}' inputs: {str(exc)}"
+                flask.flash(msg)
 
 
 class ProblemRouter(ModelRouter):
@@ -93,25 +135,33 @@ class ProblemRouter(ModelRouter):
         super().__init__(** kwargs)
 
         all_cards = list(self.all_cards_by_id.values())
-        self.problem_detector = problems.ProblemDetector(self.model, all_cards)
+        detector_cls = flask.current_app.get_final_class("ProblemDetector")
+        self.problem_detector = detector_cls()
+        self.problem_detector.detect(self.model, all_cards, self.pollsters_as_dict)
 
         self.classifier = problems.groups.ProblemClassifier()
         self.classifier.classify(self.problem_detector.problems)
 
 
 class AggregationRouter(ModelRouter):
+    CACHE_STEM = "get_all_events"
+
     def __init__(self, ** kwargs):
         super().__init__(** kwargs)
 
         self.start, self.end = flask.current_app.get_config_option("RETROSPECTIVE_PERIOD")
         self.all_events = self.get_all_events()
-        self.statuses = flask.current_app.get_final_class("Statuses")()
 
-    @CACHE.cached(timeout=60, key_prefix=lambda: gen_cache_key("get_all_events"))
+    @CACHE.cached(timeout=60, key_prefix=lambda: gen_cache_key(AggregationRouter.CACHE_STEM))
     def get_all_events(self):
         all_events = data.EventManager()
         all_events.load(self.event_io)
         return all_events
+
+    @classmethod
+    def clear_cache(cls):
+        super().clear_cache()
+        CACHE.delete(gen_cache_key(cls.CACHE_STEM))
 
     @property
     def aggregation(self):

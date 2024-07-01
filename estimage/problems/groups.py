@@ -95,6 +95,19 @@ class ReasonableOutdated(ProblemCategory):
 
 
 @problem_category
+class SuppliedInput(ProblemCategory):
+    name = "supplied_input"
+    summary = "Estimated in Estimagus"
+    description = "The task has been estimated in Estimagus, which overrides the different estimate in the tracker."
+    solution = solutions.SolutionByUpdatingSelf
+    weight = 10
+
+    required_tags = set([
+        "pollster_disagrees",
+    ])
+
+
+@problem_category
 class UnestimatedChildren(ProblemCategory):
     name = "unestimated_children"
     summary = "Unestimated Children"
@@ -106,6 +119,20 @@ class UnestimatedChildren(ProblemCategory):
         "inconsistent_estimate",
         "missing_children_estimates",
         "has_only_childless_children",
+    ])
+
+
+@problem_category
+class UnestimatedParent(ProblemCategory):
+    name = "unestimated_parent"
+    summary = "Unestimated Parent"
+    description = "Task with children has no size estimated, while children have estimates."
+    solution = solutions.SolutionByUpdatingSelf
+    weight = 15
+
+    required_tags = set([
+        "inconsistent_estimate",
+        "unestimated_parent",
     ])
 
 

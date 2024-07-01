@@ -135,6 +135,7 @@ class NotToday:
 def start(cards, loader, start_date):
     date = start_date - datetime.timedelta(days=20)
     mgr = data.EventManager()
+    mgr.erase(simpledata.IOs["events"]["ini"])
     for t in cards:
         evt = data.Event(t.name, "state", date)
         evt.value_before = "irrelevant"

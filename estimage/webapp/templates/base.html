@@ -1,6 +1,36 @@
 {% from 'bootstrap5/nav.html' import render_nav_item %}
 {% from 'bootstrap5/utils.html' import render_messages %}
 
+{% macro dark_mode() %}
+<div class="fixed-bottom form-check form-switch">
+    <input class="form-check-input" type="checkbox" id="darkModeSwitch" checked>
+    <label class="form-check-label" for="darkModeSwitch">Dark Mode</label>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', (event) => {
+    const htmlElement = document.documentElement;
+    const switchElement = document.getElementById('darkModeSwitch');
+
+    // Set the default theme to dark if no setting is found in local storage
+    const currentTheme = localStorage.getItem('bsTheme') || 'dark';
+    htmlElement.setAttribute('data-bs-theme', currentTheme);
+    switchElement.checked = currentTheme === 'dark';
+
+    switchElement.addEventListener('change', function () {
+        if (this.checked) {
+            htmlElement.setAttribute('data-bs-theme', 'dark');
+            localStorage.setItem('bsTheme', 'dark');
+        } else {
+            htmlElement.setAttribute('data-bs-theme', 'light');
+            localStorage.setItem('bsTheme', 'light');
+        }
+    });
+});
+</script>
+{% endmacro %}
+
+
 <!doctype html>
 <html>
     <head>
@@ -15,7 +45,7 @@
       {% endblock %}
     </head>
     <body>
-	<nav class="navbar navbar-expand-lg navbar-light bg-light">
+	<nav class="navbar navbar-expand-lg">
 	    <div class="navbar-nav mr-auto">
 		{% block navbar %}
 		{% block navbar_common %}
@@ -37,7 +67,7 @@
 		{% endblock %}
 	    </div>
 	</nav>
-	<nav class="navbar navbar-expand-lg navbar-light bg-light">
+	<nav class="navbar navbar-expand-lg">
 	    <div class="navbar-nav mr-auto">
 		{% block navbar_secondary %}
 		{% block navbar_secondary_common %}
@@ -62,7 +92,7 @@
         {%- endif %}
 	{{ render_messages() }}
         {% block content %}{% endblock %}
-	{% block footer %}{{ footer.get_footer_html() | safe }}{% endblock %}
+	{% block footer %}{{ dark_mode() | safe }} {{ footer.get_footer_html() | safe }}{% endblock %}
 	{{ bootstrap.load_js() }}
     </body>
 </html>
