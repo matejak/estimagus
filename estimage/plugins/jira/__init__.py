@@ -164,7 +164,7 @@ class Importer(importer.BareboneImporter):
         items = self.jira.search_issues(query, expand="changelog,renderedFields", maxResults=0)
         return items
 
-    def _perform_and_process_query(self, query):
+    def _perform_and_process_query(self, query) -> set:
         results = self._execute_search_query(query)
         results_by_name = {r.key: r for r in results}
         self._all_issues_by_name.update(results_by_name)

@@ -48,7 +48,7 @@ class InputSpec(redhat_jira.InputSpec):
 
     def set_queries(self, input_form):
         sprint = "openSprints()"
-        query_tpl = "filter = 12350823 AND Sprint in {sprint} AND issuetype in (task, bug, Story)"
+        query_tpl = "filter = 12350823 AND Sprint in {sprint} AND issuetype in (task, bug, Story) AND labels = Committed"
         # query_tpl = "key in (CRYPTO-7890, CRYPTO-9482, CRYPTO-6349) AND issuetype in (task, bug, Story)"
         self.retrospective_query = query_tpl.format(sprint=sprint)
         if input_form.project_next.data:
@@ -170,6 +170,7 @@ class ArtificialCryptoImporter(CryptoImporter):
 class FeatureCryptoImporter(CryptoImporter):
     EPIC_LINK = "customfield_12311140"
     PARENT_LINK = "customfield_12313140"
+    OTHER_FEATURE_NAME = "RHELBU-others"
 
     def _find_parent_epic_of(self, issue):
         if epic := self._all_issues_by_name.get(epic_name):
@@ -178,26 +179,51 @@ class FeatureCryptoImporter(CryptoImporter):
         self._all_issues_by_name[epic_name] = epic
         return epic
 
-    def _find_parent_of(self, epic):
-        return epic
+    def _get_other_feature(self):
+        name = self.OTHER_FEATURE_NAME
+        feature = self._cards_by_id.get(name)
+
+        if not feature:
+            feature = self.item_class(name)
+            feature.title = f"Epics without a Feature"
+            feature.status = "in_progress"
+            self._cards_by_id[name] = feature
+        return feature
 
     def _find_preferably_grandparent_of(self, task_name):
         task = self._all_issues_by_name[task_name]
         expand = "changelog,renderedFields"
         epic_name = self._get_contents_of_field(task, self.EPIC_LINK)
         if not epic_name:
-            return
+            self.tasks_missing_feature_or_epic.add(task_name)
+            return None
         epic = self.just_get_or_find_and_store(epic_name, expand)
         ancestor_name = self._get_contents_of_field(epic, self.PARENT_LINK)
         if not ancestor_name:
-            return epic
+            self.tasks_missing_feature_or_epic.add(task_name)
+            return None
         granparent = self.just_get_or_find_and_store(ancestor_name, expand)
         return granparent
 
     def _expand_primary_query_results(self, result_names, order=1):
-        self.root_ancestors = set()
+        self.tasks_missing_feature_or_epic = set()
         super()._expand_primary_query_results(result_names, order)
-        return self.root_ancestors
+        ancestors = set()
+        for parent, children in self._parent_name_to_children_names.items():
+            for name in result_names:
+                if name not in children:
+                    continue
+                ancestors.add(parent)
+                break
+        return ancestors
+
+    def _export_jira_tree_to_cards(self, root_results):
+        if self.tasks_missing_feature_or_epic:
+            self._parent_name_to_children_names[self.OTHER_FEATURE_NAME] = list(self.tasks_missing_feature_or_epic)
+            feature = self._get_other_feature()
+            root_results.add(feature.name)
+        new_cards = super()._export_jira_tree_to_cards(root_results)
+        return new_cards
 
     def _add_child_to_parent(self, parent_name, child_name):
         if parent_name not in self._parent_name_to_children_names:
@@ -208,19 +234,10 @@ class FeatureCryptoImporter(CryptoImporter):
     def _expand_primary_query_result(self, result_name, order=1):
         self._find_children_by_examining_parent(result_name)
         if granparent := self._find_preferably_grandparent_of(result_name):
-            ancestor_name = f"{self._import_context}-{granparent.key}"
+            ancestor_name = f"{granparent.key}"
             self._all_issues_by_name[ancestor_name] = granparent
-            self.root_ancestors.add(ancestor_name)
             self._add_child_to_parent(ancestor_name, result_name)
 
-    def merge_jira_item_without_children(self, item):
-
-        result = super().merge_jira_item_without_children(item)
-        altname = f"{self._import_context}-{result.name}"
-        if altname in self._all_issues_by_name:
-            result.name = altname
-
-        return result
 
 def do_stuff(spec, ios_by_target):
     if spec.import_method == "product-centric":
@@ -237,5 +254,9 @@ class Workloads:
                  cards: typing.Iterable[data.BaseCard],
                  model: data.EstiModel,
                  * args, ** kwargs):
-        cards = [t for t in cards if t.tier == 0]
-        super().__init__(* args, model=model, cards=cards, ** kwargs)
+        all_tier0_children = []
+        for c in cards:
+            for ch in c.children:
+                if ch.tier == 0:
+                    all_tier0_children.append(ch)
+        super().__init__(* args, model=model, cards=all_tier0_children, ** kwargs)
