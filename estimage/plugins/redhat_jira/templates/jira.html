@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% import "utils.j2" as utils %}
+{% from 'bootstrap5/form.html' import render_form %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+    <h1>Jira Plugin</h1>
+        {{ render_form(plugin_form, action=head_url_for("redhat_jira.sync")) }}
+    </div>
+</div>
+
+{% endblock %}
+
+{% block footer %}
+{{ super() }}
+{{ plugin_form.supporting_js([plugin_form]) | safe }}
+{% endblock %}
