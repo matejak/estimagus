@@ -77,7 +77,7 @@ class CryptoImporter(redhat_jira.Importer):
     def distribute_subtasks_points_to_tasks(self):
         names_of_not_parents = set()
         for c in self._cards_by_id.values():
-            if not c.children and c.parent and c.name.startswith(PROJECT_NAME):
+            if not c.children and c.parent:
                 names_of_not_parents.add(c.name)
         names_of_parents_of_not_parents = {self._cards_by_id[cname].parent.name for cname in names_of_not_parents}
         for pn in names_of_parents_of_not_parents:
