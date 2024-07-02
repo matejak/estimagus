@@ -37,6 +37,7 @@ def do_stuff_and_flash_messages(task_spec, callback):
         flask.flash(error_msg)
 
 
+@web_utils.is_primary_menu_of("jira", bp, "Jira")
 @bp.route('/jira', methods=("GET", "POST"))
 @flask_login.login_required
 def jira_plugin():

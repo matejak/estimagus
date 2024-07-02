@@ -45,6 +45,12 @@ OJA_ETC_STATUS_TO_STATE = {
 }
 
 
+EXPORTS = dict(
+    MPLPointPlot="MPLPointPlot",
+    Statuses="Statuses",
+)
+
+
 class EventExtractor(jira.EventExtractor):
     def _field_to_event(self, date, field_name, former_value, new_value):
         evt = super()._field_to_event(date, field_name, former_value, new_value)
@@ -261,3 +267,10 @@ class MPLPointPlot:
         ret["rhel-in_progress"] = StatusStyle(color=(0.1, 0.2, 0.5, 0.4), label="BZ In Progress", weight=60)
         ret["rhel-integration"] = StatusStyle(color=(0.2, 0.4, 0.7, 0.6), label="BZ Integration", weight=61)
         return ret
+
+
+def do_stuff(spec, ios_by_target):
+    importer = Importer(spec)
+    importer.import_data()
+    importer.save(ios_by_target)
+    return importer.get_collected_stats()
