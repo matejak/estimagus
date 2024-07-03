@@ -292,13 +292,14 @@ class Summary:
         self.total_points_done = self.cutoff_done - self.initial_done
 
     def _process_repre(self, r):
-        repre_points = r.get_points_at(self._start)
+        initial_repre_points = r.get_points_at(self._start)
+        final_repre_points = r.get_points_at(self._cutoff)
         if r.get_status_at(self._start).relevant_and_not_done_yet:
-            self.initial_todo += repre_points
+            self.initial_todo += initial_repre_points
         status_at_cutoff = r.get_status_at(self._cutoff)
         if status_at_cutoff.relevant and status_at_cutoff.underway:
-            self.cutoff_underway += repre_points
+            self.cutoff_underway += final_repre_points
         elif status_at_cutoff.relevant and not status_at_cutoff.started:
-            self.cutoff_todo += repre_points
+            self.cutoff_todo += final_repre_points
         elif status_at_cutoff.relevant and status_at_cutoff.done:
-            self.cutoff_done += repre_points
+            self.cutoff_done += final_repre_points

@@ -411,6 +411,22 @@ def test_aggregation_summary(simple_card, mgr):
     assert summary.cutoff_underway == simple_card.point_cost
 
 
+def test_aggregation_reestimation(simple_card, mgr):
+    reestimation_time = PERIOD_START + ONE_DAY
+    reestimation_evt = data.Event(simple_card.name, "points", reestimation_time)
+    reestimation_evt.value_before = 1
+    reestimation_evt.value_after = simple_card.point_cost
+    mgr.add_event(reestimation_evt)
+
+    a = get_wip_aggregation(simple_card, mgr)
+    summary = tm.Summary(a, LONG_PERIOD_END)
+
+    assert summary.initial_todo < simple_card.point_cost
+    assert summary.initial_todo == 1
+    assert summary.cutoff_todo == 0
+    assert summary.cutoff_underway == simple_card.point_cost
+
+
 def test_aggregation_done_summary(simple_card, mgr):
     a = get_done_aggregation(simple_card, mgr, 1)
     summary = tm.Summary(a, LONG_PERIOD_END)
