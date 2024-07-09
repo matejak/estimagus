@@ -25,7 +25,7 @@ class WorkloadSummary(typing.NamedTuple):
 class Workload:
     name: str = ""
     points: float = 0
-    cards: typing.List[data.BaseCard] = dataclasses.field(default_factory=list)
+    cards_by_name: typing.Dict[str, data.BaseCard] = dataclasses.field(default_factory=dict)
     point_parts: typing.Dict[str, float] = dataclasses.field(default_factory=dict)
     proportions: typing.Dict[str, float] = dataclasses.field(default_factory=dict)
 
@@ -135,7 +135,7 @@ class SimpleWorkloads(Workloads):
             projection = self.work_matrix[person_index, task_index]
             if projection == 0:
                 continue
-            ret.cards.append(self.cards_by_name[task_name])
+            ret.cards_by_name[task_name] = self.cards_by_name[task_name]
             ret.point_parts[task_name] = projection
             ret.proportions[task_name] = projection / task_totals[task_index]
         return ret
@@ -183,7 +183,7 @@ class OptimizedWorkloads(Workloads):
             projection = round(projection, 1)
             if projection == 0:
                 continue
-            ret.cards.append(self.cards_by_name[task_name])
+            ret.cards_by_name[task_name] = self.cards_by_name[task_name]
             ret.point_parts[task_name] = projection
             ret.proportions[task_name] = projection / self.task_totals[task_index]
         return ret

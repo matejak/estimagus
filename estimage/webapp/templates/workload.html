@@ -14,6 +14,17 @@
 </div>
 {%- endmacro %}
 
+{% macro render_epic_workload_table(epic, points, percentage) -%}
+<tr>
+	<td>
+        {{ utils.task_or_epic_link(epic, mode) }}
+	</td>
+	<td>{{ "%.2g" % points }}</td>
+	<td>{{ "%i" % percentage }} &nbsp; %</td>
+	<td>{{ utils.truncate_text_to(epic.title, "250pt") }}</td>
+</tr>
+{%- endmacro %}
+
 {% block content %}
 <div class="container">
     <div class="row">
@@ -34,11 +45,21 @@
     <p>
     Proportion of the work: {{ "%.2g" % workload.points }}
     </p>
-    <ul>
-    {% for epic in (workload.cards | sort(attribute="name")) %}
-    <li>{{ render_epic_workload(epic, workload.point_parts[epic.name], 100 * workload.proportions[epic.name]) }}</li>
+    <table class="table table-sm">
+  <thead>
+    <tr>
+      <th scope="col">Name</th>
+      <th scope="col">Total SP</th>
+      <th scope="col">Involvement</th>
+      <th scope="col">Summary</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for name, _ in (workload.point_parts | dictsort(by="value", reverse=true)) %}
+    {{ render_epic_workload_table(workload.cards_by_name[name], workload.point_parts[name], 100 * workload.proportions[name]) }}
     {% endfor %}
-    </ul>
+  </tbody>
+    </table>
     </div>
     {% if optimized %}
     {% set workload = optimized.of_person(name) %}
@@ -47,11 +68,21 @@
     <p>
     Proportion of the work: {{ "%.2g" % workload.points }}
     </p>
-    <ul>
-    {% for epic in (workload.cards | sort(attribute="name")) %}
-    <li>{{ render_epic_workload(epic, workload.point_parts[epic.name], 100 * workload.proportions[epic.name]) }}</li>
+    <table class="table table-sm">
+  <thead>
+    <tr>
+      <th scope="col">Name</th>
+      <th scope="col">Total SP</th>
+      <th scope="col">Involvement</th>
+      <th scope="col">Summary</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for name, _ in (workload.point_parts | dictsort(by="value", reverse=true)) %}
+    {{ render_epic_workload_table(workload.cards_by_name[name], workload.point_parts[name], 100 * workload.proportions[name]) }}
     {% endfor %}
-    </ul>
+  </tbody>
+    </table>
     </div>
     {% endif %}
     {% endfor %}

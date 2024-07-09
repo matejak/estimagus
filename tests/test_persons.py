@@ -8,6 +8,10 @@ import estimage.data as data
 from test_card import leaf_card, standalone_leaf_card
 
 
+def _value_from_dict(d):
+    return next(iter(d.values()))
+
+
 @pytest.fixture
 def shared_card(leaf_card):
     leaf_card.collaborators.append("associate")
@@ -59,7 +63,7 @@ def test_persons_workload(exclusive_card, shared_card):
     persons_workload = workloads.of_person("none")
     assert persons_workload.name == "none"
     assert persons_workload.points == 0
-    assert len(persons_workload.cards) == 0
+    assert len(persons_workload.cards_by_name) == 0
     assert not workloads.get_who_works_on("something")
 
     cards = [exclusive_card]
@@ -73,8 +77,8 @@ def test_persons_workload(exclusive_card, shared_card):
     assert "associate" in working_group
     persons_workload = workloads.of_person("associate")
     assert persons_workload.points == exclusive_card.point_cost
-    assert len(persons_workload.cards) == 1
-    assert persons_workload.cards[0] == exclusive_card
+    assert len(persons_workload.cards_by_name) == 1
+    assert _value_from_dict(persons_workload.cards_by_name) == exclusive_card
     assert workloads.persons_potential["associate"] == 1.0
 
     cards = [shared_card]
@@ -84,8 +88,8 @@ def test_persons_workload(exclusive_card, shared_card):
     evaluate_workloads(workloads)
     persons_workload = workloads.of_person("associate")
     assert persons_workload.points == shared_card.point_cost / 2.0
-    assert len(persons_workload.cards) == 1
-    assert persons_workload.cards[0] == shared_card
+    assert len(persons_workload.cards_by_name) == 1
+    assert _value_from_dict(persons_workload.cards_by_name) == shared_card
 
     cards = [shared_card, exclusive_card]
     model = estimage.simpledata.get_model(cards)
@@ -94,7 +98,7 @@ def test_persons_workload(exclusive_card, shared_card):
     evaluate_workloads(workloads)
     persons_workload = workloads.of_person("associate")
     assert persons_workload.points == shared_card.point_cost / 2.0 + exclusive_card.point_cost
-    assert len(persons_workload.cards) == 2
+    assert len(persons_workload.cards_by_name) == 2
     assert persons_workload.point_parts["feal"] == exclusive_card.point_cost
     assert persons_workload.proportions["feal"] == 1
     assert persons_workload.proportions["leaf"] == 0.5

@@ -69,12 +69,16 @@
 {%- endmacro %}
 
 {% set task_type_to_function = {
+	"proj": "main.view_projective_task",
 	"projective": "main.view_projective_task",
+	"retro": "main.view_retro_task",
 	"retrospective": "main.view_retro_task",
 } %}
 
 {% set epic_type_to_function = {
+	"proj": "main.view_epic_proj",
 	"projective": "main.view_epic_proj",
+	"retro": "main.view_epic_retro",
 	"retrospective": "main.view_epic_retro",
 } %}
 
