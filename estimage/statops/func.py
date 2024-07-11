@@ -150,17 +150,17 @@ def get_prob_of_completion_vector(velocity_mean, velocity_stdev, distance, times
     return ret
 
 
-def _custom_grid(array, callback):
-    ret = np.meshgrid(array, 1.0)
-    ret[1] *= callback(ret[0])
-    return ret
+def _custom_grid(array, sigma_to_mu):
+    sigmas, ones = np.meshgrid(array, 1.0)
+    mus = ones * sigma_to_mu(sigmas)
+    return (mus, sigmas)
 
 
 def get_1d_lognorm_grid(lower_sigma, upper_sigma, mean, count=2):
-    mu = lambda sigma: np.log(mean) - sigma ** 2 / 2
+    sigma_to_mu = lambda sigma: np.log(mean) - sigma ** 2 / 2
     sigmas = np.linspace(lower_sigma, upper_sigma, count)
-    ret = _custom_grid(sigmas, mu)
-    return ret[::-1]
+    ret = _custom_grid(sigmas, sigma_to_mu)
+    return ret
 
 
 def get_mu_pdf_lognorm(mu, sigma):
