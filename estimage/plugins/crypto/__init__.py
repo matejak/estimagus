@@ -171,6 +171,7 @@ class FeatureCryptoImporter(CryptoImporter):
     EPIC_LINK = "customfield_12311140"
     PARENT_LINK = "customfield_12313140"
     OTHER_FEATURE_NAME = "RHELBU-others"
+    OTHER_EPIC_NAME = "CRYPTO-others"
 
     def _find_parent_epic_of(self, issue):
         if epic := self._all_issues_by_name.get(epic_name):
@@ -190,36 +191,61 @@ class FeatureCryptoImporter(CryptoImporter):
             self._cards_by_id[name] = feature
         return feature
 
-    def _find_preferably_grandparent_of(self, task_name):
+    def _get_other_epic(self):
+        name = self.OTHER_EPIC_NAME
+        epic = self._cards_by_id.get(name)
+
+        if not epic:
+            epic = self.item_class(name)
+            epic.title = f"Tasks without an Epic"
+            epic.status = "in_progress"
+            self._cards_by_id[name] = epic
+        return epic
+
+    def _connect_to_grandparent(self, task_name):
         task = self._all_issues_by_name[task_name]
         expand = "changelog,renderedFields"
         epic_name = self._get_contents_of_field(task, self.EPIC_LINK)
         if not epic_name:
-            self.tasks_missing_feature_or_epic.add(task_name)
+            self.tasks_missing_epic.add(task_name)
             return None
         epic = self.just_get_or_find_and_store(epic_name, expand)
+        self._all_issues_by_name[epic_name] = epic
+        self._add_child_to_parent(epic_name, task_name)
+
         ancestor_name = self._get_contents_of_field(epic, self.PARENT_LINK)
         if not ancestor_name:
-            self.tasks_missing_feature_or_epic.add(task_name)
+            self.epics_missing_feature.add(epic_name)
             return None
         granparent = self.just_get_or_find_and_store(ancestor_name, expand)
+
+        self._all_issues_by_name[ancestor_name] = granparent
+        self._add_child_to_parent(ancestor_name, epic_name)
         return granparent
 
     def _expand_primary_query_results(self, result_names, order=1):
-        self.tasks_missing_feature_or_epic = set()
+        self.epics_missing_feature = set()
+        self.tasks_missing_epic = set()
         super()._expand_primary_query_results(result_names, order)
+        return self._get_top_ancestors()
+
+    def _get_top_ancestors(self):
         ancestors = set()
+        all_parents = set()
+        all_children = set()
         for parent, children in self._parent_name_to_children_names.items():
-            for name in result_names:
-                if name not in children:
-                    continue
-                ancestors.add(parent)
-                break
-        return ancestors
+            all_parents.add(parent)
+            all_children.update(set(children))
+        return all_parents.difference(all_children)
 
     def _export_jira_tree_to_cards(self, root_results):
-        if self.tasks_missing_feature_or_epic:
-            self._parent_name_to_children_names[self.OTHER_FEATURE_NAME] = list(self.tasks_missing_feature_or_epic)
+        if self.tasks_missing_epic:
+            self._parent_name_to_children_names[self.OTHER_EPIC_NAME] = list(self.tasks_missing_epic)
+            self.epics_missing_feature.add(self.OTHER_EPIC_NAME)
+            epic = self._get_other_epic()
+
+        if self.epics_missing_feature:
+            self._parent_name_to_children_names[self.OTHER_FEATURE_NAME] = list(self.epics_missing_feature)
             feature = self._get_other_feature()
             root_results.add(feature.name)
         new_cards = super()._export_jira_tree_to_cards(root_results)
@@ -233,10 +259,7 @@ class FeatureCryptoImporter(CryptoImporter):
 
     def _expand_primary_query_result(self, result_name, order=1):
         self._find_children_by_examining_parent(result_name)
-        if granparent := self._find_preferably_grandparent_of(result_name):
-            ancestor_name = f"{granparent.key}"
-            self._all_issues_by_name[ancestor_name] = granparent
-            self._add_child_to_parent(ancestor_name, result_name)
+        self._connect_to_grandparent(result_name)
 
 
 def do_stuff(spec, ios_by_target):
