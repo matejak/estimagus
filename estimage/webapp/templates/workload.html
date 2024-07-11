@@ -34,6 +34,19 @@
     <li>Average effort of a full-potential person: {{ "%.2g" % simple_summary.expected_effort_of_full_potential }} pts</li>
     </ul>
     <h2>Distribution</h2>
+    <div class="col sticky-top bg-body">
+    <h4>Simple distribution of work</h4>
+    <p>
+    If there is more people who are either assigned to the issue or listed as contributors, the issue's execution is shared evenly among them.
+    </p>
+    </div>
+    <div class="col sticky-top bg-body">
+    <h4>Equalized distribution of work</h4>
+    <p>
+    Assignees or contributors share the work in a load-balancing way.
+    The person who ends up with the relatively greatest amount of work has, at the same time, as little of work possible. 
+    </p>
+    </div>
     {% for name in all_persons %}
     {% set workload = simple.of_person(name) %}
     <h3>{{ name }}</h3>
@@ -48,9 +61,9 @@
     <table class="table table-sm">
   <thead>
     <tr>
-      <th scope="col">Name</th>
-      <th scope="col">Total SP</th>
-      <th scope="col">Involvement</th>
+      <th scope="col">Item</th>
+      <th scope="col">Points</th>
+      <th scope="col">Share</th>
       <th scope="col">Summary</th>
     </tr>
   </thead>
@@ -71,9 +84,9 @@
     <table class="table table-sm">
   <thead>
     <tr>
-      <th scope="col">Name</th>
-      <th scope="col">Total SP</th>
-      <th scope="col">Involvement</th>
+      <th scope="col">Item</th>
+      <th scope="col">Points</th>
+      <th scope="col">Share</th>
       <th scope="col">Summary</th>
     </tr>
   </thead>
