@@ -2,16 +2,17 @@ import typing
 import datetime
 
 from ... import data, inidata, persistence
+from . import abstract
 
 
-class IniCardSaverBase(inidata.IniSaverBase, persistence.card.Saver):
+class IniCardSaverBase(inidata.IniSaverBase, abstract.Saver):
     def _store_our(self, t, attribute, value=None):
         if value is None and hasattr(t, attribute):
             value = getattr(t, attribute)
         return self._write_items_attribute(t.name, attribute, value)
 
 
-class IniCardLoaderBase(inidata.IniLoaderBase, persistence.card.Loader):
+class IniCardLoaderBase(inidata.IniLoaderBase, abstract.Loader):
     def _get_our(self, t, attribute, fallback=None):
         if fallback is None and hasattr(t, attribute):
             fallback = getattr(t, attribute)
