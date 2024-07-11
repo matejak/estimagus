@@ -51,6 +51,8 @@ class IniStorage:
     @classmethod
     def _load_existing_config(cls, filename):
         config = configparser.ConfigParser(interpolation=None)
+        # Have keys case-sensitive: https://docs.python.org/3/library/configparser.html#id1
+        config.optionxform = lambda option: option
         try:
             config.read(filename)
         except configparser.MissingSectionHeaderError:

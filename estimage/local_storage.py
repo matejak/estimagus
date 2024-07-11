@@ -4,6 +4,8 @@
 class Storage:
     def __init__(self):
         self.storage = dict()
+        self.ns_to_set = dict()
+
         self.requests = set()
         self.ns_requests = set()
 
@@ -17,8 +19,12 @@ class Storage:
         return self.storage[tuple()][key]
 
     def get_namespace(self, namespace):
-        ns = namespace
-        return self.storage[ns]
+        ret = dict()
+        ret.update(self.storage[namespace])
+        return ret
+
+    def set_namespace(self, namespace, with_what):
+        self.ns_to_set[namespace] = with_what
 
     def request_key(self, key):
         return self.requests.add(key)
@@ -29,6 +35,7 @@ class Storage:
 
     def save(self, io):
         io.save_dict(self.storage)
+        io.set_ns(self.ns_to_set)
 
     def load(self, io):
         data = dict()

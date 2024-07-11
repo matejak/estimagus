@@ -2,13 +2,14 @@ import collections
 import typing
 
 from ... import data, persistence
+from . import abstract
 
 
 GLOBAL_STORAGE = collections.defaultdict(dict)
 
 
 @persistence.saver_of(data.BaseCard, "memory")
-class MemoryCardSaver(persistence.card.Saver):
+class MemoryCardSaver(abstract.Saver):
     def _save(self, t, attribute):
         GLOBAL_STORAGE[t.name][attribute] = getattr(t, attribute)
 
@@ -51,7 +52,7 @@ class MemoryCardSaver(persistence.card.Saver):
 
 
 @persistence.loader_of(data.BaseCard, "memory")
-class MemoryCardLoader(persistence.card.Loader):
+class MemoryCardLoader(abstract.Loader):
     def _load(self, t, attribute):
         setattr(t, attribute, GLOBAL_STORAGE[t.name][attribute])
 
