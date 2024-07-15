@@ -33,11 +33,18 @@ class Storage:
         ns = namespace
         return self.ns_requests.add(ns)
 
-    def save(self, io):
+    def save(self, io_cls):
+        io = io_cls()
         io.save_dict(self.storage)
         io.set_ns(self.ns_to_set)
 
-    def load(self, io):
+    @classmethod
+    def erase(self, io_cls):
+        io = io_cls()
+        io.erase()
+
+    def load(self, io_cls):
+        io = io_cls()
         data = dict()
         data[tuple()] = io.load_keys_to_dict(self.requests)
         for nsreq in self.ns_requests:
