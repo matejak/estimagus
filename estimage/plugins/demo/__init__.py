@@ -17,7 +17,7 @@ def load_data():
     storage = local_storage.Storage()
     storage.request_namespace(STORAGE_NS)
     storage.request_namespace(STORAGE_NS + ("progress",))
-    storage.load(io_cls())
+    storage.load(io_cls)
     ret = storage.get_namespace(STORAGE_NS)
     vel = storage.get_namespace(STORAGE_NS + ("progress",))
     ret["progress_by_id"] = {key: float(val) for key, val in vel.items()}
@@ -114,7 +114,7 @@ def write_data(main, progress):
     storage = local_storage.Storage()
     storage.set_namespace(STORAGE_NS, main)
     storage.set_namespace(STORAGE_NS + ("progress",), progress)
-    storage.save(io_cls())
+    storage.save(io_cls)
 
 
 def save_data(what):
