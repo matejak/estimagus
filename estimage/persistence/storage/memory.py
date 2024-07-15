@@ -16,11 +16,15 @@ class GlobalMemoryIO:
     def load_ns_to_dict(self, nsname):
         return {nsname: GLOBAL_STORAGE[nsname]}
 
+    def erase(self):
+        global GLOBAL_STORAGE
+        GLOBAL_STORAGE = dict()
+        GLOBAL_STORAGE[tuple()] = dict()
+
 
 class LocalMemoryIO:
     def __init__(self):
-        self.storage = dict()
-        self.storage[tuple()] = dict()
+        self.erase()
 
     def save_dict(self, data):
         self.storage.update(data)
@@ -34,3 +38,7 @@ class LocalMemoryIO:
 
     def load_ns_to_dict(self, nsname):
         return {nsname: self.storage[nsname]}
+
+    def erase(self):
+        self.storage = dict()
+        self.storage[tuple()] = dict()
