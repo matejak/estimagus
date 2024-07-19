@@ -1,7 +1,7 @@
 import pytest
 
 from estimage import plugins, PluginResolver, persistence
-import estimage.plugins.redhat_compliance as tm
+import estimage.plugins.redhat_jira as tm
 
 from tests.test_card import base_card_load_save, fill_card_instance_with_stuff, assert_cards_are_equal
 from tests.test_inidata import temp_filename, cardio_inifile_cls
@@ -37,6 +37,6 @@ def test_card_load_and_save_values(card_io):
     resolver = PluginResolver()
     resolver.add_known_extendable_classes()
     assert "BaseCard" in resolver.class_dict
-    resolver.resolve_extension(tm)
+    resolver.resolve_extension(tm, dict(BaseCard="BaseCardWithStatus"))
     cls = resolver.class_dict["BaseCard"]
     base_card_load_save(card_io, cls, plugin_fill, plugin_test)

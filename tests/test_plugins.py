@@ -147,8 +147,8 @@ class PluginTwo:
 
 
 def test_two_plugin_composition(resolver):
-    resolver.resolve_class_extension(PluginOne)
-    resolver.resolve_class_extension(PluginTwo)
+    resolver.resolve_extension(PluginOne)
+    resolver.resolve_extension(PluginTwo)
     final_extendable = resolver.class_dict["Ext"]()
     assert "hello" in final_extendable.return_hello()
     assert "one" in final_extendable.return_hello()
@@ -157,13 +157,13 @@ def test_two_plugin_composition(resolver):
 
 
 def test_two_plugin_loading(resolver):
-    resolver.resolve_class_extension(PluginTwo)
+    resolver.resolve_extension(PluginTwo)
     intermed_extendable_cls = resolver.class_dict["Ext"]
     loader = persistence.LOADERS[intermed_extendable_cls]["void"]
     loaded = loader.load()
     assert "hello" in loaded.return_hello()
     assert not hasattr(loaded, "is_one")
-    resolver.resolve_class_extension(PluginOne)
+    resolver.resolve_extension(PluginOne)
     final_extendable_cls = resolver.class_dict["Ext"]
     loader = persistence.LOADERS[final_extendable_cls]["void"]
     loaded = loader.load()
