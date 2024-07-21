@@ -64,7 +64,7 @@ class BaseCard:
         self._incorporate_into_composition(self.children, ret, statuses)
         return ret
 
-    def populate_task_model(self, result, statuses):
+    def populate_taskmodel(self, result, statuses):
         if self.point_cost:
             result.point_estimate = Estimate(self.point_cost, 0)
 
@@ -78,7 +78,7 @@ class BaseCard:
     def _convert_into_single_result(self, statuses):
         ret = TaskModel(self.name)
 
-        self.populate_task_model(ret, statuses)
+        self.populate_taskmodel(ret, statuses)
 
         return ret
 
