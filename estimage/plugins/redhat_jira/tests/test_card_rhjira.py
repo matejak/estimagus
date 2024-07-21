@@ -3,28 +3,21 @@ import pytest
 from estimage import plugins, PluginResolver, persistence
 import estimage.plugins.redhat_jira as tm
 
-from tests.test_card import base_card_load_save, fill_card_instance_with_stuff, assert_cards_are_equal
-from tests.test_inidata import temp_filename, cardio_inifile_cls
+from tests.test_card import base_card_load_save, fill_card_instance_with_stuff, assert_cards_are_equal, TesCardIO
+from tests.test_inidata import temp_filename, inifile_temploc, cardio_inifile_cls
 
 
 @pytest.fixture(params=("ini",))
 def card_io(request, cardio_inifile_cls):
-    cls = tm.BaseCardWithStatus
-    choices = dict(
-        ini=cardio_inifile_cls,
-    )
+    generator = TesCardIO(tm.BaseCardWithStatus, ini_base=cardio_inifile_cls)
     backend = request.param
-    appropriate_io = type(
-            "test_io",
-            (choices[backend], persistence.LOADERS[cls][backend], persistence.SAVERS[cls][backend]),
-            dict())
-    return appropriate_io
+    return generator(backend)
 
 
-def plugin_fill(t):
-    fill_card_instance_with_stuff(t)
+def plugin_fill(card):
+    fill_card_instance_with_stuff(card)
 
-    t.status_summary = "Lorem Ipsum and So On"
+    card.status_summary = "Lorem Ipsum and So On"
 
 
 def plugin_test(lhs, rhs):
