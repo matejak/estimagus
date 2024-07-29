@@ -1,5 +1,6 @@
-# pull official base image
 FROM python:3.11-slim
+
+LABEL org.opencontainers.image.title="Estimagus - main branch"
 
 WORKDIR /usr/src/app
 
@@ -8,9 +9,9 @@ ENV PYTHONUNBUFFERED 1
 
 COPY requirements.txt.in .
 RUN true \
-	&& pip install --upgrade pip \
-	&& pip install -r requirements.txt.in \
-	&& pip install gunicorn \
+	&& pip install --no-cache-dir  --upgrade pip \
+	&& pip install --no-cache-dir  -r requirements.txt.in \
+	&& pip install --no-cache-dir  gunicorn \
 	&& true
 COPY app.py app_behind_proxy.py .
 COPY estimage ./estimage
