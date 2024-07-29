@@ -1,6 +1,9 @@
 FROM python:3.11-slim
 
 LABEL org.opencontainers.image.title="Estimagus - main branch"
+LABEL org.opencontainers.image.source=https://github.com/matejak/estimagus
+LABEL org.opencontainers.image.description="The Estimagus web app. Gunicorn-powered, listening on port 5000"
+LABEL org.opencontainers.image.licenses=BSD-3-Clause
 
 WORKDIR /usr/src/app
 
