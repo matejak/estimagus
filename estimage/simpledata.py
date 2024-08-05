@@ -9,8 +9,7 @@ import flask
 
 from . import data
 from . import inidata
-from .persistence import card, pollster, event
-from .persistence.card import ini
+from .persistence import card, pollster, event, storage
 
 
 class IniInDirMixin:
@@ -46,9 +45,15 @@ class EventsIO(IniInDirMixin, event.ini.IniEventsIO):
     WHAT_IS_THIS = "events manager"
 
 
+class StorageIO(IniInDirMixin, storage.ini.IniStorageIO):
+    CONFIG_BASENAME = "storage.ini"
+    WHAT_IS_THIS = "events manager"
+
+
 IOs["retro"]["ini"] = RetroCardIO
 IOs["proj"]["ini"] = ProjCardIO
 IOs["events"]["ini"] = EventsIO
+IOs["storage"]["ini"] = StorageIO
 
 
 class UserPollsterBase(data.Pollster):
