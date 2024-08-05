@@ -1,6 +1,10 @@
-
 from ... import data
+from ... import persistence
 
+
+EXPORTS = dict(
+    BaseCard="IntervalCard",
+)
 
 class IntervalCard(data.BaseCard):
 

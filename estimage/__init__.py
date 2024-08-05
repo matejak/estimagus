@@ -49,18 +49,17 @@ class PluginResolver:
         self._update_class_with_extension(class_type, extension)
 
     def _update_class_io_with_extension(self, new_class, original_class, extension):
-        if original_class not in persistence.LOADERS or original_class not in persistence.LOADERS:
-            return
-
         for backend, loader in persistence.LOADERS[original_class].items():
+            fused_loader = loader
             if extension_loader := persistence.LOADERS[extension].get(backend, None):
                 fused_loader = type("loader", (extension_loader, loader), dict())
-                persistence.LOADERS[new_class][backend] = fused_loader
+            persistence.LOADERS[new_class][backend] = fused_loader
 
         for backend, saver in persistence.SAVERS[original_class].items():
+            fused_saver = saver
             if extension_saver := persistence.SAVERS[extension].get(backend, None):
                 fused_saver = type("saver", (extension_saver, saver), dict())
-                persistence.SAVERS[new_class][backend] = fused_saver
+            persistence.SAVERS[new_class][backend] = fused_saver
 
     def _update_class_with_extension(self, class_type, extension):
         our_value = self.class_dict[class_type]

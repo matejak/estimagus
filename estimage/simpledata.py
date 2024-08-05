@@ -31,12 +31,12 @@ class IniInDirMixin:
 IOs = collections.defaultdict(dict)
 
 
-class RetroCardIO(IniInDirMixin):
+class RetroCardIO(IniInDirMixin, ini.IniCardIO):
     CONFIG_BASENAME = "retrospective.ini"
     WHAT_IS_THIS = "retrospective card"
 
 
-class ProjCardIO(IniInDirMixin):
+class ProjCardIO(IniInDirMixin, ini.IniCardIO):
     CONFIG_BASENAME = "projective.ini"
     WHAT_IS_THIS = "projective card"
 

@@ -130,7 +130,7 @@ class BaseCard:
     @classmethod
     def load_metadata(cls, name: str, loader_cls):
         ret = cls(name)
-        with loader_cls.get_loader() as loader:
+        with loader_cls.get_loader_of(cls) as loader:
             ret.load_data_by_loader(loader)
         return ret
 
