@@ -49,3 +49,8 @@ class Loader:
         with cls.get_loader() as ret:
             ret.card_class = loaded_card_type
             yield ret
+
+    @classmethod
+    @contextlib.contextmanager
+    def get_loader(cls):
+        yield cls()

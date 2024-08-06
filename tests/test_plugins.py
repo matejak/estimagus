@@ -3,6 +3,7 @@ import pytest
 import estimage.plugins as tm
 import estimage.plugins.null as null_plugin
 from estimage import PluginResolver as to
+from estimage import persistence
 
 
 def test_get_plugin_dynamically():
@@ -16,12 +17,6 @@ class Printer:
 
     def format(self, what):
         return what
-
-
-@to.class_is_extendable("Ext")
-class Extendable:
-    def return_hello(self):
-        return "hello"
 
 
 class MockPluginWithoutDecl:
@@ -45,7 +40,6 @@ def print_plugin():
 
 def test_load_plugins(print_plugin):
     assert print_plugin.NAME == "Print"
-
 
 
 @pytest.fixture
@@ -110,3 +104,68 @@ def test_load_routes(print_plugin):
 def test_dont_load_routes():
     bp = tm.get_plugin_blueprint(tm)
     assert bp is None
+
+
+@to.class_is_extendable("Ext")
+class Extendable:
+    def return_hello(self):
+        return "hello"
+
+
+@persistence.loader_of(Extendable, "void")
+class LoaderOfExtendable:
+    @classmethod
+    def load(cls):
+        return Extendable()
+
+
+class PluginOne:
+    EXPORTS = dict(Ext="ExtendableOne")
+
+    class ExtendableOne(Extendable):
+        def return_hello(self):
+            ret = super().return_hello()
+            return ret + " one"
+
+
+@persistence.loader_of(PluginOne.ExtendableOne, "void")
+class LoaderOfExtendableOne:
+    @classmethod
+    def load(cls):
+        ret = super().load()
+        ret.is_one = True
+        return ret
+
+
+class PluginTwo:
+    EXPORTS = dict(Ext="ExtendableTwo")
+
+    class ExtendableTwo:
+        def return_hello(self):
+            ret = super().return_hello()
+            return ret + " two"
+
+
+def test_two_plugin_composition(resolver):
+    resolver.resolve_class_extension(PluginOne)
+    resolver.resolve_class_extension(PluginTwo)
+    final_extendable = resolver.class_dict["Ext"]()
+    assert "hello" in final_extendable.return_hello()
+    assert "one" in final_extendable.return_hello()
+    assert "two" in final_extendable.return_hello()
+    assert final_extendable.return_hello() == "hello one two"
+
+
+def test_two_plugin_loading(resolver):
+    resolver.resolve_class_extension(PluginTwo)
+    intermed_extendable_cls = resolver.class_dict["Ext"]
+    loader = persistence.LOADERS[intermed_extendable_cls]["void"]
+    loaded = loader.load()
+    assert "hello" in loaded.return_hello()
+    assert not hasattr(loaded, "is_one")
+    resolver.resolve_class_extension(PluginOne)
+    final_extendable_cls = resolver.class_dict["Ext"]
+    loader = persistence.LOADERS[final_extendable_cls]["void"]
+    loaded = loader.load()
+    assert "hello" in loaded.return_hello()
+    assert hasattr(loaded, "is_one")
