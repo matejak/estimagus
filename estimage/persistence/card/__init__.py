@@ -22,6 +22,9 @@ class Saver:
 
 
 class Loader:
+    def __init__(self, ** kwargs):
+        self.card_class = kwargs.get("loaded_card_type", data.BaseCard)
+
     @classmethod
     def get_all_card_names(cls):
         raise NotImplementedError()
@@ -42,5 +45,7 @@ class Loader:
 
     @classmethod
     @contextlib.contextmanager
-    def get_loader(cls):
-        yield cls()
+    def get_loader_of(cls, loaded_card_type):
+        with cls.get_loader() as ret:
+            ret.card_class = loaded_card_type
+            yield ret

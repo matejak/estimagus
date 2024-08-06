@@ -51,26 +51,34 @@ class BaseCard:
         self.uri = ""
         self.loading_plugin = ""
 
+    @classmethod
+    def _incorporate_into_composition(cls, cards, composition, statuses):
+        for c in cards:
+            if c.children:
+                composition.add_composition(c._convert_into_composition(statuses))
+            else:
+                composition.add_element(c._convert_into_single_result(statuses))
+
     def _convert_into_composition(self, statuses):
         ret = Composition(self.name)
-        for d in self.children:
-            if d.children:
-                ret.add_composition(d._convert_into_composition(statuses))
-            else:
-                ret.add_element(d._convert_into_single_result(statuses))
+        self._incorporate_into_composition(self.children, ret, statuses)
         return ret
 
-    def _convert_into_single_result(self, statuses):
-        ret = TaskModel(self.name)
+    def populate_taskmodel(self, result, statuses):
         if self.point_cost:
-            ret.point_estimate = Estimate(self.point_cost, 0)
+            result.point_estimate = Estimate(self.point_cost, 0)
 
         try:
             if not statuses.get(self.status).relevant_and_not_done_yet:
-                ret.mask()
+                result.mask()
         except KeyError as exc:
             msg = f"Card {self.name} features unknown status {self.status}"
             raise ValueError(msg)
+
+    def _convert_into_single_result(self, statuses):
+        ret = TaskModel(self.name)
+
+        self.populate_taskmodel(ret, statuses)
 
         return ret
 
@@ -122,7 +130,7 @@ class BaseCard:
     @classmethod
     def load_metadata(cls, name: str, loader_cls):
         ret = cls(name)
-        with loader_cls.get_loader() as loader:
+        with loader_cls.get_loader_of(cls) as loader:
             ret.load_data_by_loader(loader)
         return ret
 
@@ -133,11 +141,7 @@ class BaseCard:
         cards = utilities.reduce_subsets_from_sets(cards)
 
         result = Composition("")
-        for t in cards:
-            if t.children:
-                result.add_composition(t._convert_into_composition(statuses))
-            else:
-                result.add_element(t._convert_into_single_result(statuses))
+        cls._incorporate_into_composition(cards, result, statuses)
         return result.simplified()
 
     def get_tree(self, statuses: status.Statuses=None):

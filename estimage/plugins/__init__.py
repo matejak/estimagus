@@ -10,7 +10,7 @@ def _get_routes_or_none_or_error(plugin):
     except ModuleNotFoundError as exc:
         if exc.name == full_module_name:
             msg = f"Plugin {plugin.__name__} doesn't have the routes module"
-            logging.error(msg)
+            logging.info(msg)
             return None
         msg = f"Couldn't import '{full_module_name}' due to a missing dependency '{exc.name}'"
         raise RuntimeError(msg)
