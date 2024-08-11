@@ -190,14 +190,6 @@ def test_pert():
     est3 = tm.Estimate.from_triple(4, 3, 13)
     pert_test_estimate(est3)
 
-    pert = est.get_pert(100)
-    est2 = tm.Estimate.from_input(tm.EstimInput.from_pert_only(pert[0], pert[1]))
-    assert est.expected == pytest.approx(est2.expected, 0.05)
-    assert est.sigma == pytest.approx(est2.sigma, 0.05)
-
-    dense_pert = est.get_pert(200)
-    assert 0.99 < pert[1].sum() / (dense_pert[1].sum() * 0.5) < 1.01
-
     est_identical = est.compose_with(zero)
     assert est_identical.expected == est.expected
     assert est_identical.sigma == est.sigma
@@ -219,9 +211,8 @@ def _test_triple(o, m, p):
     norm_of_input = tm.EstimInput(0).distance_from(inp)
 
     estimate = tm.Estimate.from_input(inp)
-    pert = estimate.get_pert(800)
-    calculated_input = tm.EstimInput.from_pert_and_data(
-        pert[0], pert[1], estimate.expected, estimate.sigma)
+    calculated_input = tm.EstimInput.from_parameters(
+        estimate.expected, estimate.sigma ** 2, estimate.skewness, estimate.GAMMA)
     calculated_estimate = tm.Estimate.from_input(calculated_input)
 
     assert pytest.approx(calculated_estimate.expected) == estimate.expected
@@ -230,30 +221,30 @@ def _test_triple(o, m, p):
     assert pytest.approx(inp.distance_from(calculated_input), abs=norm_of_input * 2e-2) == 0
 
 
-def test_lambda():
+def test_gamma():
     most_likely = 2
     inp = tm.EstimInput(most_likely)
     inp.optimistic = 1
     inp.pessimistic = 4
-    inp.LAMBDA = 2
+    inp.GAMMA = 2
 
     est = tm.Estimate.from_input(inp)
-    low_lambda_expected = est.expected
-    low_lambda_sigma = est.sigma
-    o, p = tm.calculate_o_p_ext(most_likely, low_lambda_expected, low_lambda_sigma ** 2, est.LAMBDA)
+    low_sigma_expected = est.expected
+    low_sigma_sigma = est.sigma
+    o, p = tm.calculate_o_p_ext(most_likely, low_sigma_expected, low_sigma_sigma ** 2, est.GAMMA)
     assert o == pytest.approx(1)
     assert p == pytest.approx(4)
 
-    inp.LAMBDA = 8
+    inp.GAMMA = 8
     est = tm.Estimate.from_input(inp)
-    hi_lambda_expected = est.expected
-    hi_lambda_sigma = est.sigma
-    o, p = tm.calculate_o_p_ext(most_likely, hi_lambda_expected, hi_lambda_sigma ** 2, est.LAMBDA)
+    hi_sigma_expected = est.expected
+    hi_sigma_sigma = est.sigma
+    o, p = tm.calculate_o_p_ext(most_likely, hi_sigma_expected, hi_sigma_sigma ** 2, est.GAMMA)
     assert o == pytest.approx(1)
     assert p == pytest.approx(4)
 
-    assert low_lambda_expected > hi_lambda_expected
-    assert low_lambda_sigma > hi_lambda_sigma
+    assert low_sigma_expected > hi_sigma_expected
+    assert low_sigma_sigma > hi_sigma_sigma
 
 
 @pytest.mark.dependency(depends=["test_pert"])
@@ -347,3 +338,26 @@ def plot_two_functions(dom1, hom1, dom2, hom2):
     plt.grid()
     pyl.show()
     f.savefig("lala.png")
+
+
+def _test_consistency_of_triple(triple):
+    o0, m0, p0, gamma = triple
+    est = tm.Estimate.from_triple(m0, o0, p0, gamma)
+    rv = est._get_rv()
+    o, p, m = tm.calculate_o_p_m_ext(rv.mean(), rv.var(), rv.stats("s"), gamma)
+    assert o == pytest.approx(o0)
+    assert p == pytest.approx(p0)
+    assert m == pytest.approx(m0)
+
+
+def test_compute_from_EVS():
+    test_triples = (
+            (2, 4, 6, 4),
+            (2, 4, 10, 4),
+            (1, 4, 5, 4),
+            (1, 4, 4, 4),
+            (1, 1, 4, 4),
+            (2, 4, 20, 8),
+    )
+    for triple in test_triples:
+        _test_consistency_of_triple(triple)

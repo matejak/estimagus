@@ -1,7 +1,8 @@
 {
     "python.linting.cwd": "",
     "python.testing.pytestArgs": [
-        "tests"
+        "tests",
+        "estimage/plugins"
     ],
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,

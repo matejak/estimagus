@@ -5,7 +5,7 @@ import datetime
 import pytest
 
 import estimage.inidata as tm
-from estimage.persistence import card, event
+from estimage import persistence
 from estimage.persistence.card import ini
 import estimage.data as data
 from tests.test_events import early_event, less_early_event
@@ -23,7 +23,7 @@ def temp_filename():
 
 @pytest.fixture
 def cardio_inifile_cls(temp_filename):
-    class TmpIniCardIO(card.ini.IniCardIO):
+    class TmpIniCardIO(persistence.card.ini.IniCardIO):
         CONFIG_FILENAME = temp_filename
 
     yield TmpIniCardIO
@@ -31,7 +31,7 @@ def cardio_inifile_cls(temp_filename):
 
 @pytest.fixture
 def eventmgr_relevant_io(temp_filename):
-    class TmpIniEventMgr(event.ini.IniEventsIO):
+    class TmpIniEventMgr(persistence.event.ini.IniEventsIO):
         CONFIG_FILENAME = temp_filename
 
     yield TmpIniEventMgr

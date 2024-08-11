@@ -40,15 +40,24 @@ class IORouter(Router):
 
     def get_card_io(self, mode):
         try:
-            flavor = simpledata.IOs[mode][self.IO_BACKEND]
-            saver_type = persistence.SAVERS[self.card_class][self.IO_BACKEND]
-            loader_type = persistence.LOADERS[self.card_class][self.IO_BACKEND]
-            # in the special case of the ini backend, the registered loader doesn't call super()
-            # when looking up CONFIG_FILENAME
-            cards_io = type("cards_io", (flavor, saver_type, loader_type), dict())
+            io_class = simpledata.IOs[mode]
         except KeyError as exc:
-            msg = "Unknown specification of source: {mode}"
+            msg = f"Unknown specification of source: {mode}, has to be one of: {list(simpledata.IOs.keys())}"
             raise KeyError(msg) from exc
+
+        try:
+            flavor = io_class[self.IO_BACKEND]
+        except KeyError as exc:
+            msg = f"No backend '{self.IO_BACKEND}' available, has to be one of: {list(io_class.IOs.keys())}"
+            raise KeyError(msg) from exc
+
+        saver_type = persistence.SAVERS[self.card_class][self.IO_BACKEND]
+        loader_type = persistence.LOADERS[self.card_class][self.IO_BACKEND]
+
+        # Why flavor:
+        # in the special case of the ini backend, the registered loader doesn't call super()
+        # when looking up CONFIG_FILENAME
+        cards_io = type("cards_io", (flavor, saver_type, loader_type), dict())
         return cards_io
 
     def get_ios_by_target(self):

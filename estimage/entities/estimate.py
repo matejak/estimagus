@@ -27,6 +27,42 @@ def calculate_o_p_ext(m, E, V, L=4):
     return o, p
 
 
+def calculate_o_p_m_ext(E, V, S, L=4):
+    """Given data, calculate optimistic and pessimistic numbers
+    Args:
+        E: Expected
+        V: Variance
+        S: Skewness
+        L: PERT Lambda parameter
+
+    Refer to misc/pert_calculations.mc to see where this comes from
+    """
+    S2 = S ** 2
+    L2 = L ** 2
+
+    l_element = (L ** 2 + 8 * L + 16) * S2
+    sqrt_element = math.sqrt(S * (L + 4) * math.sqrt(l_element + 16 * L + 48) * V + (l_element + 8 * L + 24) * V)
+    l2l_element = 32 * L + 96
+    p = math.sqrt(2) * sqrt_element + 4 * E
+    p /= 4
+
+    o = (
+            S * (math.sqrt(2) * L + 2 ** (5 / 2)) * math.sqrt(l_element + 16 * L + 48)
+            - S2 * (math.sqrt(2)*L ** 2 + 2 ** (7/2) * L + 2 ** (9/2))
+            - 2 ** (7/2) * L
+            - 3 * 2 ** (7/2)
+        ) * sqrt_element + l2l_element * E
+    o /= 32 * L + 96
+
+    m = (
+            (math.sqrt(2) * L + 2 ** (5 / 2)) * S * math.sqrt((L2 + 8 * L + 16) * S2 + 16 * L + 48)
+            - (math.sqrt(2) * L2 + 2 ** (7/2) * L + 2**(9/2)) * S2
+        ) * sqrt_element - l2l_element * E * L
+    m /= l2l_element * L
+    m *= -1
+    return o, p, m
+
+
 def calculate_o_p(m, E, V):
     """Given data, calculate optimistic and pessimistic numbers
     Args:
@@ -44,30 +80,12 @@ def calculate_o_p(m, E, V):
     return o, p
 
 
-def find_optimistic_from_pert(dom, values):
-    first_nonzero_index = utilities.first_nonzero_index_of(values)
-    optimistic = dom[first_nonzero_index]
-    return optimistic
-
-
-def find_pessimistic_from_pert(dom, values):
-    last_nonzero_index = utilities.last_nonzero_index_of(values)
-    pessimistic = dom[last_nonzero_index]
-    return pessimistic
-
-
-def find_most_likely_from_pert(dom, values):
-    most_likely_index = np.argmax(values)
-    most_likely = dom[most_likely_index]
-    return most_likely
-
-
 @dataclasses.dataclass
 class EstimInput:
     optimistic: float
     most_likely: float
     pessimistic: float
-    LAMBDA = 4
+    GAMMA = 4
 
     def __init__(self, value=0):
         self.optimistic = value
@@ -89,28 +107,18 @@ class EstimInput:
         return ret
 
     @classmethod
-    def from_pert_and_data(cls, dom, values, expected, sigma):
-        if sigma == 0:
+    def from_parameters(cls, expected, variance, skewness, gamma=None):
+        if variance == 0:
             return cls(expected)
-        ballpark_input = cls.from_pert_only(dom, values)
-        m = ballpark_input.most_likely
-        o, p = calculate_o_p_ext(m, expected, sigma ** 2, cls.LAMBDA)
+        if gamma is None:
+            gamma = cls.GAMMA
+
+        o, p, m = calculate_o_p_m_ext(expected, variance, skewness, gamma)
 
         ret = cls(m)
-        ret.optimistic = min(o, m)
-        ret.pessimistic = max(p, m)
-        ret.LAMBDA = cls.LAMBDA
-        return ret
-
-    @classmethod
-    def from_pert_only(cls, dom, values):
-        optimistic = find_optimistic_from_pert(dom, values)
-        pessimistic = find_pessimistic_from_pert(dom, values)
-        most_likely = find_most_likely_from_pert(dom, values)
-
-        ret = cls(most_likely)
-        ret.optimistic = optimistic
-        ret.pessimistic = pessimistic
+        ret.optimistic = o
+        ret.pessimistic = p
+        ret.GAMMA = gamma
         return ret
 
 
@@ -127,7 +135,7 @@ class Estimate:
     sigma: float
 
     source: EstimInput
-    LAMBDA = 4
+    GAMMA = 4
 
     def __init__(self, expected, sigma):
         self.expected = expected
@@ -139,14 +147,14 @@ class Estimate:
 
     @classmethod
     def from_input(cls, inp: EstimInput):
-        ret = cls.from_triple(inp.most_likely, inp.optimistic, inp.pessimistic, inp.LAMBDA)
+        ret = cls.from_triple(inp.most_likely, inp.optimistic, inp.pessimistic, inp.GAMMA)
         ret.source = inp.copy()
         return ret
 
     @classmethod
-    def from_triple(cls, most_likely, optimistic, pessimistic, LAMBDA=None):
-        if LAMBDA is None:
-            LAMBDA = cls.LAMBDA
+    def from_triple(cls, most_likely, optimistic, pessimistic, GAMMA=None):
+        if GAMMA is None:
+            GAMMA = cls.GAMMA
         if not optimistic <= most_likely <= pessimistic:
             msg = (
                 "The optimistic<=most likely<=pessimistic inequality "
@@ -154,18 +162,28 @@ class Estimate:
                 f"{optimistic:.4g} <= {most_likely:.4g} <= {pessimistic:.4g}"
             )
             raise ValueError(msg)
-        expected = (optimistic + pessimistic + LAMBDA * most_likely) / (LAMBDA + 2)
+        expected = (optimistic + pessimistic + GAMMA * most_likely) / (GAMMA + 2)
 
-        variance = (expected - optimistic) * (pessimistic - expected) / (LAMBDA + 3)
+        variance = (expected - optimistic) * (pessimistic - expected) / (GAMMA + 3)
         if variance < 0 and variance > - 1e-10:
             variance = 0
         sigma = math.sqrt(variance)
 
         ret = cls(expected, sigma)
-        ret.LAMBDA = LAMBDA
+        ret.GAMMA = GAMMA
         ret.source = EstimInput(most_likely)
         ret.source.optimistic = optimistic
         ret.source.pessimistic = pessimistic
+        return ret
+
+    @property
+    def skewness(self):
+        if self.sigma == 0:
+            return 0
+        a = self.pert_beta_a
+        b = self.pert_beta_b
+        ret = 2 * (b - a) * math.sqrt(a + b + 1)
+        ret /= (a + b + 2) * math.sqrt(a * b)
         return ret
 
     @property
@@ -203,20 +221,29 @@ class Estimate:
 
         return np.array([dom, values])
 
-    def compose_with(self, rhs: "Estimate", samples_per_unit=30):
+    def compose_with(self, rhs: "Estimate"):
         if self.source is None or rhs.source is None:
             return self.compose_using_simple_values(rhs)
-        return self.compose_using_pert_values(rhs, samples_per_unit)
+        return self.compose_using_parameters(rhs)
 
-    def compose_using_pert_values(self, rhs: "Estimate", samples_per_unit=30):
-        if self.sigma > 0 and rhs.sigma > 0:
-            pert = self.get_composed_pert(rhs, samples_per_unit)
-            value_estimate = self.compose_using_simple_values(rhs)
-            inp = EstimInput.from_pert_and_data(
-                pert[0], pert[1], value_estimate.expected, value_estimate.sigma)
-            return self.from_input(inp)
-        else:
+    def _calculate_skewness_of_randvar_sum(self, rhs):
+        # https://math.stackexchange.com/q/1123132
+        # https://www.diva-portal.org/smash/get/diva2:302313/FULLTEXT01.pdf p.28, A.1
+        # skewness sum is sum of 3rd moments divided by sum of variances to the 1.5
+        sum_of_3rd_moments = self.skewness * self.sigma ** 3 + rhs.skewness * rhs.sigma ** 3
+        sum_of_variances = self.variance + rhs.variance
+        skewness_sum = sum_of_3rd_moments / sum_of_variances ** 1.5
+        return skewness_sum
+
+    def compose_using_parameters(self, rhs: "Estimate"):
+        if self.sigma == 0 or rhs.sigma == 0:
             return self._compose_using_shift(rhs)
+
+        expected_sum = self.expected + rhs.expected
+        variance_sum = self.variance + rhs.variance
+        skewness_sum = self._calculate_skewness_of_randvar_sum(rhs)
+        inp = EstimInput.from_parameters(expected_sum, variance_sum, skewness_sum, self.GAMMA)
+        return self.from_input(inp)
 
     def compose_using_simple_values(self, rhs: "Estimate"):
         ret = Estimate(self.expected, self.sigma)
@@ -255,11 +282,11 @@ class Estimate:
     # see https://en.wikipedia.org/wiki/PERT_distribution
     @property
     def pert_beta_a(self):
-        return 1 + self.LAMBDA * (self.source.most_likely - self.source.optimistic) / self.width
+        return 1 + self.GAMMA * (self.source.most_likely - self.source.optimistic) / self.width
 
     @property
     def pert_beta_b(self):
-        return 1 + self.LAMBDA * (self.source.pessimistic - self.source.most_likely) / self.width
+        return 1 + self.GAMMA * (self.source.pessimistic - self.source.most_likely) / self.width
 
     def _get_rv(self):
         return sp.stats.beta(

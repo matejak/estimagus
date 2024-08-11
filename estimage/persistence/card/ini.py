@@ -74,8 +74,8 @@ class IniCardSaver(IniCardSaverBase):
 
 @persistence.loader_of(data.BaseCard, "ini")
 class IniCardLoader(IniCardLoaderBase):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, ** kwargs):
+        super().__init__(** kwargs)
         self._card_cache = dict()
 
     def load_title_and_desc(self, t):
@@ -89,7 +89,7 @@ class IniCardLoader(IniCardLoaderBase):
         if name in self._card_cache:
             c = self._card_cache[name]
         else:
-            c = data.BaseCard(name)
+            c = self.card_class(name)
             if parent:
                 c.parent = parent
             c.load_data_by_loader(self)
@@ -149,7 +149,7 @@ class IniCardLoader(IniCardLoaderBase):
     @classmethod
     def get_loaded_cards_by_id(cls, card_class=data.BaseCard):
         ret = dict()
-        with cls.get_loader() as loader:
+        with cls.get_loader_of(card_class) as loader:
             for name in cls.get_all_card_names():
                 card = card_class(name)
                 card.load_data_by_loader(loader)
@@ -166,7 +166,7 @@ class IniCardLoader(IniCardLoaderBase):
     def load_all_cards(cls, card_class=data.BaseCard):
         config = cls._load_existing_config(cls.CONFIG_FILENAME)
         ret = []
-        with cls.get_loader() as loader:
+        with cls.get_loader_of(card_class) as loader:
             for name in config.sections():
                 card = card_class(name)
                 card.load_data_by_loader(loader)
