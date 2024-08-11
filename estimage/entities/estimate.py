@@ -35,7 +35,6 @@ def calculate_o_p_m_ext(E, V, S, L=4):
         S: Skewness
         L: PERT Lambda parameter
 
-
     Refer to misc/pert_calculations.mc to see where this comes from
     """
     S2 = S ** 2
@@ -48,15 +47,11 @@ def calculate_o_p_m_ext(E, V, S, L=4):
     p /= 4
 
     o = (
-            (
-                S * (math.sqrt(2) * L + 2 ** (5 / 2)) * math.sqrt(l_element + 16 * L + 48)
-                - S2 * (math.sqrt(2)*L ** 2 + 2 ** (7/2) * L + 2 ** (9/2))
-                - 2 ** (7/2) * L
-                - 3 * 2 ** (7/2)
-            )
-            * sqrt_element
-            + l2l_element * E
-        )
+            S * (math.sqrt(2) * L + 2 ** (5 / 2)) * math.sqrt(l_element + 16 * L + 48)
+            - S2 * (math.sqrt(2)*L ** 2 + 2 ** (7/2) * L + 2 ** (9/2))
+            - 2 ** (7/2) * L
+            - 3 * 2 ** (7/2)
+        ) * sqrt_element + l2l_element * E
     o /= 32 * L + 96
 
     m = (
@@ -83,24 +78,6 @@ def calculate_o_p(m, E, V):
     o = 3 * E - 2 * m - dis
     p = 3 * E - 2 * m + dis
     return o, p
-
-
-def find_optimistic_from_pert(dom, values):
-    first_nonzero_index = utilities.first_nonzero_index_of(values)
-    optimistic = dom[first_nonzero_index]
-    return optimistic
-
-
-def find_pessimistic_from_pert(dom, values):
-    last_nonzero_index = utilities.last_nonzero_index_of(values)
-    pessimistic = dom[last_nonzero_index]
-    return pessimistic
-
-
-def find_most_likely_from_pert(dom, values):
-    most_likely_index = np.argmax(values)
-    most_likely = dom[most_likely_index]
-    return most_likely
 
 
 @dataclasses.dataclass
@@ -130,28 +107,18 @@ class EstimInput:
         return ret
 
     @classmethod
-    def from_pert_and_data(cls, dom, values, expected, sigma):
-        if sigma == 0:
+    def from_parameters(cls, expected, variance, skewness, gamma=None):
+        if variance == 0:
             return cls(expected)
-        ballpark_input = cls.from_pert_only(dom, values)
-        m = ballpark_input.most_likely
-        o, p = calculate_o_p_ext(m, expected, sigma ** 2, cls.GAMMA)
+        if gamma is None:
+            gamma = cls.GAMMA
+
+        o, p, m = calculate_o_p_m_ext(expected, variance, skewness, gamma)
 
         ret = cls(m)
-        ret.optimistic = min(o, m)
-        ret.pessimistic = max(p, m)
-        ret.GAMMA = cls.GAMMA
-        return ret
-
-    @classmethod
-    def from_pert_only(cls, dom, values):
-        optimistic = find_optimistic_from_pert(dom, values)
-        pessimistic = find_pessimistic_from_pert(dom, values)
-        most_likely = find_most_likely_from_pert(dom, values)
-
-        ret = cls(most_likely)
-        ret.optimistic = optimistic
-        ret.pessimistic = pessimistic
+        ret.optimistic = o
+        ret.pessimistic = p
+        ret.GAMMA = gamma
         return ret
 
 
@@ -211,6 +178,8 @@ class Estimate:
 
     @property
     def skewness(self):
+        if self.sigma == 0:
+            return 0
         a = self.pert_beta_a
         b = self.pert_beta_b
         ret = 2 * (b - a) * math.sqrt(a + b + 1)
@@ -273,11 +242,7 @@ class Estimate:
         expected_sum = self.expected + rhs.expected
         variance_sum = self.variance + rhs.variance
         skewness_sum = self._calculate_skewness_of_randvar_sum(rhs)
-        opt, pess, most_likely = calculate_o_p_m_ext(expected_sum, variance_sum, skewness_sum, self.GAMMA)
-        inp = EstimInput(most_likely)
-        inp.optimistic = opt
-        inp.pessimistic = pess
-        inp.GAMMA = self.GAMMA
+        inp = EstimInput.from_parameters(expected_sum, variance_sum, skewness_sum, self.GAMMA)
         return self.from_input(inp)
 
     def compose_using_simple_values(self, rhs: "Estimate"):
