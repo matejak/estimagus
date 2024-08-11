@@ -230,30 +230,30 @@ def _test_triple(o, m, p):
     assert pytest.approx(inp.distance_from(calculated_input), abs=norm_of_input * 2e-2) == 0
 
 
-def test_lambda():
+def test_gamma():
     most_likely = 2
     inp = tm.EstimInput(most_likely)
     inp.optimistic = 1
     inp.pessimistic = 4
-    inp.LAMBDA = 2
+    inp.GAMMA = 2
 
     est = tm.Estimate.from_input(inp)
-    low_lambda_expected = est.expected
-    low_lambda_sigma = est.sigma
-    o, p = tm.calculate_o_p_ext(most_likely, low_lambda_expected, low_lambda_sigma ** 2, est.LAMBDA)
+    low_sigma_expected = est.expected
+    low_sigma_sigma = est.sigma
+    o, p = tm.calculate_o_p_ext(most_likely, low_sigma_expected, low_sigma_sigma ** 2, est.GAMMA)
     assert o == pytest.approx(1)
     assert p == pytest.approx(4)
 
-    inp.LAMBDA = 8
+    inp.GAMMA = 8
     est = tm.Estimate.from_input(inp)
-    hi_lambda_expected = est.expected
-    hi_lambda_sigma = est.sigma
-    o, p = tm.calculate_o_p_ext(most_likely, hi_lambda_expected, hi_lambda_sigma ** 2, est.LAMBDA)
+    hi_sigma_expected = est.expected
+    hi_sigma_sigma = est.sigma
+    o, p = tm.calculate_o_p_ext(most_likely, hi_sigma_expected, hi_sigma_sigma ** 2, est.GAMMA)
     assert o == pytest.approx(1)
     assert p == pytest.approx(4)
 
-    assert low_lambda_expected > hi_lambda_expected
-    assert low_lambda_sigma > hi_lambda_sigma
+    assert low_sigma_expected > hi_sigma_expected
+    assert low_sigma_sigma > hi_sigma_sigma
 
 
 @pytest.mark.dependency(depends=["test_pert"])

@@ -26,12 +26,12 @@ class IntervalCard(data.BaseCard):
         lognorm_scale = expected / np.exp(lognorm_shape ** 2 / 2.0)
         lognorm_skewness = (np.exp(lognorm_shape ** 2) + 2) * np.sqrt(np.exp(lognorm_shape ** 2) - 1)
         lognorm_variance = coef_of_var ** 2 * expected ** 2
-        ret.LAMBDA = gamma
-        o, p, m = estimate.calculate_o_p_m_ext(expected, lognorm_variance, lognorm_skewness, ret.LAMBDA)
+        ret.GAMMA = gamma
+        o, p, m = estimate.calculate_o_p_m_ext(expected, lognorm_variance, lognorm_skewness, ret.GAMMA)
         if not o <= m <= p:
             msg = (
                     "Constraints don't allow creation of such lognorm-like PERT distribution "
-                    f"for PERT gamma parameter as low as {ret.LAMBDA}")
+                    f"for PERT gamma parameter as low as {ret.GAMMA}")
             raise ValueError(msg)
         ret.optimistic = o
         ret.most_likely = m
