@@ -1,4 +1,5 @@
 import pytest
+import numpy as np
 
 from estimage import data
 from estimage import PluginResolver, persistence
@@ -49,11 +50,13 @@ def test_card_io_children_of_correct_type(temp_filename):
 
 def test_estimation_properties():
     card = tm.IntervalCard("one")
-    default_coef_of_var = 0.2643
+    default_coef_of_var = tm.DEFAULT_CV
     inp = card.create_estim_input(1)
     est = data.Estimate.from_input(inp)
     assert est.sigma / est.expected == pytest.approx(default_coef_of_var)
-    coef_of_var = 0.7
-    inp = card.create_estim_input(1, coef_of_var)
+    coef_of_var = 0.4
+    with pytest.raises(ValueError, match="gamma"):
+        inp = card.create_estim_input(1, coef_of_var)
+    inp = card.create_estim_input(1, coef_of_var, 8)
     est = data.Estimate.from_input(inp)
     assert est.sigma / est.expected == pytest.approx(coef_of_var)

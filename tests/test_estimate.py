@@ -347,3 +347,26 @@ def plot_two_functions(dom1, hom1, dom2, hom2):
     plt.grid()
     pyl.show()
     f.savefig("lala.png")
+
+
+def _test_consistency_of_triple(triple):
+    o0, m0, p0, gamma = triple
+    est = tm.Estimate.from_triple(m0, o0, p0, gamma)
+    rv = est._get_rv()
+    o, p, m = tm.calculate_o_p_m_ext(rv.mean(), rv.var(), rv.stats("s"), gamma)
+    assert o == pytest.approx(o0)
+    assert p == pytest.approx(p0)
+    assert m == pytest.approx(m0)
+
+
+def test_compute_from_EVS():
+    test_triples = (
+            (2, 4, 6, 4),
+            (2, 4, 10, 4),
+            (1, 4, 5, 4),
+            (1, 4, 4, 4),
+            (1, 1, 4, 4),
+            (2, 4, 20, 8),
+    )
+    for triple in test_triples:
+        _test_consistency_of_triple(triple)

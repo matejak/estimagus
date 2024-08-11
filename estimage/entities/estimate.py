@@ -27,6 +27,47 @@ def calculate_o_p_ext(m, E, V, L=4):
     return o, p
 
 
+def calculate_o_p_m_ext(E, V, S, L=4):
+    """Given data, calculate optimistic and pessimistic numbers
+    Args:
+        E: Expected
+        V: Variance
+        S: Skewness
+        L: PERT Lambda parameter
+
+
+    Refer to misc/pert_calculations.mc to see where this comes from
+    """
+    S2 = S ** 2
+    L2 = L ** 2
+
+    l_element = (L ** 2 + 8 * L + 16) * S2
+    sqrt_element = math.sqrt(S * (L + 4) * math.sqrt(l_element + 16 * L + 48) * V + (l_element + 8 * L + 24) * V)
+    l2l_element = 32 * L + 96
+    p = math.sqrt(2) * sqrt_element + 4 * E
+    p /= 4
+
+    o = (
+            (
+                S * (math.sqrt(2) * L + 2 ** (5 / 2)) * math.sqrt(l_element + 16 * L + 48)
+                - S2 * (math.sqrt(2)*L ** 2 + 2 ** (7/2) * L + 2 ** (9/2))
+                - 2 ** (7/2) * L
+                - 3 * 2 ** (7/2)
+            )
+            * sqrt_element
+            + l2l_element * E
+        )
+    o /= 32 * L + 96
+
+    m = (
+            (math.sqrt(2) * L + 2 ** (5 / 2)) * S * math.sqrt((L2 + 8 * L + 16) * S2 + 16 * L + 48)
+            - (math.sqrt(2) * L2 + 2 ** (7/2) * L + 2**(9/2)) * S2
+        ) * sqrt_element - l2l_element * E * L
+    m /= l2l_element * L
+    m *= -1
+    return o, p, m
+
+
 def calculate_o_p(m, E, V):
     """Given data, calculate optimistic and pessimistic numbers
     Args:
@@ -169,6 +210,14 @@ class Estimate:
         return ret
 
     @property
+    def skewness(self):
+        a = self.pert_beta_a
+        b = self.pert_beta_b
+        ret = 2 * (b - a) * math.sqrt(a + b + 1)
+        ret /= (a + b + 2) * math.sqrt(a * b)
+        return ret
+
+    @property
     def variance(self):
         return self.sigma ** 2
 
@@ -203,20 +252,33 @@ class Estimate:
 
         return np.array([dom, values])
 
-    def compose_with(self, rhs: "Estimate", samples_per_unit=30):
+    def compose_with(self, rhs: "Estimate"):
         if self.source is None or rhs.source is None:
             return self.compose_using_simple_values(rhs)
-        return self.compose_using_pert_values(rhs, samples_per_unit)
+        return self.compose_using_parameters(rhs)
 
-    def compose_using_pert_values(self, rhs: "Estimate", samples_per_unit=30):
-        if self.sigma > 0 and rhs.sigma > 0:
-            pert = self.get_composed_pert(rhs, samples_per_unit)
-            value_estimate = self.compose_using_simple_values(rhs)
-            inp = EstimInput.from_pert_and_data(
-                pert[0], pert[1], value_estimate.expected, value_estimate.sigma)
-            return self.from_input(inp)
-        else:
+    def _calculate_skewness_of_randvar_sum(self, rhs):
+        # https://math.stackexchange.com/q/1123132
+        # https://www.diva-portal.org/smash/get/diva2:302313/FULLTEXT01.pdf p.28, A.1
+        # skewness sum is sum of 3rd moments divided by sum of variances to the 1.5
+        sum_of_3rd_moments = self.skewness * self.sigma ** 3 + rhs.skewness * rhs.sigma ** 3
+        sum_of_variances = self.variance + rhs.variance
+        skewness_sum = sum_of_3rd_moments / sum_of_variances ** 1.5
+        return skewness_sum
+
+    def compose_using_parameters(self, rhs: "Estimate"):
+        if self.sigma == 0 or rhs.sigma == 0:
             return self._compose_using_shift(rhs)
+
+        expected_sum = self.expected + rhs.expected
+        variance_sum = self.variance + rhs.variance
+        skewness_sum = self._calculate_skewness_of_randvar_sum(rhs)
+        opt, pess, most_likely = calculate_o_p_m_ext(expected_sum, variance_sum, skewness_sum, self.LAMBDA)
+        inp = EstimInput(most_likely)
+        inp.optimistic = opt
+        inp.pessimistic = pess
+        inp.LAMBDA = self.LAMBDA
+        return self.from_input(inp)
 
     def compose_using_simple_values(self, rhs: "Estimate"):
         ret = Estimate(self.expected, self.sigma)

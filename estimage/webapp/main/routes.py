@@ -295,6 +295,7 @@ def index():
 
 @bp.route('/projective')
 @flask_login.login_required
+@utilities.profile
 def tree_view():
     r = routers.ModelRouter(mode="proj")
     return web_utils.render_template(
