@@ -63,6 +63,10 @@ def test_persistence(card_io, wsjf_cls):
     base_card_load_save(card_io, wsjf_cls, plugin_fill, plugin_test)
 
 
+def test_load_default(card_io, wsjf_cls):
+    one = wsjf_cls.load_metadata("one", card_io)
+
+
 def wsjf_fill(card):
     card.business_value = 7
     card.risk_and_opportunity = 3

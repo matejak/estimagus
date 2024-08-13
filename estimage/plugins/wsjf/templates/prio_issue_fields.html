@@ -1,0 +1,48 @@
+{% extends ancestor_of_wsjf %}
+
+	{% block forms %}
+	{{ super() }}
+    <div class="col">
+    <h3>Priority etc.</h3>
+  <h4>Intrinsic Priority</h4>
+    <table class="table table-sm">
+  <thead>
+    <tr>
+      <th scope="col">Field</th>
+      <th scope="col">Value</th>
+    </tr>
+  </thead>
+  <tbody>
+<tr>
+	<td>Business Value</td>
+	<td>{{ task.business_value }}</td>
+</tr>
+<tr>
+	<td>Time Sensitivity</td>
+	<td>{{ task.time_sensitivity }}</td>
+</tr>
+<tr>
+	<td>Risk Reduction / Opportunity enablement</td>
+	<td>{{ task.risk_and_opportunity }}</td>
+</tr>
+  </tbody>
+  </table>
+  <h4>Inherited Priority</h4>
+    <table class="table table-sm">
+  <thead>
+    <tr>
+      <th scope="col">Benefactor</th>
+      <th scope="col">Value</th>
+    </tr>
+  </thead>
+  <tbody>
+	  {% for benefactor, value in task.inherited_priority %}
+<tr>
+	<td>{{ benefactor }}</td>
+	<td>{{ value }}</td>
+</tr>
+	  {% endfor %}
+  </tbody>
+  </table>
+    </div>
+	{% endblock %}

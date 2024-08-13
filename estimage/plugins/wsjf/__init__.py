@@ -1,6 +1,15 @@
 from ... import persistence
 
 
+TEMPLATE_OVERRIDES = {
+    "issue_view.html": "prio_issue_fields.html",
+}
+
+EXPORTS = {
+    "BaseCard": "WSJFCard",
+}
+
+
 class WSJFCard:
     business_value: float = 0
     risk_and_opportunity: float = 0
