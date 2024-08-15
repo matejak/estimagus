@@ -112,8 +112,8 @@ class PollsterRouter(UserRouter):
     def __init__(self, ** kwargs):
         super().__init__(** kwargs)
 
-        self.private_pollster = simpledata.AuthoritativePollster()
-        self.global_pollster = simpledata.UserPollster(self.user_id)
+        self.global_pollster = simpledata.AuthoritativePollster()
+        self.private_pollster = simpledata.UserPollster(self.user_id)
         self.pollsters_as_dict = collections.OrderedDict()
         self.pollsters_as_dict["global"] = self.global_pollster
         self.pollsters_as_dict["private"] = self.private_pollster

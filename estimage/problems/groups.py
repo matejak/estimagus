@@ -81,7 +81,7 @@ class ReasonableOutdated(ProblemCategory):
     name = "reasonable_outdated"
     summary = "Likely Outdated Estimates"
     description = "Current estimate is inconsistent with children tasks, but lower than their nominal size and greater than the size of tasks not yet completed."
-    solution = solutions.SolutionByUpdatingSelf
+    solution = solutions.SolutionByUpdatingSelfDueChildren
     weight = 20
 
     required_tags = frozenset([
@@ -99,7 +99,7 @@ class SuppliedInput(ProblemCategory):
     name = "supplied_input"
     summary = "Estimated in Estimagus"
     description = "The task has been estimated in Estimagus, which overrides the different estimate in the tracker."
-    solution = solutions.SolutionByUpdatingSelf
+    solution = solutions.SolutionByUpdatingSelfDueTracker
     weight = 10
 
     required_tags = set([
@@ -127,7 +127,7 @@ class UnestimatedParent(ProblemCategory):
     name = "unestimated_parent"
     summary = "Unestimated Parent"
     description = "Task with children has no size estimated, while children have estimates."
-    solution = solutions.SolutionByUpdatingSelf
+    solution = solutions.SolutionByUpdatingSelfDueChildren
     weight = 15
 
     required_tags = set([
@@ -140,7 +140,7 @@ class UnestimatedParent(ProblemCategory):
 class GenericInconsistent(ProblemCategory):
     name = "generic_inconsistent"
     summary = "Generic Inconsistency"
-    solution = solutions.SolutionByUpdatingSelf
+    solution = solutions.SolutionByUpdatingSelfDueChildren
     weight = 80
 
     required_tags = frozenset(["inconsistent_estimate"])

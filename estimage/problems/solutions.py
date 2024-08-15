@@ -49,7 +49,7 @@ class SolutionByUpdatingChildren(SolutionByUpdating):
 
 class SolutionByUpdatingSelf(SolutionByUpdating):
     action = "update_points"
-    description = "Update the respective card, so it is consistent with its children"
+    description = "Update the respective card, so it is consistent"
     solvable = True
 
     def __init__(self, problem: Problem):
@@ -57,7 +57,21 @@ class SolutionByUpdatingSelf(SolutionByUpdating):
         self.updates_model = False
 
     def describe(self):
-        return f"Update the record of '{self.card_name}', so it matches records of its children."
+        return f"Update the record of '{self.card_name}'."
 
     def solve(self, card, synchro, io_cls):
         synchro.set_tracker_points_of(card, self.problem.value_expected, io_cls)
+
+
+class SolutionByUpdatingSelfDueTracker(SolutionByUpdatingSelf):
+    description = "Update the respective card, so it is consistent with the Estimagus estimate"
+
+    def describe(self):
+        return f"Update the record of '{self.card_name}', so it matches the Estimagus estimate."
+
+
+class SolutionByUpdatingSelfDueChildren(SolutionByUpdatingSelf):
+    description = "Update the respective card, so it is consistent with its children"
+
+    def describe(self):
+        return f"Update the record of '{self.card_name}', so it matches records of its children."
