@@ -1,5 +1,6 @@
 import pytest
 
+from estimage import data
 from estimage import plugins, PluginResolver
 import estimage.plugins.wsjf as tm
 
@@ -63,8 +64,17 @@ def test_persistence(card_io, wsjf_cls):
     base_card_load_save(card_io, wsjf_cls, plugin_fill, plugin_test)
 
 
-def test_load_default(card_io, wsjf_cls):
-    one = wsjf_cls.load_metadata("one", card_io)
+def test_load_defaults(card_io, wsjf_cls):
+    base_card_load_save(card_io, wsjf_cls, fill_card_instance_with_stuff, plugin_defaults_test, data.BaseCard)
+
+
+def plugin_defaults_test(lhs, rhs):
+    assert rhs.business_value == 0
+    assert rhs.risk_and_opportunity == 0
+    assert rhs.cost_of_delay == 0
+    assert rhs.time_sensitivity == 0
+    assert not rhs.inherited_priority
+    assert type(rhs.inherited_priority) == dict
 
 
 def wsjf_fill(card):

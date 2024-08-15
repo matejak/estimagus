@@ -129,8 +129,10 @@ class PluginFriendlyMultiheadFlask(PluginFriendlyFlask):
 
     def _template_not_extended(self, template_name):
         template_not_extendable = self.current_head in self.NON_HEAD_BLUEPRINTS
+        if template_not_extendable:
+            return True
         template_not_extended = template_name not in self._template_ancestor_path_maps[self.current_head]
-        if template_not_extended or template_not_extended:
+        if template_not_extended:
             return True
         return False
 

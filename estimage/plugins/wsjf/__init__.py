@@ -50,12 +50,14 @@ class WSJFCard:
 @persistence.loader_of(WSJFCard, "ini")
 class IniCardStateLoader:
     def load_wsjf_fields(self, card):
-        card.business_value = float(self._get_our(card, "wsjf_business_value"))
-        card.risk_and_opportunity = float(self._get_our(card, "wsjf_risk_and_opportunity"))
-        card.time_sensitivity = float(self._get_our(card, "time_sensitivity"))
+        card.business_value = float(self._get_our(card, "wsjf_business_value", 0))
+        card.risk_and_opportunity = float(self._get_our(card, "wsjf_risk_and_opportunity", 0))
+        card.time_sensitivity = float(self._get_our(card, "time_sensitivity", 0))
 
-        records = self._get_our(card, "inherited_priority")
+        records = self._get_our(card, "inherited_priority", "")
         for record in records.split(";"):
+            if not record:
+                continue
             source, value = record.split(",")
             card.inherited_priority[source] = float(value)
 

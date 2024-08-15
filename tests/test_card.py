@@ -194,8 +194,11 @@ def assert_cards_are_equal(lhs, rhs):
     assert lhs.uri == rhs.uri
 
 
-def base_card_load_save(card_io, cls, filler, tester):
-    one = cls("one")
+def base_card_load_save(card_io, cls, filler, tester, original_card_cls=None):
+    if not original_card_cls:
+        original_card_cls = cls
+
+    one = original_card_cls("one")
     filler(one)
     one.save_metadata(card_io)
 
