@@ -8,4 +8,4 @@ class WSJFForm(BaseForm):
     risk_opportunity = wtforms.DecimalField("Risk Reduction / Opportunity Enablement")
     time_sensitivity = wtforms.DecimalField("Time Sensitivity")
     task_name = wtforms.HiddenField('task_name')
-    submit = SubmitField("Update Priority")
+    submit = wtforms.SubmitField("Update Priority")
