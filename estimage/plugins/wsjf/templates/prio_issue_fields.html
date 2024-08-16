@@ -4,6 +4,25 @@
 	{{ super() }}
     <div class="col">
     <h3>Priority etc.</h3>
+  <h4>WSJF Score</h4>
+    <table class="table table-sm">
+  <thead>
+    <tr>
+      <th scope="col">Field</th>
+      <th scope="col">Value</th>
+    </tr>
+  </thead>
+  <tbody>
+<tr>
+	<td>WSJF Score</td>
+	<td>{{ task.wsjf_score }}</td>
+</tr>
+<tr>
+	<td>Cost of Delay</td>
+	<td>{{ task.cost_of_delay }}</td>
+</tr>
+  </tbody>
+  </table>
   <h4>Intrinsic Priority</h4>
     <table class="table table-sm">
   <thead>
