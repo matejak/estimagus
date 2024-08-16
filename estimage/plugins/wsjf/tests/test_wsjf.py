@@ -74,7 +74,7 @@ def plugin_defaults_test(lhs, rhs):
     assert rhs.cost_of_delay == 0
     assert rhs.time_sensitivity == 0
     assert not rhs.inherited_priority
-    assert type(rhs.inherited_priority) == dict
+    assert type(rhs.inherited_priority) is dict
 
 
 def wsjf_fill(card):
@@ -96,3 +96,19 @@ def plugin_test(lhs, rhs):
     assert lhs.cost_of_delay == rhs.cost_of_delay
     assert lhs.time_sensitivity == rhs.time_sensitivity
     assert lhs.inherited_priority["one"] == rhs.inherited_priority["one"]
+
+
+def test_children_propagation(wsjf_cls, wsjf_card):
+    granchild = wsjf_cls("granchild")
+    granchild.point_cost = 1
+    wsjf_fill(granchild)
+    child = wsjf_cls("child")
+    child.point_cost = 1
+    child.add_element(granchild)
+    assert child.cost_of_delay > 0
+    assert wsjf_card.cost_of_delay == 0
+    wsjf_card.add_element(child)
+    wsjf_card.point_cost = 1
+    assert wsjf_card.cost_of_delay == granchild.cost_of_delay
+    assert "child" not in wsjf_card.inherited_priority
+    assert wsjf_card.inherited_priority["granchild"] + granchild.inherited_priority["one"] == granchild.wsjf_score

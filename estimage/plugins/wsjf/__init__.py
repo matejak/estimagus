@@ -20,13 +20,23 @@ class WSJFCard:
         super().__init__(* args, ** kwargs)
         self.inherited_priority = dict()
 
-    @property
-    def cost_of_delay(self):
-        ret = (
+    def _get_inherent_cost_of_delay(self):
+        return (
             self.business_value
             + self.risk_and_opportunity
             + self.time_sensitivity)
+
+    @property
+    def cost_of_delay(self):
+        ret = self._get_inherent_cost_of_delay()
         ret += sum(self.inherited_priority.values()) * self.point_cost
+        return ret
+
+    def add_element(self, new_child: "WSJFCard"):
+        ret = super().add_element(new_child)
+        if inherited_cod := new_child._get_inherent_cost_of_delay():
+            self.inherited_priority[new_child.name] = inherited_cod / new_child.point_cost
+        self.inherited_priority.update(new_child.inherited_priority)
         return ret
 
     @property
