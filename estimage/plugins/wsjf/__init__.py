@@ -1,4 +1,5 @@
 from ... import persistence
+from . import forms
 
 
 TEMPLATE_OVERRIDES = {
@@ -7,7 +8,25 @@ TEMPLATE_OVERRIDES = {
 
 EXPORTS = {
     "BaseCard": "WSJFCard",
+    "ProjectiveForms": "ProjectiveForms",
 }
+
+
+class ProjectiveForms:
+    def add_sections(self):
+        super().add_sections()
+        self._add_section(20, name="wsjf", title="Prioritization")
+
+    def instantiate_forms(self, app):
+        super().instantiate_forms(app)
+        form = forms.WSJFForm()
+        self.forms["wsjf"] = form
+
+    def setup_forms_according_to_context(self, context, card):
+        super().setup_forms_according_to_context(context, card)
+        self.forms["wsjf"].business_value.data = card.business_value
+        self.forms["wsjf"].time_sensitivity.data = card.time_sensitivity
+        self.forms["wsjf"].risk_and_opportunity.data = card.risk_and_opportunity
 
 
 class WSJFCard:

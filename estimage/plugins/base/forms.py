@@ -7,5 +7,8 @@ class BaseForm(FlaskForm):
         super().__init__(** kwargs)
 
     @classmethod
-    def supporting_js(cls, forms):
+    def bulk_supporting_js(cls, forms):
         return ""
+
+    def supporting_js(self):
+        return self.bulk_supporting_js([self])

@@ -59,7 +59,7 @@ class EncryptedTokenForm(BaseForm):
         return True
 
     @classmethod
-    def supporting_js(cls, forms):
+    def bulk_supporting_js(cls, forms):
         template = textwrap.dedent("""
         <script type="text/javascript">
         function tokenName() {

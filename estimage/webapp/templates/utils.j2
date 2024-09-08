@@ -151,9 +151,13 @@
         </li>
 {% endmacro %}
 
+{% macro get_coef_of_variance(estimate) -%}
+{{ estimate.sigma / estimate.expected * 100 if estimate.expected else 0 }}
+{%- endmacro %}
+
 {% macro render_estimate(estimate, unit="") -%}
-	{{ "{expected:.3g}{unit_with_space}, 𝜎 = {sigma:.2g}{unit_with_space}".format(
-		expected=estimate.expected, sigma=estimate.sigma, unit_with_space=" " ~ unit) }}
+	{{ '{expected:.3g}{unit_with_space}, <abbr title="Coefficient of Variation">CV</abbr> = {cv:.2g}&nbsp;%'.format(
+		expected=estimate.expected, cv=get_coef_of_variance(estimate) | float, unit_with_space=" " ~ unit) }}
 {%- endmacro %}
 
 {% macro render_precise_estimate(number, unit="") -%}
@@ -197,18 +201,40 @@
 {%- endmacro %}
 
 
+{% macro render_task_basic_table_row(card, card_source) -%}
+<tr>
+	<td>{{ task_link(card, card_source) }}</td>
+	<td>{{ "%.03g" % card.point_estimate.expected }}</td>
+	<td>{{ "%.02g%%" % get_coef_of_variance(card.point_estimate) | float }}</td>
+	<td>{{ state_to_string(card.status) }}</td>
+	<td>{{ card.title }}</td>
+</tr>
+{%- endmacro %}
+
+
 {% macro render_similar_sized_tasks(similar_sized_cards) -%}
     <div class="row">
-    <h4>Tasks of similar sizes</h4>
+    <h4>Similar Cards</h4>
     <p>
-    <ul>
+    <table class="table table-sm">
+  <thead>
+    <tr>
+      <th scope="col">Card ID</th>
+      <th scope="col">Size</th>
+      <th scope="col"><abbr title="Coefficient of Variation">CV</abbr></th>
+      <th scope="col">Status</th>
+      <th scope="col">Summary</th>
+    </tr>
+  </thead>
+  <tbody>
+  </tbody>
     {%- for card in similar_sized_cards["proj"] %}
-    <li>{{ render_task_basic(card, "projective", None) }}: {{ render_estimate(card.point_estimate) }}</li>
+    {{ render_task_basic_table_row(card, "projective") }}
     {%- endfor %}
     {%- for card in similar_sized_cards["retro"] %}
-    <li>{{ render_task_basic(card, "retrospective", None) }}: {{ render_estimate(card.point_estimate) }}</li>
+    {{ render_task_basic_table_row(card, "retrospective") }}
     {%- endfor %}
-    </ul>
+  </table>
     </p>
     </div>
 {%- endmacro %}

@@ -42,9 +42,56 @@ populate-{{ sp }}
 	"Estimation", estimate_exists,
 	("Modify" if estimate_exists else "Create") ~ " the estimate",
 	space_evenly(fillers_str) | safe ~
-	render_form(forms["estimation"], button_map={"submit": "primary", "delete": "danger"}, action=head_url_for("main.estimate", task_name=task.name))
+	render_form(card_details.forms["estimation"], button_map={"submit": "primary", "delete": "danger"}, action=head_url_for("main.estimate", task_name=task.name))
 	)
 }}
+{%- endmacro %}
+
+
+{% macro tab_button(category, selected) %}
+    <a class="nav-link{{ ' active' if selected else '' }}" id="{{ category.name }}-tab" data-bs-toggle="tab" data-bs-target="#{{ category.name }}-tab-pane" type="button" role="tab" aria-controls="{{ category.name }}-tab-pane" {{ 'aria-selected="true"' if selected else '' }}>{{ category.title }}</a>
+{% endmacro %}
+
+
+{% macro specific_issue_content_framing() -%}
+{% if card_details.sections_by_priority | length > 1 %}
+<ul id="taskTabs" class="nav nav-tabs">
+{% for category in card_details.ordered_sections %}
+<li class="nav-item" role="presentation">
+	{{ tab_button(category, loop.index == 0) }}
+</li>
+{% endfor %}
+</ul>
+<div class="tab-content" id="taskTabContents">
+{% endif %}
+{{ caller() }}
+{% if card_details.sections_by_priority | length > 1 %}
+</div>
+{% endif %}
+{%- endmacro %}
+
+{# problem with nested calls: https://github.com/pallets/jinja/issues/371 #}
+{% macro specific_issue_content(category) -%}
+{% set contents = caller() %}
+{% if card_details.sections_by_priority | length > 1 %}
+{% call specific_issue_content_inside_tab(card_details.get_category(category)) %}{{ contents }}{% endcall %}
+{% else %}
+{% call specific_issue_content_simple() %}{{ contents }}{% endcall %}
+{% endif %}
+{%- endmacro %}
+
+
+{% macro specific_issue_content_inside_tab(category) -%}
+<div class="tab-pane fade{{ ' active show' if category == card_details.ordered_sections[0] else ''}}" id="{{ category.name }}-tab-pane" role="tabpanel" aria-labelledby="{{ category.name }}-tab" tabindex="0">
+	<div class="row">
+{{ caller() }}
+	</div>
+</div>
+{%- endmacro %}
+
+
+{% macro specific_issue_content_simple() -%}
+{{ caller() }}
 {%- endmacro %}
 
 
@@ -88,40 +135,50 @@ populate-{{ sp }}
         <div class="col">
         <img src="{{ head_url_for('vis.visualize_task_nominal', task_name=task.name, mode=mode) }}" alt="PERT prob density function for {{ task.name }}"/>
         </div>
-	{% if not forms %}
+	{% if mode == "retrospective" %}
         <div class="col">
         <img src="{{ head_url_for('vis.visualize_epic_burndown', epic_name=task.name, size='normal') }}" alt="Burndown for {{ task.name }}"/>
         </div>
         {%- endif %}
     </div>
-    {% if forms %}
+    {% if card_details %}
     <div class="row">
-	{% block forms %}
+    {% call specific_issue_content_framing() %}
+	{% block card_details %}
+    {% call specific_issue_content("estimation") %}
+	{% block estimation %}
+    <div class="col">
     <h3>Consensus values</h3>
 	{% if context.global_estimate_exists %}
 	<p>Point cost: {{ utils.render_estimate(context.global_estimate) }}</p>
 	{% endif %}
-	{% if "consensus" in forms %}
-        {{ render_form(forms["consensus"], button_map={"submit": "primary", "delete": "danger"}, action=head_url_for("main.act_on_global_estimate", task_name=task.name)) }}
+	{% if "consensus" in card_details.forms %}
+        {{ render_form(card_details.forms["consensus"], button_map={"submit": "primary", "delete": "danger"}, action=head_url_for("main.act_on_global_estimate", task_name=task.name)) }}
 	{% endif %}
     </div>
     <div class="col">
     <h3>Our values</h3>
 	{{ estimation_form_in_accordion(context.own_estimation_exists) }}
-	{% endblock %}
     </div>
+	{% endblock estimation %}
     {%- if similar_sized_cards %}
+    <div class="row">
         {{ utils.render_similar_sized_tasks(similar_sized_cards) }}
+    </div>
     {%- endif %}
+    {% endcall %}
+	{% endblock card_details %}
+    {% endcall %}
+    </div>
     {%- endif %}
 </div>
 {% endblock %}
 
 {% block footer %}
 {{ super() }}
-{% if forms %}
-{% if "authoritative" in forms -%}
-{{ forms["authoritative"].supporting_js([forms["authoritative"]]) | safe }}
+{% if card_details %}
+{% if "authoritative" in card_details.forms -%}
+{{ card_details.forms["authoritative"].supporting_js() | safe }}
 
     <script>
 {% for pval in all_story_points %}

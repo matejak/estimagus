@@ -1,4 +1,5 @@
 import datetime
+import dataclasses
 import collections
 
 import flask
@@ -9,7 +10,7 @@ from .. import web_utils, routers
 from ... import simpledata as webdata
 from ... import history
 from ... import data
-from ... import utilities, statops
+from ... import utilities, statops, PluginResolver
 
 
 def give_data_to_context(context, user_pollster, global_pollster):
@@ -32,6 +33,101 @@ def feed_estimation_to_form(estimation, form_data):
     form_data.pessimistic.data = estimation.source.pessimistic
 
 
+def view_task(task_name, breadcrumbs, mode, card_details=None):
+    card_r = routers.CardRouter(mode=mode)
+    task = card_r.all_cards_by_id[task_name]
+
+    name_to_url = lambda n: web_utils.head_url_for(f"main.view_epic_{mode}", epic_name=n)
+    append_card_to_breadcrumbs(breadcrumbs, task, name_to_url)
+
+    poll_r = routers.PollsterRouter()
+    pollster = poll_r.private_pollster
+    c_pollster = poll_r.global_pollster
+
+    context = webdata.Context(task)
+    give_data_to_context(context, pollster, c_pollster)
+
+    if card_details:
+        card_details.setup_forms_according_to_context(context, task)
+
+    similar_cards = []
+    if context.estimation_source != "none":
+        similar_cards = get_similar_cards_with_estimations(task_name)
+        LIMIT = 8
+        similar_cards["proj"] = similar_cards["proj"][:LIMIT]
+        similar_cards["retro"] = similar_cards["retro"][:LIMIT - len(similar_cards["proj"])]
+
+    return web_utils.render_template(
+        'issue_view.html', title='Estimate Issue', breadcrumbs=breadcrumbs, mode=mode,
+        user=poll_r.user, card_details=card_details, task=task, context=context, similar_sized_cards=similar_cards)
+
+
+def get_projective_breadcrumbs():
+    breadcrumbs = collections.OrderedDict()
+    breadcrumbs["Planning"] = web_utils.head_url_for("main.tree_view")
+    return breadcrumbs
+
+
+def get_retro_breadcrumbs():
+    breadcrumbs = collections.OrderedDict()
+    breadcrumbs["Retrospective"] = web_utils.head_url_for("main.tree_view_retro")
+    return breadcrumbs
+
+
+@dataclasses.dataclass
+class Section:
+    name: str
+    title: str
+
+
+@PluginResolver.class_is_extendable("ProjectiveForms")
+class ProjectiveDetails:
+    def __init__(self):
+        self.forms = dict()
+        self.sections_by_priority = dict()
+        self._known_section_names = set()
+        self.add_sections()
+
+    def get_category(self, name):
+        for section in self.sections_by_priority.values():
+            if section.name == name:
+                return section
+        msg = f"Couldn't find category '{name}', knows only {list(self._known_section_names)}"
+        raise KeyError(msg)
+
+    @property
+    def ordered_sections(self):
+        ordered_keys = sorted(self.sections_by_priority.keys())
+        ordered_values = [self.sections_by_priority[key] for key in ordered_keys]
+        return ordered_values
+
+    def _add_section(self, priority, ** kwargs):
+        section = Section(** kwargs)
+        self.sections_by_priority[priority] = section
+        self._known_section_names.add(kwargs["name"])
+
+    def add_sections(self):
+        self._add_section(10, name="estimation", title="Estimation")
+
+    def instantiate_forms(self, app):
+        self.forms["estimation"] = forms.SimpleEstimationForm()
+        self.forms["authoritative"] = app.get_final_class("AuthoritativeForm")()
+
+    def setup_forms_according_to_context(self, context, card):
+        if context.own_estimation_exists:
+            self.forms["estimation"].enable_delete_button()
+        if context.global_estimation_exists:
+            self.forms["authoritative"].clear_to_go()
+            self.forms["authoritative"].task_name.data = context.task_name
+            self.forms["authoritative"].point_cost.data = ""
+
+        if context.estimation_source == "none":
+            fallback_estimation = data.Estimate.from_input(data.EstimInput(context.task_point_cost))
+            feed_estimation_to_form(fallback_estimation, self.forms["estimation"])
+        else:
+            feed_estimation_to_form(context.estimation, self.forms["estimation"])
+
+
 def _setup_forms_according_to_context(request_forms, context):
     if context.own_estimation_exists:
         request_forms["estimation"].enable_delete_button()
@@ -49,76 +145,18 @@ def _setup_forms_according_to_context(request_forms, context):
         feed_estimation_to_form(context.estimation, request_forms["estimation"])
 
 
-def _setup_simple_forms_according_to_context(request_forms, context):
-    if context.own_estimation_exists:
-        request_forms["estimation"].enable_delete_button()
-    if context.global_estimation_exists:
-        request_forms["authoritative"].clear_to_go()
-        request_forms["authoritative"].task_name.data = context.task_name
-        request_forms["authoritative"].point_cost.data = ""
-
-    if context.estimation_source == "none":
-        fallback_estimation = data.Estimate.from_input(data.EstimInput(context.task_point_cost))
-        feed_estimation_to_form(fallback_estimation, request_forms["estimation"])
-    else:
-        feed_estimation_to_form(context.estimation, request_forms["estimation"])
-
-
-def view_task(task_name, breadcrumbs, mode, request_forms=None):
-    card_r = routers.CardRouter(mode=mode)
-    task = card_r.all_cards_by_id[task_name]
-
-    name_to_url = lambda n: web_utils.head_url_for(f"main.view_epic_{mode}", epic_name=n)
-    append_card_to_breadcrumbs(breadcrumbs, task, name_to_url)
-
-    poll_r = routers.PollsterRouter()
-    pollster = poll_r.private_pollster
-    c_pollster = poll_r.global_pollster
-
-    context = webdata.Context(task)
-    give_data_to_context(context, pollster, c_pollster)
-
-    if request_forms:
-        _setup_simple_forms_according_to_context(request_forms, context)
-
-    similar_cards = []
-    if context.estimation_source != "none":
-        similar_cards = get_similar_cards_with_estimations(task_name)
-        LIMIT = 8
-        similar_cards["proj"] = similar_cards["proj"][:LIMIT]
-        similar_cards["retro"] = similar_cards["retro"][:LIMIT - len(similar_cards["proj"])]
-
-    return web_utils.render_template(
-        'issue_view.html', title='Estimate Issue', breadcrumbs=breadcrumbs, mode=mode,
-        user=poll_r.user, forms=request_forms, task=task, context=context, similar_sized_cards=similar_cards)
-
-
-def get_projective_breadcrumbs():
-    breadcrumbs = collections.OrderedDict()
-    breadcrumbs["Planning"] = web_utils.head_url_for("main.tree_view")
-    return breadcrumbs
-
-
-def get_retro_breadcrumbs():
-    breadcrumbs = collections.OrderedDict()
-    breadcrumbs["Retrospective"] = web_utils.head_url_for("main.tree_view_retro")
-    return breadcrumbs
-
-
 @bp.route('/projective/task/<task_name>')
 @flask_login.login_required
 def view_projective_task(task_name, known_forms=None):
     if known_forms is None:
         known_forms = dict()
 
-    request_forms = dict(
-        estimation=forms.SimpleEstimationForm(),
-        authoritative=flask.current_app.get_final_class("AuthoritativeForm")(),
-    )
-    request_forms.update(known_forms)
+    card_details = flask.current_app.get_final_class("ProjectiveForms")()
+    card_details.instantiate_forms(flask.current_app)
+    card_details.forms.update(known_forms)
 
     breadcrumbs = get_projective_breadcrumbs()
-    return view_task(task_name, breadcrumbs, "proj", request_forms)
+    return view_task(task_name, breadcrumbs, "proj", card_details)
 
 
 @bp.route('/retrospective/task/<task_name>')

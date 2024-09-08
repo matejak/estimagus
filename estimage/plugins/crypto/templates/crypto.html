@@ -15,5 +15,5 @@
 
 {% block footer %}
 {{ super() }}
-{{ plugin_form.supporting_js([plugin_form]) | safe }}
+{{ plugin_form.supporting_js() | safe }}
 {% endblock %}
