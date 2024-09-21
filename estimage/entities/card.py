@@ -82,6 +82,12 @@ class BaseCard:
 
         return ret
 
+    def get_direct_dependencies(self) -> typing.Iterable["BaseCard"]:
+        return tuple(self.depends_on) + tuple(self.children)
+
+    def register_direct_dependency(self, dependency: "BaseCard"):
+        self.depends_on.append(dependency)
+
     def add_element(self, what: "BaseCard"):
         if what in self:
             return

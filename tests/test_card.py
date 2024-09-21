@@ -192,6 +192,7 @@ def assert_cards_are_equal(lhs, rhs):
     assert lhs.tier == rhs.tier
     assert lhs.loading_plugin == rhs.loading_plugin
     assert lhs.uri == rhs.uri
+    assert lhs.get_direct_dependencies() == rhs.get_direct_dependencies()
 
 
 def base_card_load_save(card_io, cls, filler, tester, original_card_cls=None):
@@ -222,6 +223,7 @@ def test_card_load_and_bulk_save(card_io):
     fill_card_instance_with_stuff(two)
     two.title = "Second card"
     two.tier = 6661
+    two.register_direct_dependency(one)
 
     card_io.bulk_save_metadata([one, two])
 
@@ -247,13 +249,21 @@ def test_no_duplicate_children(subtree_card, leaf_card):
     assert len(subtree_card.children) == 1
 
 
-
 def test_dependency():
+    card_one = tm.BaseCard("one")
+    card_two = tm.BaseCard("two")
+
     assert not card_one.get_direct_dependencies()
     card_one.register_direct_dependency(card_two)
     deps = card_one.get_direct_dependencies()
     assert len(deps) == 1
     assert deps[0].name == "two"
+
+
+def test_family_dependency(subtree_card):
+    deps = subtree_card.get_direct_dependencies()
+    assert len(deps) == 1
+    assert deps[0].name == "leaf"
 
 
 class MockSynchronizer(card.CardSynchronizer):

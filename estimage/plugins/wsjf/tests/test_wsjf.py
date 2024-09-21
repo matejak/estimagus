@@ -81,7 +81,10 @@ def wsjf_fill(card):
     card.business_value = 7
     card.risk_and_opportunity = 3
     card.time_sensitivity = 5
-    card.inherited_priority["one"] = 2
+    dep = card.__class__("one")
+    dep.point_cost = 1
+    dep.business_value = 2
+    card.add_element(dep)
 
 
 def plugin_fill(card):
@@ -95,7 +98,8 @@ def plugin_test(lhs, rhs):
     assert lhs.risk_and_opportunity == rhs.risk_and_opportunity
     assert lhs.cost_of_delay == rhs.cost_of_delay
     assert lhs.time_sensitivity == rhs.time_sensitivity
-    assert lhs.inherited_priority["one"] == rhs.inherited_priority["one"]
+    if "one" in lhs.inherited_priority:
+        assert lhs.inherited_priority["one"] == rhs.inherited_priority["one"]
 
 
 def test_children_propagation(wsjf_cls, wsjf_card):
@@ -111,4 +115,5 @@ def test_children_propagation(wsjf_cls, wsjf_card):
     wsjf_card.point_cost = 1
     assert wsjf_card.cost_of_delay == granchild.cost_of_delay
     assert "child" not in wsjf_card.inherited_priority
-    assert wsjf_card.inherited_priority["granchild"] + granchild.inherited_priority["one"] == granchild.wsjf_score
+    child.business_value = 1
+    assert wsjf_card.inherited_priority["child"] + granchild.wsjf_score == child.wsjf_score

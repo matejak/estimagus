@@ -33,11 +33,6 @@ class WSJFCard:
     business_value: float = 0
     risk_and_opportunity: float = 0
     time_sensitivity: float = 0
-    inherited_priority: dict
-
-    def __init__(self, * args, **kwargs):
-        super().__init__(* args, ** kwargs)
-        self.inherited_priority = dict()
 
     def _get_inherent_cost_of_delay(self):
         return (
@@ -51,11 +46,25 @@ class WSJFCard:
         ret += sum(self.inherited_priority.values()) * self.point_cost
         return ret
 
-    def add_element(self, new_child: "WSJFCard"):
-        ret = super().add_element(new_child)
-        if inherited_cod := new_child._get_inherent_cost_of_delay():
-            self.inherited_priority[new_child.name] = inherited_cod / new_child.point_cost
-        self.inherited_priority.update(new_child.inherited_priority)
+    @property
+    def intrinsic_cost_of_delay(self):
+        return self.business_value + self.risk_and_opportunity + self.time_sensitivity
+
+    @property
+    def inherited_priority(self):
+        ret = self._shallow_inherited_priority()
+        for c in self.get_direct_dependencies():
+            new_prio = c.inherited_priority
+            ret.update(new_prio)
+        return ret
+
+    def _shallow_inherited_priority(self):
+        ret = dict()
+        for c in self.get_direct_dependencies():
+            prio = c.intrinsic_cost_of_delay / c.point_cost
+            if not prio:
+                continue
+            ret[c.name] = prio
         return ret
 
     @property
@@ -83,13 +92,6 @@ class IniCardStateLoader:
         card.risk_and_opportunity = float(self._get_our(card, "wsjf_risk_and_opportunity", 0))
         card.time_sensitivity = float(self._get_our(card, "time_sensitivity", 0))
 
-        records = self._get_our(card, "inherited_priority", "")
-        for record in records.split(";"):
-            if not record:
-                continue
-            source, value = record.split(",")
-            card.inherited_priority[source] = float(value)
-
 
 @persistence.saver_of(WSJFCard, "ini")
 class IniCardStateSaver:
@@ -97,8 +99,3 @@ class IniCardStateSaver:
         self._store_our(card, "wsjf_business_value", str(card.business_value))
         self._store_our(card, "wsjf_risk_and_opportunity", str(card.risk_and_opportunity))
         self._store_our(card, "time_sensitivity", str(card.time_sensitivity))
-
-        record = []
-        for source, value in card.inherited_priority.items():
-            record.append(f"{source},{value}")
-        self._store_our(card, "inherited_priority", ";".join(record))

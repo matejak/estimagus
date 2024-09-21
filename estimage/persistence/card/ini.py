@@ -28,8 +28,10 @@ class IniCardSaver(IniCardSaverBase):
         self._store_our(t, "point_cost", str(t.point_cost))
 
     def save_family_records(self, t):
-        depnames_str = self._pack_list([dep.name for dep in t.children])
-        self._store_our(t, "depnames", depnames_str)
+        depnames_str = self._pack_list([dep.name for dep in t.depends_on])
+        self._store_our(t, "direct_depnames", depnames_str)
+        children_str = self._pack_list([dep.name for dep in t.children])
+        self._store_our(t, "depnames", children_str)
         parent_str = ""
         if t.parent:
             parent_str = t.parent.name
@@ -97,12 +99,20 @@ class IniCardLoader(IniCardLoaderBase):
         return c
 
     def load_family_records(self, t):
-        all_deps = self._get_our(t, "depnames", "")
-        for n in self._unpack_list(all_deps):
+        all_children = self._get_our(t, "depnames", "")
+        for n in self._unpack_list(all_children):
             if not n:
                 continue
             new = self._get_or_create_card_named(n, t)
             t.add_element(new)
+
+        all_direct_depnames = self._get_our(t, "direct_depnames", "")
+        for n in self._unpack_list(all_direct_depnames):
+            if not n:
+                continue
+            new = self._get_or_create_card_named(n)
+            t.register_direct_dependency(new)
+
         parent_id = self._get_our(t, "parent", "")
         parent_known_notyet_fetched = parent_id and t.parent is None
         if parent_known_notyet_fetched:
