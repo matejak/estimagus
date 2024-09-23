@@ -11,6 +11,7 @@ from ... import simpledata as webdata
 from ... import history
 from ... import data
 from ... import utilities, statops, PluginResolver
+from ...statops import summary
 
 
 def give_data_to_context(context, user_pollster, global_pollster):

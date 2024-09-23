@@ -87,31 +87,36 @@ class IniCardLoader(IniCardLoaderBase):
     def load_costs(self, t):
         t.point_cost = float(self._get_our(t, "point_cost"))
 
-    def _get_or_create_card_named(self, name, parent=None):
+    def _get_or_create_card_named(self, name):
         if name in self._card_cache:
             c = self._card_cache[name]
         else:
             c = self.card_class(name)
-            if parent:
-                c.parent = parent
-            c.load_data_by_loader(self)
             self._card_cache[name] = c
+            c.load_data_by_loader(self)
         return c
 
-    def load_family_records(self, t):
-        all_children = self._get_our(t, "depnames", "")
-        for n in self._unpack_list(all_children):
-            if not n:
-                continue
-            new = self._get_or_create_card_named(n, t)
-            t.add_element(new)
+    def _load_list_of_cards_from_entry(self, t, entry_name):
+        entry_contents = self._get_our(t, entry_name, "")
+        all_entries = self._load_list_of_cards(entry_contents)
+        return all_entries
 
-        all_direct_depnames = self._get_our(t, "direct_depnames", "")
-        for n in self._unpack_list(all_direct_depnames):
-            if not n:
+    def _load_list_of_cards(self, list_string):
+        ret = []
+        for name in self._unpack_list(list_string):
+            if not name:
                 continue
-            new = self._get_or_create_card_named(n)
-            t.register_direct_dependency(new)
+            ret.append(self._get_or_create_card_named(name))
+        return ret
+
+    def load_family_records(self, t):
+        all_children = self._load_list_of_cards_from_entry(t, "depnames")
+        for c in all_children:
+            t.add_element(c)
+
+        all_direct_deps = self._load_list_of_cards_from_entry(t, "direct_depnames")
+        for c in all_direct_deps:
+            t.register_direct_dependency(c)
 
         parent_id = self._get_our(t, "parent", "")
         parent_known_notyet_fetched = parent_id and t.parent is None
