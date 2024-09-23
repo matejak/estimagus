@@ -1,5 +1,4 @@
 import wtforms
-from wtforms import StringField, BooleanField, SubmitField, ValidationError
 
 from ... import PluginResolver
 from ...plugins.base.forms import BaseForm
@@ -35,10 +34,10 @@ class PromotionMixin(BaseForm):
 
 
 class ConsensusForm(PromotionMixin, SubmitMixin, DeleteMixin):
-    i_kid_you_not = BooleanField("Own Estimate Represents the Consensus")
-    forget_own_estimate = BooleanField("Also Forget Own Estimate", default=True)
-    submit = SubmitField("Promote Own Estimate")
-    delete = SubmitField("Forget Consensus")
+    i_kid_you_not = wtforms.BooleanField("Own Estimate Represents the Consensus")
+    forget_own_estimate = wtforms.BooleanField("Also Forget Own Estimate", default=True)
+    submit = wtforms.SubmitField("Promote Own Estimate")
+    delete = wtforms.SubmitField("Forget Consensus")
 
     def __init__(self, * args, ** kwargs):
         id_prefix = "consensus_"
@@ -61,7 +60,7 @@ class AuthoritativeForm(PromotionMixin, SubmitMixin):
 
     task_name = wtforms.HiddenField('task_name')
     point_cost = wtforms.HiddenField('point_cost')
-    submit = SubmitField("Save Estimate to Tracker")
+    submit = wtforms.SubmitField("Save Estimate to Tracker")
 
 
 FIB = [0, 1, 2, 3, 5, 8, 13, 21, 34]
@@ -75,12 +74,12 @@ class NumberEstimationBase(BaseForm):
     def validate_optimistic(self, field):
         if field.data and field.data > self.most_likely.data:
             msg = "The optimistic value mustn't exceed the most likely value"
-            raise ValidationError(msg)
+            raise wtforms.ValidationError(msg)
 
     def validate_pessimistic(self, field):
         if field.data and field.data < self.most_likely.data:
             msg = "The pessimistic value mustn't go below the most likely value"
-            raise ValidationError(msg)
+            raise wtforms.ValidationError(msg)
 
     def get_all_errors(self):
         all_errors = set()
@@ -90,8 +89,8 @@ class NumberEstimationBase(BaseForm):
 
 
 class NumberEstimationForm(NumberEstimationBase, SubmitMixin, DeleteMixin):
-    submit = SubmitField("Save Estimate")
-    delete = SubmitField("Forget Estimate")
+    submit = wtforms.SubmitField("Save Estimate")
+    delete = wtforms.SubmitField("Forget Estimate")
 
     def __init__(self, * args, ** kwargs):
         super().__init__(* args, ** kwargs)
@@ -99,7 +98,7 @@ class NumberEstimationForm(NumberEstimationBase, SubmitMixin, DeleteMixin):
 
 
 class SimpleEstimationForm(NumberEstimationBase, SubmitMixin):
-    submit = SubmitField("Save to Estimagus")
+    submit = wtforms.SubmitField("Save to Estimagus")
 
     def enable_delete_button(self):
         pass
@@ -109,7 +108,7 @@ class PointEstimationForm(BaseForm):
     optimistic = wtforms.SelectField("Optimistic", choices=FIB)
     most_likely = wtforms.SelectField("Most Likely", choices=FIB)
     pessimistic = wtforms.SelectField("Pessimistic", choices=FIB)
-    submit = SubmitField("Save Estimate")
+    submit = wtforms.SubmitField("Save Estimate")
 
 
 class MultiCheckboxField(wtforms.SelectMultipleField):
@@ -144,4 +143,4 @@ class ProblemForm(BaseForm):
     problem_category = wtforms.HiddenField("problem_cat")
     problems = MultiCheckboxField("Problems", choices=[])
     solution = wtforms.StringField("Solution", render_kw={'readonly': True})
-    submit = SubmitField("Solve Selected Problems")
+    submit = wtforms.SubmitField("Solve Selected Problems")

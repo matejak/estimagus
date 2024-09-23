@@ -22,11 +22,19 @@ def temp_filename():
 
 
 @pytest.fixture
-def cardio_inifile_cls(temp_filename):
-    class TmpIniCardIO(persistence.card.ini.IniCardIO):
+def inifile_temploc(temp_filename):
+    class TmpIniCardIO:
         CONFIG_FILENAME = temp_filename
 
     yield TmpIniCardIO
+
+
+@pytest.fixture
+def cardio_inifile_cls(inifile_temploc):
+    class FullBlownIO(inifile_temploc, ini.IniCardIO):
+        pass
+
+    yield FullBlownIO
 
 
 @pytest.fixture
@@ -46,9 +54,9 @@ def appdata_inifile(temp_filename):
 
 
 def test_require_name_for_saving(cardio_inifile_cls):
-    t = data.BaseCard("")
+    card = data.BaseCard("")
     with pytest.raises(RuntimeError, match="blank"):
-        t.save_metadata(cardio_inifile_cls)
+        card.save_metadata(cardio_inifile_cls)
 
 
 def test_load_non_existent(cardio_inifile_cls):

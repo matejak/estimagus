@@ -43,7 +43,7 @@ class PluginFriendlyFlask(flask.Flask):
             overrides = plugin.TEMPLATE_OVERRIDES
             for overriden, overriding in overrides.items():
                 template_path = self._plugin_template_location(plugin_name, overriding)
-                overrides_map[overriden] = template_path
+                overrides_map[overriden][plugin_name] = template_path
 
     def get_final_class(self, class_name):
         return self.get_config_option("classes").get(class_name)
@@ -67,16 +67,30 @@ class PluginFriendlySingleheadFlask(PluginFriendlyFlask):
         self._plugin_resolver = PluginResolver()
         self._plugin_resolver.add_known_extendable_classes()
 
-        self._template_overrides_map = dict()
+        self._template_ancestor_path_map = collections.defaultdict(collections.OrderedDict)
 
     def supply_with_plugins(self, plugins_dict):
         for plugin in plugins_dict.values():
             self._plugin_resolver.resolve_extension(plugin)
-        self._populate_template_overrides_map(plugins_dict, self._template_overrides_map)
+        self._populate_template_overrides_map(plugins_dict, self._template_ancestor_path_map)
 
     def translate_path(self, template_name):
-        maybe_overriden_path = self._template_overrides_map.get(template_name, template_name)
-        return maybe_overriden_path
+        maybe_ancestor_map = self._template_ancestor_path_map.get(template_name, None)
+        if not maybe_ancestor_map:
+            return template_name
+        last_extending_plugin_name = next(reversed(maybe_ancestor_map))
+        last_path_in_lineage = maybe_ancestor_map[last_extending_plugin_name]
+        return last_path_in_lineage
+
+    def get_ancestor_map(self, template_name):
+        maybe_ancestor_map = self._template_ancestor_path_map.get(template_name, None)
+        if not maybe_ancestor_map:
+            return dict()
+        filenames = [template_name] + list(maybe_ancestor_map.values())[:-1]
+        plugin_names = list(maybe_ancestor_map.keys())
+        ret = {f"ancestor_of_{plugin_name}": fname
+               for plugin_name, fname in zip(plugin_names, filenames)}
+        return ret
 
     def store_plugins_to_config(self):
         self.config["classes"] = self._plugin_resolver.class_dict
@@ -94,7 +108,7 @@ class PluginFriendlyMultiheadFlask(PluginFriendlyFlask):
     def __init__(self, import_name, ** kwargs):
         super().__init__(import_name, ** kwargs)
         self._plugin_resolvers = dict()
-        self._template_overrides_maps = dict()
+        self._template_ancestor_path_maps = dict()
 
         no_plugins = PluginResolver()
         no_plugins.add_known_extendable_classes()
@@ -105,18 +119,42 @@ class PluginFriendlyMultiheadFlask(PluginFriendlyFlask):
         self._plugin_resolvers[name].global_symbol_prefix = name
         self._plugin_resolvers[name].add_known_extendable_classes()
 
-        self._template_overrides_maps[name] = dict()
+        self._template_ancestor_path_maps[name] = collections.defaultdict(collections.OrderedDict)
 
     def supply_with_plugins(self, head, plugins_dict):
         self._new_head(head)
         for plugin in plugins_dict.values():
             self._plugin_resolvers[head].resolve_extension(plugin)
-        self._populate_template_overrides_map(plugins_dict, self._template_overrides_maps[head])
+        self._populate_template_overrides_map(plugins_dict, self._template_ancestor_path_maps[head])
+
+    def _template_not_extended(self, template_name):
+        template_not_extendable = self.current_head in self.NON_HEAD_BLUEPRINTS
+        if template_not_extendable:
+            return True
+        template_not_extended = template_name not in self._template_ancestor_path_maps[self.current_head]
+        if template_not_extended:
+            return True
+        return False
 
     def translate_path(self, template_name):
-        if self.current_head in self.NON_HEAD_BLUEPRINTS:
+        if self._template_not_extended(template_name):
             return template_name
-        return self._template_overrides_maps[self.current_head].get(template_name, template_name)
+
+        ancestor_map = self._template_ancestor_path_maps[self.current_head][template_name]
+        last_extending_plugin_name = next(reversed(ancestor_map))
+        last_path_in_lineage = ancestor_map[last_extending_plugin_name]
+        return last_path_in_lineage
+
+    def get_ancestor_map(self, template_name):
+        if self._template_not_extended(template_name):
+            return dict()
+
+        ancestor_map = self._template_ancestor_path_maps[self.current_head][template_name]
+        filenames = [template_name] + list(ancestor_map.values())[:-1]
+        plugin_names = list(ancestor_map.keys())
+        ret = {f"ancestor_of_{plugin_name}": fname
+               for plugin_name, fname in zip(plugin_names, filenames)}
+        return ret
 
     def store_plugins_to_config(self, head):
         self.config["head"][head]["classes"] = self._plugin_resolvers[head].class_dict

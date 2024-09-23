@@ -22,6 +22,7 @@ class MemoryCardSaver(persistence.card.Saver):
     def save_family_records(self, t):
         self._save(t, "children")
         self._save(t, "parent")
+        self._save(t, "depends_on")
 
     def save_assignee_and_collab(self, t):
         self._save(t, "assignee")
@@ -64,6 +65,7 @@ class MemoryCardLoader(persistence.card.Loader):
     def load_family_records(self, t):
         self._load(t, "children")
         self._load(t, "parent")
+        self._load(t, "depends_on")
 
     def load_assignee_and_collab(self, t):
         self._load(t, "assignee")

@@ -2,11 +2,35 @@ import datetime
 
 import pytest
 
-import estimage.data as tm
-from estimage.entities import card, status
+from estimage import persistence
 from estimage.persistence.card import memory
 
-from tests.test_inidata import temp_filename, cardio_inifile_cls
+import estimage.data as tm
+from estimage.entities import card, status
+
+from tests.test_inidata import temp_filename, inifile_temploc
+
+
+class TesIO:
+    def __init__(self, persistence_class):
+        self.cls = persistence_class
+        self.choices = dict()
+
+    def __call__(self, backend):
+        ancestors = (
+            persistence.LOADERS[self.cls][backend],
+            persistence.SAVERS[self.cls][backend],
+        )
+        if backend in self.choices:
+            ancestors = (self.choices[backend],) + ancestors
+        io = type("test_io", ancestors, dict())
+        return io
+
+
+class TesCardIO(TesIO):
+    def __init__(self, persistence_class, ini_base):
+        super().__init__(persistence_class)
+        self.choices["ini"] = ini_base
 
 
 @pytest.fixture
@@ -40,12 +64,9 @@ def tree_card(subtree_card):
 
 
 @pytest.fixture(params=("ini", "memory"))
-def card_io(request, cardio_inifile_cls):
-    choices = dict(
-        ini=cardio_inifile_cls,
-        memory=memory.MemoryCardIO,
-    )
-    io = choices[request.param]
+def card_io(request, inifile_temploc):
+    getio = TesCardIO(tm.BaseCard, inifile_temploc)
+    io = getio(request.param)
     io.forget_all()
     yield io
     io.forget_all()
@@ -144,18 +165,18 @@ def test_card_load_all(card_io):
     assert all_cards_by_id["one"].name == one.name
 
 
-def fill_card_instance_with_stuff(t):
-    t.point_cost = 5
-    t.title = "Issue One"
-    t.status = "in_progress"
-    t.collaborators = ["a", "b"]
-    t.assignee = "trubador"
-    t.priority = 20
-    t.loading_plugin = "estimage"
-    t.tier = 1
-    t.uri = "http://localhost/issue"
-    t.tags = ["t1", "l2", "t1"]
-    t.work_span = (datetime.datetime(1939, 9, 1), datetime.datetime(1945, 5, 7))
+def fill_card_instance_with_stuff(card):
+    card.point_cost = 5
+    card.title = "Issue One"
+    card.status = "in_progress"
+    card.collaborators = ["a", "b"]
+    card.assignee = "trubador"
+    card.priority = 20
+    card.loading_plugin = "estimage"
+    card.tier = 1
+    card.uri = "http://localhost/issue"
+    card.tags = ["t1", "l2", "t1"]
+    card.work_span = (datetime.datetime(1939, 9, 1), datetime.datetime(1945, 5, 7))
 
 
 def assert_cards_are_equal(lhs, rhs):
@@ -171,10 +192,14 @@ def assert_cards_are_equal(lhs, rhs):
     assert lhs.tier == rhs.tier
     assert lhs.loading_plugin == rhs.loading_plugin
     assert lhs.uri == rhs.uri
+    assert lhs.get_direct_dependencies() == rhs.get_direct_dependencies()
 
 
-def base_card_load_save(card_io, cls, filler, tester):
-    one = cls("one")
+def base_card_load_save(card_io, cls, filler, tester, original_card_cls=None):
+    if not original_card_cls:
+        original_card_cls = cls
+
+    one = original_card_cls("one")
     filler(one)
     one.save_metadata(card_io)
 
@@ -196,8 +221,9 @@ def test_card_load_and_bulk_save(card_io):
 
     two = tm.BaseCard("two")
     fill_card_instance_with_stuff(two)
-    two.title = "Second t"
+    two.title = "Second card"
     two.tier = 6661
+    two.register_direct_dependency(one)
 
     card_io.bulk_save_metadata([one, two])
 
@@ -221,6 +247,23 @@ def test_no_duplicate_children(subtree_card, leaf_card):
     assert len(subtree_card.children) == 1
     subtree_card.add_element(leaf_card)
     assert len(subtree_card.children) == 1
+
+
+def test_dependency():
+    card_one = tm.BaseCard("one")
+    card_two = tm.BaseCard("two")
+
+    assert not card_one.get_direct_dependencies()
+    card_one.register_direct_dependency(card_two)
+    deps = card_one.get_direct_dependencies()
+    assert len(deps) == 1
+    assert deps[0].name == "two"
+
+
+def test_family_dependency(subtree_card):
+    deps = subtree_card.get_direct_dependencies()
+    assert len(deps) == 1
+    assert deps[0].name == "leaf"
 
 
 class MockSynchronizer(card.CardSynchronizer):

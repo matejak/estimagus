@@ -39,6 +39,6 @@
 {% block footer %}
 {{ super() }}
 {% if category_forms %}
-{{ category_forms[0].supporting_js(category_forms) | safe }}
+{{ category_forms[0].bulk_supporting_js(category_forms) | safe }}
 {%- endif %}
 {% endblock %}

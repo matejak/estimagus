@@ -1,0 +1,87 @@
+{% extends ancestor_of_wsjf %}
+
+{% macro prio_table() %}
+    <div class="col">
+    <h3>Priority etc.</h3>
+  <h4>WSJF Score</h4>
+    <table class="table table-sm">
+  <thead>
+    <tr>
+      <th scope="col">Field</th>
+      <th scope="col">Value</th>
+    </tr>
+  </thead>
+  <tbody>
+<tr>
+	<td>WSJF Score</td>
+	<td>{{ task.wsjf_score }}</td>
+</tr>
+<tr>
+	<td>Cost of Delay</td>
+	<td>{{ task.cost_of_delay }}</td>
+</tr>
+  </tbody>
+  </table>
+  <h4>Intrinsic Priority</h4>
+    <table class="table table-sm">
+  <thead>
+    <tr>
+      <th scope="col">Field</th>
+      <th scope="col">Value</th>
+    </tr>
+  </thead>
+  <tbody>
+<tr>
+	<td>Business Value</td>
+	<td>{{ task.business_value }}</td>
+</tr>
+<tr>
+	<td>Time Sensitivity</td>
+	<td>{{ task.time_sensitivity }}</td>
+</tr>
+<tr>
+	<td>Risk Reduction / Opportunity enablement</td>
+	<td>{{ task.risk_and_opportunity }}</td>
+</tr>
+  </tbody>
+  </table>
+  <h4>Inherited Priority</h4>
+  {% if task.inherited_priority %}
+    <table class="table table-sm">
+  <thead>
+    <tr>
+      <th scope="col">Benefactor</th>
+      <th scope="col">Value</th>
+    </tr>
+  </thead>
+  <tbody>
+	  {% for benefactor, value in task.inherited_priority %}
+<tr>
+	<td>{{ benefactor }}</td>
+	<td>{{ value }}</td>
+</tr>
+	  {% endfor %}
+  </tbody>
+  </table>
+  {% else %}
+  No prioritized items depend on this card.
+  {% endif %}
+    </div>
+{% endmacro %}
+
+{% macro prio_form() %}
+    <div class="col">
+    <h3>Set Priority</h3>
+    {{ render_form(card_details.forms["wsjf"], button_map={"submit": "primary"}, action=head_url_for("wsjf.prioritize", task_name=task.name)) }}
+    </div>
+{% endmacro %}
+
+	{% block card_details %}
+	{{ super() }}
+	{% call specific_issue_content("wsjf") %}
+	{% block wsjf %}
+	{{ prio_table() }}
+	{{ prio_form() }}
+	{% endblock wsjf %}
+	{% endcall %}
+	{% endblock card_details %}

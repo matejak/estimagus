@@ -46,14 +46,15 @@ def get_custom_menu_items_dict():
 
 
 def render_template(path, title, **kwargs):
-    loaded_templates = dict()
-    loaded_templates["base"] = flask.current_app.jinja_env.get_template("base.html")
     footer = flask.current_app.get_final_class("Footer")()
-    kwargs.update(loaded_templates)
     authenticated_user = ""
     if flask_login.current_user.is_authenticated:
         authenticated_user = flask_login.current_user
+
     maybe_overriden_path = flask.current_app.translate_path(path)
+    ancestor_path_map = flask.current_app.get_ancestor_map(path)
+    kwargs.update(ancestor_path_map)
+
     custom_menu_items = get_custom_menu_items_dict()
     return flask.render_template(
         maybe_overriden_path, get_head_absolute_endpoint=get_head_absolute_endpoint,

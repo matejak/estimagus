@@ -92,7 +92,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
         {%- endif %}
 	{{ render_messages() }}
         {% block content %}{% endblock %}
-	{% block footer %}{{ dark_mode() | safe }} {{ footer.get_footer_html() | safe }}{% endblock %}
 	{{ bootstrap.load_js() }}
+	{% block footer %}{{ dark_mode() | safe }} {{ footer.get_footer_html() | safe }}{% endblock %}
     </body>
 </html>
