@@ -2,9 +2,6 @@ from ... import data, inidata
 
 
 class IniPollsterBase:
-    def __init__(self, * args, ** kwargs):
-        super().__init__(* args, ** kwargs)
-
     def _keyname(self, ns, name):
         keyname = f"{ns}-{name}"
         return keyname
