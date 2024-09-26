@@ -9,6 +9,7 @@ from oauthlib import oauth2
 from . import bp
 from . import forms
 from ..users import User
+from .. import web_utils
 
 
 def get_google_client(app):
@@ -38,7 +39,7 @@ def google_login(safe_next_page):
         return start_google_login(safe_next_page)
 
     login_provider = flask.current_app.config["LOGIN_PROVIDER_NAME"]
-    return flask.render_template(
+    return web_utils.render_template(
         'login.html', title='Sign In', login_form=form,
         next=safe_next_page, login_provider=login_provider)
 
