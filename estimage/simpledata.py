@@ -13,9 +13,13 @@ from .persistence import card, pollster, event
 from .persistence.card import ini
 
 
+class classproperty(property):
+    def __get__(self, owner_self, owner_cls):
+        return self.fget(owner_cls)
+
+
 class IniInDirMixin:
-    @classmethod
-    @property
+    @classproperty
     def CONFIG_FILENAME(cls):
         try:
             if "head" in flask.current_app.config:

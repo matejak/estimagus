@@ -10,6 +10,11 @@ import os
 from . import data
 
 
+class classproperty(property):
+    def __get__(self, owner_self, owner_cls):
+        return self.fget(owner_cls)
+
+
 def get_canonical_status(name_or_index):
     LEGACY_TABLE = [
         "irrelevant",
@@ -140,8 +145,7 @@ class IniAppdata(IniStorage):
     DATADIR: pathlib.Path = pathlib.Path(".")
     META: typing.Dict[str, str] = dataclasses.field(default_factory=lambda: dict())
 
-    @classmethod
-    @property
+    @classproperty
     def CONFIG_FILENAME(cls):
         ret = cls.DATADIR / cls.CONFIG_BASENAME
         return ret
