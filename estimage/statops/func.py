@@ -224,3 +224,31 @@ def autoestimate_lognorm(samples):
 
 def get_nonzero_velocity(velocity):
     return velocity[velocity > 0]
+
+
+def get_moment(fun, a, b, degree, mean=0, variance=1):
+    def integrand(x):
+        return fun(x) * (x - mean) ** degree
+    var_norming = variance ** (degree / 2.0)
+    return sp.integrate.quad(integrand, a, b)[0] / var_norming
+
+
+def pdf_to_mu_var_skew(pdf, argmin, argmax):
+    mu = get_moment(pdf, argmin, argmax, 1)
+    var = get_moment(pdf, argmin, argmax, 2, mu)
+    skew = get_moment(pdf, argmin, argmax, 3, mu, var)
+    return mu, var, skew
+
+
+def get_reciprocal_estimate(est):
+    from ..entities import estimate
+    argmin = 1.0 / est.source.pessimistic
+    argmax = 1.0 / est.source.optimistic
+
+    pdf = est._get_rv().pdf
+    def reciprocal_pdf(x):
+        return  pdf(1 / x) / x**2
+
+    mu, var, skew = pdf_to_mu_var_skew(reciprocal_pdf, argmin, argmax)
+    o, p, m = estimate.calculate_o_p_m_ext(mu, var, skew, 8)
+    return estimate.Estimate.from_triple(m, o, p, 8)

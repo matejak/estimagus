@@ -148,3 +148,31 @@ def test_nonzero_velocity():
     np.testing.assert_array_equal(
         tm.func.get_nonzero_velocity(velocity),
         np.array([1, 2, 4, 8]))
+
+
+def test_pdf_to_parameters():
+    rv = sp.stats.norm()
+    pdf = rv.pdf
+    mu, var, skew = tm.func.pdf_to_mu_var_skew(pdf, -8, 8)
+    assert rv.mean() == pytest.approx(mu)
+    assert rv.var() == pytest.approx(var)
+    assert rv.stats("s") == pytest.approx(skew)
+
+    e = data.Estimate.from_triple(3, 2, 5)
+    pdf = e._get_rv().pdf
+    mu, var, skew = tm.func.pdf_to_mu_var_skew(pdf, e.source.optimistic, e.source.pessimistic)
+    assert e.expected == pytest.approx(mu)
+    assert e.variance == pytest.approx(var)
+    assert e.skewness == pytest.approx(skew)
+
+
+def test_reciprocal_approximation():
+    e = data.Estimate.from_triple(3, 2, 5)
+    rv = e._get_rv()
+
+    inverse_rvs = 1.0 / rv.rvs(size=10000)
+
+    re = tm.func.get_reciprocal_estimate(e)
+
+    assert re.expected == pytest.approx(inverse_rvs.mean(), rel=0.01)
+    assert re.variance == pytest.approx(inverse_rvs.var(), rel=0.01)
