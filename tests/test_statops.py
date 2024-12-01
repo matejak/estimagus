@@ -166,13 +166,78 @@ def test_pdf_to_parameters():
     assert e.skewness == pytest.approx(skew)
 
 
+def test_reciprocal_sanity():
+    e = data.Estimate.from_triple(3, -1, 5)
+    with pytest.raises(ValueError, match="positive"):
+        tm.func.get_reciprocal_estimate(e)
+
+
 def test_reciprocal_approximation():
-    e = data.Estimate.from_triple(3, 2, 5)
+    import test_estimate
+    gamma = 4
+    e = data.Estimate.from_triple(3, 2, 5, gamma)
     rv = e._get_rv()
 
-    inverse_rvs = 1.0 / rv.rvs(size=10000)
+    num_samples = 80000
+    inverse_rvs = 1.0 / rv.rvs(size=num_samples)
+    rel = 1.5 / np.sqrt(num_samples)
 
     re = tm.func.get_reciprocal_estimate(e)
 
-    assert re.expected == pytest.approx(inverse_rvs.mean(), rel=0.01)
-    assert re.variance == pytest.approx(inverse_rvs.var(), rel=0.01)
+    assert re.expected == pytest.approx(inverse_rvs.mean(), rel=rel)
+    assert re.variance == pytest.approx(inverse_rvs.var(), rel=rel)
+
+    dom, computed_pert = re.get_pert(50)
+    test_estimate.assert_sampling_corresponds_to_pdf(dom, inverse_rvs, computed_pert, 0.05)
+
+
+def test_complex_approximation():
+    import test_estimate
+    gamma = 4
+    # (e1 + e2) * e3 / e4
+    e1 = data.Estimate.from_triple(2, 1, 5, gamma)
+    e2 = data.Estimate.from_triple(3, 2, 12, gamma)
+    e3 = data.Estimate.from_triple(1, 0.5, 2, gamma)
+    e4 = data.Estimate.from_triple(2, 1, 2.5, gamma)
+
+    num_samples = 800000
+    def rvs(est):
+        return est._get_rv().rvs(size=num_samples)
+
+    sim = (rvs(e1) + rvs(e2)) * rvs(e3) / rvs(e4)
+    comp = tm.func.get_product_estimate((e1 + e2), e3)
+    comp = tm.func.get_product_estimate(comp, tm.func.get_reciprocal_estimate(e4))
+
+    rel = 1.5 / np.sqrt(num_samples)
+
+    assert comp.expected == pytest.approx(sim.mean(), rel=rel)
+    assert comp.variance == pytest.approx(sim.var(), rel=rel)
+
+    dom, computed_pert = comp.get_pert(500)
+    test_estimate.assert_sampling_corresponds_to_pdf(dom, sim, computed_pert, 0.05)
+
+
+def test_pdf_product_approximation():
+    import test_estimate
+    gamma_in = 8
+
+    e = data.Estimate.from_triple(3, 2, 5, gamma_in)
+    rv1 = e._get_rv()
+    e2 = data.Estimate.from_triple(3, 1, 13, gamma_in)
+    rv2 = e2._get_rv()
+
+    num_samples = 80000
+    rvs = rv1.rvs(size=num_samples) * rv2.rvs(size=num_samples)
+    prod = tm.func.get_product_estimate(e, e2)
+    assert prod.expected == pytest.approx(rvs.mean(), rel=0.01)
+    assert prod.variance == pytest.approx(rvs.var(), rel=0.01)
+
+    dom, computed_pert = prod.get_pert(50)
+    test_estimate.assert_sampling_corresponds_to_pdf(dom, rvs, computed_pert, 0.05)
+
+
+def test_get_product_bounds():
+    assert tm.func.get_product_bounds(0, 0, 0, 0) == (0, 0)
+    assert tm.func.get_product_bounds(0, 1, 2, 3) == (0, 3)
+    assert tm.func.get_product_bounds(2, 3, -1, 3) == (-3, 9)
+    assert tm.func.get_product_bounds(-1, 3, 2, 3) == (-3, 9)

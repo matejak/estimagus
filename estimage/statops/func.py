@@ -236,8 +236,13 @@ def get_moment(fun, a, b, degree, mean=0, variance=1):
 def pdf_to_mu_var_skew(pdf, argmin, argmax):
     mu = get_moment(pdf, argmin, argmax, 1)
     var = get_moment(pdf, argmin, argmax, 2, mu)
-    skew = get_moment(pdf, argmin, argmax, 3, mu, var)
+    skew = pdf_to_skew(pdf, argmin, argmax, mu, var)
     return mu, var, skew
+
+
+def pdf_to_skew(pdf, argmin, argmax, mu, var):
+    skew = get_moment(pdf, argmin, argmax, 3, mu, var)
+    return skew
 
 
 def get_reciprocal_estimate(est):
@@ -245,10 +250,72 @@ def get_reciprocal_estimate(est):
     argmin = 1.0 / est.source.pessimistic
     argmax = 1.0 / est.source.optimistic
 
+    if argmin <= 0 or argmax <= 0:
+        msg = "The estimate we operate on has to have strictly positive support"
+        raise ValueError(msg)
+
     pdf = est._get_rv().pdf
     def reciprocal_pdf(x):
         return  pdf(1 / x) / x**2
 
     mu, var, skew = pdf_to_mu_var_skew(reciprocal_pdf, argmin, argmax)
-    o, p, m = estimate.calculate_o_p_m_ext(mu, var, skew, 8)
-    return estimate.Estimate.from_triple(m, o, p, 8)
+    o, p, m = estimate.calculate_o_p_m_ext(mu, var, skew, est.source.GAMMA)
+    return estimate.Estimate.from_triple(m, o, p, est.source.GAMMA)
+
+
+def get_product_bounds(min1, max1, min2, max2):
+    combos = (min1 * min2, min1 * max2, max1 * min2, max1 * max2)
+    return min(combos), max(combos)
+
+
+def product_of_pdfs(pdf1, pdf2, x, t):
+    # see also https://en.wikipedia.org/wiki/Distribution_of_the_product_of_two_random_variables
+    # Int pdf1(t) pdf2(x / t) / abs(t) dt
+    return pdf1(t) * pdf2(x / t) / np.abs(t)
+
+
+def skewness_of_prod_of_pdfs(e1, e2, mean, variance):
+    outer_argmin, outer_argmax = get_product_bounds(
+        e1.source.optimistic, e1.source.pessimistic,
+        e2.source.optimistic, e2.source.pessimistic,
+    )
+
+    def inner_argmin(x):
+        return max(e1.source.optimistic, x / e2.source.pessimistic)
+
+    def inner_argmax(x):
+        return min(e1.source.pessimistic, x / e2.source.optimistic)
+
+    pdf1 = e1._get_rv().pdf
+    pdf2 = e2._get_rv().pdf
+
+    degree = 3
+
+    # https://en.wikipedia.org/wiki/Distribution_of_the_product_of_two_random_variables
+    # Int pdf1(t) pdf2(x / t) / abs(t) dt
+    def integrand(t, x):
+        return pdf1(t) * pdf2(x / t) / t * (x - mean) ** degree
+    var_norming = variance ** (degree / 2.0)
+
+    # This is quite slow
+    ret = sp.integrate.dblquad(
+            integrand,
+            outer_argmin, outer_argmax,
+            inner_argmin, inner_argmax,
+            epsabs=1e-5, epsrel=1e-5,
+    )[0] / var_norming
+    return ret
+
+
+def get_product_estimate(e1, e2):
+    from ..entities import estimate
+    # see https://en.wikipedia.org/wiki/Distribution_of_the_product_of_two_random_variables
+    result_expectation = e1.expected * e2.expected
+    result_variance = (e1.expected ** 2 + e1.variance) * (e2.expected ** 2 + e2.variance)
+    result_variance -= e1.expected ** 2 * e2.expected ** 2
+
+    result_skew = skewness_of_prod_of_pdfs(e1, e2, result_expectation, result_variance)
+
+    gamma = 2 * max(e1.GAMMA, e2.GAMMA)
+    o, p, m = estimate.calculate_o_p_m_ext(result_expectation, result_variance, result_skew, gamma)
+    return estimate.Estimate.from_triple(m, o, p, gamma)
