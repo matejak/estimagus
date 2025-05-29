@@ -1,4 +1,5 @@
 import time
+import datetime
 
 from jira import JIRA, exceptions
 
@@ -29,10 +30,26 @@ def jira_retry_n(retries, longest_pause, func, * args, ** kwargs):
 
 
 class JiraWithRetry(JIRA):
+    def __init__(self, * args, ** kwargs):
+        super().__init__(* args, ** kwargs)
+        self.last_request_time = datetime.datetime.now()
+        # Minimum time between requests in seconds
+        self.subsequent_request_time_off = 0
+
+    def wait_until_next_request(self):
+        now = datetime.datetime.now()
+        time_since_last_request = now - self.last_request_time
+        difference_in_seconds = time_since_last_request.total_seconds()
+        time.sleep(difference_in_seconds)
+
     def search_issues(self, * args, ** kwargs):
+        self.wait_until_next_request()
+        self.last_request_time = datetime.datetime.now()
         return jira_retry(super().search_issues, * args, ** kwargs)
 
     def issue(self, * args, ** kwargs):
+        self.wait_until_next_request()
+        self.last_request_time = datetime.datetime.now()
         return jira_retry(super().issue, * args, ** kwargs)
 
 

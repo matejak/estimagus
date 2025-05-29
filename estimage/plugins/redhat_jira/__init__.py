@@ -81,6 +81,9 @@ class InputSpec(jira.InputSpec):
 
 class SyncImporter(jira.importer.BareboneImporter):
     STORY_POINTS = "customfield_12310243"
+    def __init__(self, * args, ** kwargs):
+        super().__init__(* args, ** kwargs)
+        self.subsequent_request_time_off = 2
 
     def _get_points_of(self, item):
         ret = self._get_contents_of_field(item, self.STORY_POINTS, 0)
