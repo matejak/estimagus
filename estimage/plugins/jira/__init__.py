@@ -51,13 +51,17 @@ class CardSynchronizer:
 
 
 @dataclasses.dataclass(init=False)
-class InputSpec:
+class BaseSpec:
     token: str
     server_url: str
+    item_class: typing.Type
+
+
+@dataclasses.dataclass(init=False)
+class InputSpec(BaseSpec):
     retrospective_query: str
     projective_query: str
     cutoff_date: datetime.date
-    item_class: typing.Type
 
     @classmethod
     def from_form_and_app(cls, input_form, app) -> "InputSpec":
