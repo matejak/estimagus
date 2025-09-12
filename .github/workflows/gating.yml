@@ -31,12 +31,11 @@ jobs:
         run: coverage run --source estimage -m pytest
 
       - name: Produce coverage report of relevant files
-        run: coverage xml --omit '*/webapp/*,*/routes.py,*/forms.py,*/visualize/*'
+        run: coverage lcov --omit '*/webapp/*,*/routes.py,*/forms.py,*/visualize/*'
 
       - name: Upload coverage to Code Climate  # Requires: git package
         if: ${{ github.repository == 'matejak/estimagus' }}
-        uses: paambaati/codeclimate-action@v3.0.0
-        env:
-          CC_TEST_REPORTER_ID: 707f3c07eac4f6e1a4d961cdf41db8ef2d1482bb0560489dc9999217af184368
+        uses: qltysh/qlty-action/coverage@v2
         with:
-          coverageLocations: coverage.xml:coverage.py
+          token: ${{secrets.QLTY_COVERAGE_TOKEN}}
+          files: coverage.lcov
