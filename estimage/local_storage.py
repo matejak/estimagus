@@ -38,8 +38,8 @@ class Storage:
         io.save_dict(self.storage)
         io.set_ns(self.ns_to_set)
 
-    @classmethod
-    def erase(self, io_cls):
+    @staticmethod
+    def erase(io_cls):
         io = io_cls()
         io.erase()
 

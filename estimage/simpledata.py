@@ -51,7 +51,7 @@ class EventsIO(IniInDirMixin, event.ini.IniEventsIO):
 
 class StorageIO(IniInDirMixin, storage.ini.IniStorageIO):
     CONFIG_BASENAME = "storage.ini"
-    WHAT_IS_THIS = "events manager"
+    WHAT_IS_THIS = "local storage"
 
 
 IOs["retro"]["ini"] = RetroCardIO

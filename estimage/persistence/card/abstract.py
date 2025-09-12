@@ -1,10 +1,11 @@
 import contextlib
+import abc
 import typing
 
 from ... import data
 
 
-class Saver:
+class Saver(abc.ABC):
     @classmethod
     def bulk_save_metadata(cls, cards: typing.Iterable[data.BaseCard]):
         saver = cls()
@@ -12,6 +13,7 @@ class Saver:
             t.pass_data_to_saver(saver)
 
     @classmethod
+    @abc.abstractclassmethod
     def forget_all(cls):
         raise NotImplementedError()
 
@@ -21,16 +23,18 @@ class Saver:
         yield cls()
 
 
-class Loader:
+class Loader(abc.ABC):
     def __init__(self, ** kwargs):
         self.card_class = kwargs.get("loaded_card_type", data.BaseCard)
 
     @classmethod
+    @abc.abstractclassmethod
     def get_all_card_names(cls):
         raise NotImplementedError()
 
     @classmethod
-    def get_loaded_cards_by_id(cls, card_class=typing.Type[data.BaseCard]):
+    @abc.abstractmethod
+    def get_loaded_cards_by_id(cls, card_class: typing.Type[data.BaseCard]=data.BaseCard):
         raise NotImplementedError()
 
     @classmethod
@@ -40,7 +44,8 @@ class Loader:
             cls.denormalize(child)
 
     @classmethod
-    def load_all_cards(cls, card_class=typing.Type[data.BaseCard]):
+    @abc.abstractclassmethod
+    def load_all_cards(cls, card_class: typing.Type[data.BaseCard]=data.BaseCard):
         raise NotImplementedError()
 
     @classmethod
