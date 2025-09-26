@@ -69,17 +69,6 @@ class IniStorage:
             with open(filename, "w") as f:
                 config.write(f)
 
-    @contextlib.contextmanager
-    def _update_key_with_dictionary(self, filename, key):
-        with self._manipulate_existing_config(filename) as config:
-            if key in config:
-                def callback(d):
-                    config[key].update(d)
-            else:
-                def callback(d):
-                    config[key] = d
-            yield callback
-
 
 class IniSaverBase(IniStorage):
     WHAT_IS_THIS = "entity"

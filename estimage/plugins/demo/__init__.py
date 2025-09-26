@@ -12,6 +12,11 @@ NULL_CHOICE = ("noop", "Do Nothing")
 STORAGE_NS = ("plugins", "demo")
 
 
+class DemoData:
+    day_index: int
+    progress_by_id: typing.Dict[str, float]
+
+
 def load_data():
     io_cls = simpledata.IOs["storage"]["ini"]
     storage = local_storage.Storage()
@@ -23,6 +28,14 @@ def load_data():
     ret["progress_by_id"] = {key: float(val) for key, val in vel.items()}
     ret["day_index"] = int(ret.get("day_index", 0))
     return ret
+
+
+def write_data(main, progress):
+    io_cls = simpledata.IOs["storage"]["ini"]
+    storage = local_storage.Storage()
+    storage.set_namespace(STORAGE_NS, main)
+    storage.set_namespace(STORAGE_NS + ("progress",), progress)
+    storage.save(io_cls)
 
 
 # TODO: Strategies
@@ -107,14 +120,6 @@ def apply_velocities(names, progress, progress_by_id):
     proportions *= progress / sum(proportions)
     for name, proportion in zip(names, proportions):
         apply_velocity(name, proportion, progress_by_id)
-
-
-def write_data(main, progress):
-    io_cls = simpledata.IOs["storage"]["ini"]
-    storage = local_storage.Storage()
-    storage.set_namespace(STORAGE_NS, main)
-    storage.set_namespace(STORAGE_NS + ("progress",), progress)
-    storage.save(io_cls)
 
 
 def save_data(what):

@@ -1,6 +1,7 @@
 numpy
 scipy
 matplotlib
+tomli-w
 
 flask
 flask-login

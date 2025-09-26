@@ -250,6 +250,8 @@ def configure_head(app, directory):
     head_name = config_class.DATADIR.stem
     app.config["head"][head_name]["DATA_DIR"] = config_class.DATADIR
     app.config["head"][head_name].update(config.read_or_create_config(simpledata.AppData).__dict__)
+    # TODO: Consider e.g.
+    # config_class(directory).configure_elementary(app.config["head"][head_name])
 
     metadata = app.config["head"][head_name].pop("META", dict())
     app.config["head"][head_name]["description"] = metadata.get("description", "")
@@ -258,6 +260,10 @@ def configure_head(app, directory):
     plugins_dict = {name: plugins.get_plugin(name) for name in app.config["head"][head_name]["PLUGINS"]}
     app.supply_with_plugins(head_name, plugins_dict)
     app.store_plugins_to_config(head_name)
+
+    # TODO: Consider e.g.
+    # full_config = app.get_final_class("AppData")(directory)
+    # full_config.configure(app.config["head"][head_name])
 
     bp = flask.Blueprint(head_name, __name__, url_prefix=f"/{head_name}")
 
