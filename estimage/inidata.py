@@ -35,39 +35,7 @@ def get_canonical_status(name_or_index):
 
 
 class IniStorage:
-    CONFIG_FILENAME = ""
-
-    def __init__(self, ** kwargs):
-        super().__init__(** kwargs)
-
-    @staticmethod
-    def _pack_list(string_list: typing.Container[str]):
-        return ",".join(string_list)
-
-    @staticmethod
-    def _unpack_list(string_list: str):
-        return string_list.split(",")
-
-    @classmethod
-    def _load_existing_config(cls, filename):
-        config = configparser.ConfigParser(interpolation=None)
-        # Have keys case-sensitive: https://docs.python.org/3/library/configparser.html#id1
-        config.optionxform = lambda option: option
-        try:
-            config.read(filename)
-        except configparser.MissingSectionHeaderError:
-            pass
-        return config
-
-    @classmethod
-    @contextlib.contextmanager
-    def _manipulate_existing_config(cls, filename):
-        config = cls._load_existing_config(filename)
-        try:
-            yield config
-        finally:
-            with open(filename, "w") as f:
-                config.write(f)
+    pass
 
 
 class IniSaverBase(IniStorage):

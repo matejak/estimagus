@@ -3,8 +3,8 @@ import numpy as np
 
 from estimage import data
 from estimage import PluginResolver, persistence
-from tests.test_inidata import cardio_inifile_cls, temp_filename
-from tests.test_card import card_io
+from tests.test_inidata import temp_filename
+from tests.test_card import get_file_based_card_io
 
 import estimage.plugins.interval as tm
 
@@ -27,7 +27,8 @@ def test_fuzzy_card():
     assert fuzzy_tree.nominal_point_estimate.sigma > 0
 
 
-def test_card_io_children_of_correct_type(temp_filename):
+@pytest.mark.parametrize("backend", ("ini", "memory", "toml"))
+def test_card_io_children_of_correct_type(backend, temp_filename):
     parent = tm.IntervalCard("parent")
     child = tm.IntervalCard("child")
     parent.add_element(child)
@@ -35,17 +36,15 @@ def test_card_io_children_of_correct_type(temp_filename):
     pr = PluginResolver()
     pr.add_known_extendable_classes()
     pr.resolve_extension(tm)
-    interval_card = pr.class_dict["BaseCard"]
-    ini_saver = persistence.SAVERS[interval_card]["ini"]
-    ini_saver.CONFIG_FILENAME = temp_filename
-    ini_loader = persistence.LOADERS[interval_card]["ini"]
-    ini_loader.CONFIG_FILENAME = temp_filename
 
-    ini_saver.bulk_save_metadata([parent, child])
+    card_io = get_file_based_card_io(tm.IntervalCard, backend, temp_filename)
+    card_io.bulk_save_metadata([parent, child])
 
-    loaded_parent = ini_loader.get_loaded_cards_by_id(interval_card)["parent"]
-    assert type(loaded_parent) is interval_card
+    loaded_parent = card_io.get_loaded_cards_by_id(tm.IntervalCard)["parent"]
+    assert type(loaded_parent) is tm.IntervalCard
     assert type(loaded_parent) is type(loaded_parent.children[0])
+
+    card_io.forget_all()
 
 
 def test_estimation_properties():

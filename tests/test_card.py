@@ -8,7 +8,7 @@ from estimage.persistence.card import memory
 import estimage.data as tm
 from estimage.entities import card, status
 
-from tests.test_inidata import temp_filename, inifile_temploc
+from tests.test_inidata import temp_filename
 
 
 class TesIO:
@@ -63,11 +63,16 @@ def tree_card(subtree_card):
     return ret
 
 
-@pytest.fixture(params=("ini", "memory"))
-def card_io(request, inifile_temploc):
-    getio = TesCardIO(tm.BaseCard, inifile_temploc)
-    io = getio(request.param)
-    io.forget_all()
+def get_file_based_card_io(io_type, backend, filename):
+    io = persistence.get_persistence(io_type, backend)
+    io.SAVE_FILENAME = filename
+    io.LOAD_FILENAME = filename
+    return io
+
+
+@pytest.fixture(params=("ini", "memory", "toml"))
+def card_io(request, temp_filename):
+    io = get_file_based_card_io(tm.BaseCard, request.param, temp_filename)
     yield io
     io.forget_all()
 
@@ -159,9 +164,9 @@ def test_card_load_all(card_io):
     two = tm.BaseCard("two")
     two.save_metadata(card_io)
 
-    assert set(card_io.get_all_card_names()) == {"one", "two"}
-
     all_cards_by_id = card_io.get_loaded_cards_by_id()
+    assert set(all_cards_by_id.keys()) == {"one", "two"}
+
     assert all_cards_by_id["one"].name == one.name
 
 
@@ -239,8 +244,11 @@ def test_card_forget(card_io):
 
     one = tm.BaseCard("one")
     one.save_metadata(card_io)
+    all_cards_by_id = card_io.get_loaded_cards_by_id()
+    assert len(all_cards_by_id) == 1
     card_io.forget_all()
-    assert not card_io.load_all_cards()
+    all_cards_by_id = card_io.get_loaded_cards_by_id()
+    assert not all_cards_by_id
 
 
 def test_no_duplicate_children(subtree_card, leaf_card):
@@ -299,3 +307,76 @@ def test_synchro_noop_when_expectation_matches_record(standalone_leaf_card):
     synchro.set_tracker_points_of(standalone_leaf_card, 1.0)
     assert not synchro.inserted_points
     assert standalone_leaf_card.point_cost == 1
+
+
+def test_require_name_for_saving(card_io):
+    card = tm.BaseCard("")
+    with pytest.raises(RuntimeError, match="blank"):
+        card.save_metadata(card_io)
+
+
+def test_load_non_existent(card_io):
+    with pytest.raises(RuntimeError, match="something"):
+        tm.BaseCard.load_metadata("something", card_io)
+
+
+@pytest.mark.dependency
+def test_save_tree_load_same(card_io):
+    t2 = tm.BaseCard("second")
+
+    t1 = tm.BaseCard("first")
+    t1.add_element(t2)
+    t1.save_metadata(card_io)
+
+    t2.save_metadata(card_io)
+
+    loaded_card = tm.BaseCard.load_metadata("first", card_io)
+    assert loaded_card.children[0].name == "second"
+    assert loaded_card.children[0].parent is loaded_card
+    assert loaded_card.parent is None
+
+    loaded_leaf = tm.BaseCard.load_metadata("second", card_io)
+    assert loaded_leaf.parent.name == "first"
+
+    t3 = tm.BaseCard("third")
+    loaded_leaf.add_element(t3)
+
+    loaded_leaf.save_metadata(card_io)
+    t3.save_metadata(card_io)
+
+    loaded_subleaf = tm.BaseCard.load_metadata("third", card_io)
+    assert loaded_subleaf.parent.name == "second"
+    assert loaded_subleaf.parent.parent.name == "first"
+
+
+@pytest.mark.dependency
+def test_save_something_load_same(card_io):
+    card = tm.BaseCard("name")
+    card.title = "title"
+    card.description = """A really\nnasty 'description' or "desc" %%boom!."""
+    card.save_metadata(card_io)
+
+    data2 = tm.BaseCard.load_metadata("name", card_io)
+
+    assert card.name == data2.name
+    assert card.title == data2.title
+    assert card.description == data2.description
+    assert len(data2.children) == 0
+
+    card.point_cost = 5
+    assert card.point_cost != data2.point_cost
+    card.save_metadata(card_io)
+    data2 = data2.load_metadata("name", card_io)
+    assert card.point_cost == data2.point_cost
+
+
+@pytest.mark.dependency(depends=["test_save_something_load_same"])
+def test_save_something2_load_same(card_io):
+    card = tm.BaseCard("id")
+    card.title = "titlung"
+    card.save_metadata(card_io)
+
+    data2 = tm.BaseCard.load_metadata("id", card_io)
+
+    assert card.name == data2.name
+    assert card.title == data2.title

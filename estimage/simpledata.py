@@ -9,6 +9,7 @@ import flask
 
 from . import data
 from . import inidata
+from . import persistence
 from .persistence import card, pollster, event, storage
 
 
@@ -34,14 +35,34 @@ class IniInDirMixin:
 IOs = collections.defaultdict(dict)
 
 
-class RetroCardIO(IniInDirMixin, card.ini.IniCardIO):
-    CONFIG_BASENAME = "retrospective.ini"
-    WHAT_IS_THIS = "retrospective card"
+class CardIO:
+    def __init__(self, backend):
+        self.backend = backend
 
+    def _get_io(self, of_what, category, datadir=None):
+        ret = persistence.get_persistence(of_what, self.backend)
+        path = self._get_filepath(category, datadir)
+        self._set_file_path(ret, path)
 
-class ProjCardIO(IniInDirMixin, card.ini.IniCardIO):
-    CONFIG_BASENAME = "projective.ini"
-    WHAT_IS_THIS = "projective card"
+    def _get_filepath(self, category):
+        if not datadir:
+            datadir = pathlib.Path(".")
+        return datadir / ret.stem_to_filename(category)
+
+    @staticmethod
+    def _set_file_path(io, ):
+        io.LOAD_FILENAME = path
+        io.SAVE_FILENAME = path
+
+    def retrospective(self, of_what):
+        category = "retrospective"
+        ret = self._get_io(of_what, category)
+        return ret
+
+    def projective(self, of_what):
+        category = "projective"
+        ret = self._get_io(of_what, category)
+        return ret
 
 
 class EventsIO(IniInDirMixin, event.ini.IniEventsIO):
@@ -54,8 +75,6 @@ class StorageIO(IniInDirMixin, storage.ini.IniStorageIO):
     WHAT_IS_THIS = "local storage"
 
 
-IOs["retro"]["ini"] = RetroCardIO
-IOs["proj"]["ini"] = ProjCardIO
 IOs["events"]["ini"] = EventsIO
 IOs["storage"]["ini"] = StorageIO
 
