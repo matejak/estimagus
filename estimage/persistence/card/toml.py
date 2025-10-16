@@ -2,7 +2,7 @@ import abc
 import datetime
 import typing
 
-from ... import data, inidata, persistence
+from ... import data, persistence
 from ...persistence import toml
 from . import abstract
 
@@ -10,15 +10,9 @@ from . import abstract
 @persistence.loader_of(data.BaseCard, "toml")
 class TomlCardLoader(abstract.CardLoader, toml.TomlLoader):
     def load_basic_metadata(self, t):
-        t.title = self._get_our(t, "title")
-        t.description = self._get_our(t, "description")
-        t.point_cost = float(self._get_our(t, "point_cost"))
-        t.assignee = self._get_our(t, "assignee")
+        super().load_basic_metadata(t)
         t.collaborators = self._get_our(t, "collaborators")
-        state_name = self._get_our(t, "state")
-        t.status = inidata.get_canonical_status(state_name)
         t.priority = float(self._get_our(t, "priority"))
-        t.tier = self._get_our(t, "tier")
         t.tags = self._get_our(t, "tags")
 
     def _load_list_of_cards_from_entry(self, t, entry_name):

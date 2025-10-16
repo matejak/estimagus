@@ -8,7 +8,7 @@ from estimage.persistence.card import memory
 import estimage.data as tm
 from estimage.entities import card, status
 
-from tests.test_inidata import temp_filename
+from tests.test_inidata import temp_filename, get_file_based_io
 
 
 class TesIO:
@@ -63,16 +63,9 @@ def tree_card(subtree_card):
     return ret
 
 
-def get_file_based_card_io(io_type, backend, filename):
-    io = persistence.get_persistence(io_type, backend)
-    io.SAVE_FILENAME = filename
-    io.LOAD_FILENAME = filename
-    return io
-
-
 @pytest.fixture(params=("ini", "memory", "toml"))
 def card_io(request, temp_filename):
-    io = get_file_based_card_io(tm.BaseCard, request.param, temp_filename)
+    io = get_file_based_io(tm.BaseCard, request.param, temp_filename)
     yield io
     io.forget_all()
 
@@ -332,7 +325,7 @@ def test_save_tree_load_same(card_io):
 
     loaded_card = tm.BaseCard.load_metadata("first", card_io)
     assert loaded_card.children[0].name == "second"
-    assert loaded_card.children[0].parent is loaded_card
+    assert loaded_card.children[0].parent == loaded_card
     assert loaded_card.parent is None
 
     loaded_leaf = tm.BaseCard.load_metadata("second", card_io)

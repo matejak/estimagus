@@ -85,7 +85,7 @@ class WSJFCard:
         loader.load_wsjf_fields(self)
 
 
-@persistence.loader_of(WSJFCard, "ini")
+@persistence.multiloader_of(WSJFCard, ("ini", "toml", "memory"))
 class IniCardStateLoader:
     def load_wsjf_fields(self, card):
         card.business_value = float(self._get_our(card, "wsjf_business_value", 0))
@@ -93,7 +93,7 @@ class IniCardStateLoader:
         card.time_sensitivity = float(self._get_our(card, "time_sensitivity", 0))
 
 
-@persistence.saver_of(WSJFCard, "ini")
+@persistence.multisaver_of(WSJFCard, ("ini", "toml", "memory"))
 class IniCardStateSaver:
     def save_wsjf_fields(self, card):
         self._store_our(card, "wsjf_business_value", str(card.business_value))

@@ -4,7 +4,7 @@ import numpy as np
 from estimage import data
 from estimage import PluginResolver, persistence
 from tests.test_inidata import temp_filename
-from tests.test_card import get_file_based_card_io
+from tests.test_card import get_file_based_io
 
 import estimage.plugins.interval as tm
 
@@ -37,7 +37,7 @@ def test_card_io_children_of_correct_type(backend, temp_filename):
     pr.add_known_extendable_classes()
     pr.resolve_extension(tm)
 
-    card_io = get_file_based_card_io(tm.IntervalCard, backend, temp_filename)
+    card_io = get_file_based_io(tm.IntervalCard, backend, temp_filename)
     card_io.bulk_save_metadata([parent, child])
 
     loaded_parent = card_io.get_loaded_cards_by_id(tm.IntervalCard)["parent"]

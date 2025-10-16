@@ -7,24 +7,12 @@ import pytest
 import estimage.entities.event as data
 from estimage.persistence.event import memory, ini
 
-
-def create_ini_events_io():
-    fd, filename = tempfile.mkstemp()
-    os.close(fd)
-
-    class IniEventsIO(ini.IniEventsIO):
-        CONFIG_FILENAME = filename
-
-    return IniEventsIO
+from tests.test_inidata import temp_filename, get_file_based_io
 
 
 ONE_DAY = datetime.timedelta(days=1)
 PERIOD_START = datetime.datetime(2022, 10, 1)
 LONG_PERIOD_END = datetime.datetime(2022, 10, 21)
-BACKENDS = dict(
-    ini=create_ini_events_io(),
-    memory=memory.MemoryEventsIO,
-)
 
 
 @pytest.fixture
@@ -52,6 +40,13 @@ def late_event():
     return late_event
 
 
+@pytest.fixture(params=("ini", "memory", "toml"))
+def event_io(request, temp_filename):
+    io = get_file_based_io(data.Event, request.param, temp_filename)
+    yield io
+    io.forget_all()
+
+
 @pytest.fixture
 def mgr():
     return data.EventManager()
@@ -75,18 +70,12 @@ def test_event_manager(mgr, early_event, less_early_event):
     assert events == {None: [early_event, less_early_event]}
 
 
-def test_event_manager_erase(mgr, early_event, less_early_event):
+def test_event_manager_erase(mgr, event_io, early_event, less_early_event):
     mgr.add_event(less_early_event)
     mgr.add_event(early_event)
-    mgr.erase(memory.MemoryEventsIO)
+    mgr.erase(event_io)
     events = mgr.get_chronological_task_events_by_type(early_event.task_name)
     assert not events
-
-
-@pytest.fixture(params=BACKENDS.keys())
-def event_io(request):
-    ret = BACKENDS[request.param]
-    yield ret
 
 
 def test_events_save(mgr, early_event, less_early_event, event_io):
@@ -132,3 +121,62 @@ def test_events_consistency_3tuples(early_event, less_early_event, late_event):
     late_event.value_before = 4
 
     assert not data.Event.consistent([late_event, early_event, less_early_event])
+
+
+def test_eventmgr_storage(event_io, early_event, less_early_event):
+    mgr_one = data.EventManager()
+    mgr_one.add_event(early_event)
+    mgr_one.save(event_io)
+
+    mgr_two = data.EventManager()
+    mgr_two.load(event_io)
+    assert mgr_two.get_chronological_task_events_by_type(early_event.task_name) == {None: [early_event]}
+
+    less_early_event.value_before = "rano"
+    less_early_event.value_after = "vecer"
+    less_early_event.task_name = "den"
+    mgr_one.add_event(less_early_event)
+
+    mgr_one.save(event_io)
+    mgr_two = data.EventManager()
+    mgr_two.load(event_io)
+
+    assert mgr_two.get_chronological_task_events_by_type(
+        less_early_event.task_name) == {None: [less_early_event]}
+
+    less_early_event.task_name = early_event.task_name
+    mgr_one.add_event(less_early_event)
+
+    mgr_one.save(event_io)
+    mgr_two = data.EventManager()
+    mgr_two.load(event_io)
+
+    assert mgr_two.get_chronological_task_events_by_type(early_event.task_name) == {None: [early_event, less_early_event]}
+
+
+def test_eventmgr_storage_float(event_io, early_event):
+    mgr_one = data.EventManager()
+    early_event.value_after = 8.5
+    early_event.value_before = 5.4
+    early_event.quantity = "points"
+    mgr_one.add_event(early_event)
+    mgr_one.save(event_io)
+
+    mgr_two = data.EventManager()
+    mgr_two.load(event_io)
+    assert mgr_two.get_chronological_task_events_by_type(early_event.task_name) == {"points": [early_event]}
+
+
+def test_eventmgr_storage_state(event_io, early_event):
+    mgr_one = data.EventManager()
+    early_event.value_after = "abandoned"
+    early_event.value_before = "in_progress"
+    early_event.quantity = "state"
+    mgr_one.add_event(early_event)
+    mgr_one.save(event_io)
+
+    mgr_two = data.EventManager()
+    mgr_two.load(event_io)
+    assert mgr_two.get_chronological_task_events_by_type(early_event.task_name) == {"state": [early_event]}
+
+

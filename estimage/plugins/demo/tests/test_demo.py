@@ -3,52 +3,82 @@ import datetime
 import pytest
 
 from estimage import plugins, data, PluginResolver, persistence
-from estimage.data import BaseCard
 import estimage.plugins.demo as tm
 
 from tests.test_card import base_card_load_save, fill_card_instance_with_stuff, assert_cards_are_equal
-from tests.test_inidata import temp_filename, cardio_inifile_cls
+from tests.test_inidata import temp_filename
 
 
 @pytest.fixture
-def loader():
-    loader_and_saver = (
-        persistence.LOADERS[BaseCard]["memory"],
-        persistence.SAVERS[BaseCard]["memory"])
-    ret = type("loader", loader_and_saver, dict())
+def card_io(resolver):
+    ret = persistence.get_persistence(data.BaseCard, "memory")
     ret.forget_all()
     yield ret
     ret.forget_all()
 
 
 @pytest.fixture
-def some_cards(loader):
-    a = BaseCard("a")
-    a.status = "todo"
-    a.title = "Proud A"
-    b = BaseCard("b")
-    b.status = "in_progress"
-    c = BaseCard("c")
-    d = BaseCard("d")
-    d.status = "done"
-    d.title = "Proud D"
-    cards = [a, b, c, d]
-    loader.bulk_save_metadata(cards)
+def event_io(resolver):
+    ret = persistence.get_persistence(data.Event, "memory")
+    ret.forget_all()
+    yield ret
+    ret.forget_all()
 
 
 @pytest.fixture
-def doer(some_cards, loader):
-    someday = datetime.datetime(2024, 2, 3)
-    statuses = data.Statuses()
-    ret = tm.Demo(loader, someday, statuses)
+def storage_io(resolver):
+    ret = persistence.get_persistence(resolver.get_final_class("Storage"), "memory")
+    ret.forget_all()
+    yield ret
+    ret.forget_all()
+
+
+@pytest.fixture
+def resolver():
+    ret = PluginResolver()
+    ret.add_known_extendable_classes()
+    ret.resolve_extension(tm)
     return ret
 
 
 @pytest.fixture
-def empty_doer(loader):
-    someday = datetime.datetime(2024, 2, 3)
+def demo_definition(card_io, storage_io, event_io):
     statuses = data.Statuses()
-    ret = tm.Demo(loader, someday, statuses)
+    someday = datetime.datetime(2024, 2, 3)
+    kwargs = dict(
+        start_date=someday,
+        card_io=card_io,
+        plugin_io=storage_io,
+        event_io=event_io,
+        statuses=statuses,
+    )
+    return kwargs
+
+
+@pytest.fixture
+def some_cards(card_io):
+    a = data.BaseCard("a")
+    a.status = "todo"
+    a.title = "Proud A"
+    b = data.BaseCard("b")
+    b.status = "in_progress"
+    c = data.BaseCard("c")
+    d = data.BaseCard("d")
+    d.status = "done"
+    d.title = "Proud D"
+    cards = [a, b, c, d]
+    card_io.bulk_save_metadata(cards)
+
+
+@pytest.fixture
+def doer(some_cards, demo_definition):
+    ret = tm.Demo(** demo_definition)
+    return ret
+
+
+@pytest.fixture
+def empty_doer(demo_definition):
+    ret = tm.Demo(** demo_definition)
     return ret
 
 

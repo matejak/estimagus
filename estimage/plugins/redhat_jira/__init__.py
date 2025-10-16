@@ -226,7 +226,7 @@ class BaseCardWithStatus:
         loader.load_status_update(self)
 
 
-@persistence.loader_of(BaseCardWithStatus, "ini")
+@persistence.multiloader_of(BaseCardWithStatus, ("ini", "toml", "memory"))
 class IniCardStateLoader:
     def load_status_update(self, t):
         t.status_summary = self._get_our(t, "status_summary")
@@ -235,7 +235,7 @@ class IniCardStateLoader:
             t.status_summary_time = datetime.datetime.fromisoformat(time_str)
 
 
-@persistence.saver_of(BaseCardWithStatus, "ini")
+@persistence.multisaver_of(BaseCardWithStatus, ("ini", "toml", "memory"))
 class IniCardStateSaver:
     def save_status_update(self, t):
         self._store_our(t, "status_summary")

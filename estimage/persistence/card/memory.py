@@ -56,13 +56,3 @@ class MemoryCardLoader(memory.MemLoader, abstract.CardLoader):
     def load_uri_and_plugin(self, t):
         t.loading_plugin = self._get_our(t, "loading_plugin")
         t.uri = self._get_our(t, "uri")
-
-    @classmethod
-    def get_loaded_cards_by_id(cls, card_class=data.BaseCard):
-        ret = dict()
-        loader = cls()
-        for name in loader._loaded_data:
-            card = card_class(name)
-            card.load_data_by_loader(loader)
-            ret[name] = card
-        return ret

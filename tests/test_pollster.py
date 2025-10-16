@@ -2,27 +2,18 @@ import pytest
 
 from test_estimate import estiminput_1, estiminput_2
 from test_inidata import temp_filename
+from test_card import get_file_based_io
 
 import estimage.data as tm
 from estimage.persistence.pollster import ini, memory
 import estimage.simpledata as tm_simple
 
 
-@pytest.fixture
-def pollster_inifile_cls(temp_filename):
-    class TmpIniPollsterIO(ini.IniPollsterIO):
-        CONFIG_FILENAME = temp_filename
-
-    yield TmpIniPollsterIO
-
-
-@pytest.fixture(params=("ini", "memory"))
-def relevant_io(pollster_inifile_cls, request):
-    choices = dict(
-        ini=pollster_inifile_cls,
-        memory=memory.MemoryPollsterIO,
-    )
-    return choices[request.param]
+@pytest.fixture(params=("ini", "memory", "toml"))
+def relevant_io(request, temp_filename):
+    io = get_file_based_io(tm.Pollster, request.param, temp_filename)
+    yield io
+    io.forget_all()
 
 
 def test_poll(relevant_io):
@@ -134,11 +125,19 @@ def test_pollster_forgets(relevant_io, estiminput_1):
     name = ""
     pollster = tm.Pollster(relevant_io)
     assert not pollster.knows_points(name)
+
     pollster.tell_points(name, estiminput_1)
     assert pollster.knows_points(name)
     pollster.forget_points(name)
     assert not pollster.knows_points(name)
     assert pollster.ask_points(name) == tm.EstimInput()
+
+    pollster.forget_points("nonexistent")
+
+    pollster.tell_points(name, estiminput_1)
+    assert pollster.knows_points(name)
+    relevant_io.forget_all()
+    assert not pollster.knows_points(name)
 
 
 def test_pollster_with_namespaces(relevant_io, estiminput_1, estiminput_2):

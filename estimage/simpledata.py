@@ -10,7 +10,7 @@ import flask
 from . import data
 from . import inidata
 from . import persistence
-from .persistence import card, pollster, event, storage
+from .persistence import card, pollster, event, local_storage
 
 
 class classproperty(property):
@@ -39,15 +39,15 @@ class CardIO:
     def __init__(self, backend):
         self.backend = backend
 
-    def _get_io(self, of_what, category, datadir=None):
+    def _get_io(self, of_what, stem, datadir=None):
         ret = persistence.get_persistence(of_what, self.backend)
-        path = self._get_filepath(category, datadir)
+        path = self._get_filepath(stem, datadir)
         self._set_file_path(ret, path)
 
-    def _get_filepath(self, category):
+    def _get_filepath(self, stem, datadir):
         if not datadir:
             datadir = pathlib.Path(".")
-        return datadir / ret.stem_to_filename(category)
+        return datadir / ret.stem_to_filename(stem)
 
     @staticmethod
     def _set_file_path(io, ):
@@ -55,57 +55,42 @@ class CardIO:
         io.SAVE_FILENAME = path
 
     def retrospective(self, of_what):
-        category = "retrospective"
-        ret = self._get_io(of_what, category)
+        stem = "retrospective"
+        ret = self._get_io(of_what, stem)
         return ret
 
     def projective(self, of_what):
-        category = "projective"
-        ret = self._get_io(of_what, category)
+        stem = "projective"
+        ret = self._get_io(of_what, stem)
+        return ret
+
+    def events(self):
+        stem = "events"
+        ret = self._get_io(data.Event, stem)
+        return ret
+
+    def user_pollster(self):
+        stem = "user_pollster"
+        ret = self._get_io(data.Pollster, stem)
+        return ret
+
+    def global_pollster(self):
+        stem = "global_pollster"
+        ret = self._get_io(data.Pollster, stem)
         return ret
 
 
-class EventsIO(IniInDirMixin, event.ini.IniEventsIO):
-    CONFIG_BASENAME = "events.ini"
-    WHAT_IS_THIS = "events manager"
-
-
-class StorageIO(IniInDirMixin, storage.ini.IniStorageIO):
-    CONFIG_BASENAME = "storage.ini"
-    WHAT_IS_THIS = "local storage"
-
-
-IOs["events"]["ini"] = EventsIO
-IOs["storage"]["ini"] = StorageIO
-
-
-class UserPollsterBase(data.Pollster):
-    def __init__(self, username, * args, ** kwargs):
-        class pollster_io_class(IniInDirMixin, pollster.ini.IniPollsterIO):
-            CONFIG_BASENAME = self.CONFIG_BASENAME
-            WHAT_IS_THIS = "user pollster"
-
-        super().__init__(* args, io_cls=pollster_io_class, ** kwargs)
-        self.username = username
+class UserPollster(data.Pollster):
+    def __init__(self, ** kwargs):
+        super().__init__(** kwargs)
+        self.username = kwargs["username"]
         self.set_namespace(f"user-{username}-")
 
 
-class UserPollster(UserPollsterBase):
-    CONFIG_BASENAME = "pollsters.ini"
-
-
-class AuthoritativePollsterBase(data.Pollster):
-    def __init__(self, * args, ** kwargs):
-        class pollster_io_class(IniInDirMixin, pollster.ini.IniPollsterIO):
-            CONFIG_BASENAME = self.CONFIG_BASENAME
-            WHAT_IS_THIS = "authoritative pollster"
-
-        super().__init__(* args, io_cls=pollster_io_class, ** kwargs)
+class AuthoritativePollster(data.Pollster):
+    def __init__(self, ** kwargs):
+        super().__init__(** kwargs)
         self.set_namespace("***-")
-
-
-class AuthoritativePollster(AuthoritativePollsterBase):
-    CONFIG_BASENAME = "pollsters.ini"
 
 
 @dataclasses.dataclass

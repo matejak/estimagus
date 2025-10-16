@@ -1,7 +1,7 @@
 import datetime
 import typing
 
-from ... import data, inidata, persistence
+from ... import data, persistence
 from ...persistence import ini
 from . import abstract
 
@@ -16,15 +16,8 @@ class IniCardLoader(abstract.CardLoader, persistence.ini.IniLoader):
         return set(self._loaded_data.sections())
 
     def load_basic_metadata(self, t):
-        t.title = self._get_our(t, "title")
-        t.description = self._get_our(t, "description")
-        t.point_cost = float(self._get_our(t, "point_cost"))
-        t.assignee = self._get_our(t, "assignee")
+        super().load_basic_metadata(t)
         t.collaborators = self._unpack_list(self._get_our(t, "collaborators", ""))
-        state_name = self._get_our(t, "state", 0)
-        t.status = inidata.get_canonical_status(state_name)
-        t.priority = float(self._get_our(t, "priority"))
-        t.tier = int(self._get_our(t, "tier"))
         t.tags = self._unpack_list(self._get_our(t, "tags", ""))
 
     def _load_list_of_cards_from_entry(self, t, entry_name):

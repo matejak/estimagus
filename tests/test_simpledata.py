@@ -1,16 +1,18 @@
-import pytest
+import collections
 import datetime
+import pytest
 
 from estimage import simpledata as tm
 from estimage import data
-from estimage.persistence.pollster import memory
+import estimage.persistence
 
 from test_card import leaf_card, subtree_card
 
 
 def get_independent_memory_io():
-    class ret(memory.MemoryPollsterIO):
-        _memory = dict()
+    io_cls = estimage.persistence.get_persistence(data.Pollster, "memory")
+    class ret(io_cls):
+        GLOBAL_STORAGE = collections.defaultdict(dict)
     return ret
 
 
@@ -29,7 +31,7 @@ def test_empty_model():
 
 
 def test_obtaining_model_overriden_by_pollster(leaf_card):
-    pollster = data.Pollster(memory.MemoryPollsterIO)
+    pollster = data.Pollster(get_independent_memory_io())
 
     model = tm.get_model([leaf_card])
     pollster.supply_valid_estimations_to_tasks(model.get_all_task_models())

@@ -4,6 +4,7 @@ import abc
 import typing
 
 from ... import data
+from ...entities import status
 from .. import abstract
 
 
@@ -44,7 +45,6 @@ class CardLoader(abstract.Loader):
     def get_loaded_cards_by_id(cls, card_class=data.BaseCard):
         ret = dict()
         with cls.get_loader_of(card_class) as loader:
-            loader._loaded_data = loader._load_existing_file(cls.LOAD_FILENAME)
             card_names = loader._get_all_loaded_card_names()
             for name in card_names:
                 card = card_class(name)
@@ -52,15 +52,20 @@ class CardLoader(abstract.Loader):
                 ret[name] = card
         return ret
 
+    def load_basic_metadata(self, t):
+        t.title = self._get_our(t, "title")
+        t.description = self._get_our(t, "description")
+        t.point_cost = float(self._get_our(t, "point_cost"))
+        t.assignee = self._get_our(t, "assignee")
+        t.priority = float(self._get_our(t, "priority"))
+        t.tier = int(self._get_our(t, "tier"))
+
+        state_name = self._get_our(t, "state", 0)
+        t.status = status.get_canonical_status(state_name)
+
 
 class CardSaver(abstract.Saver):
     WHAT_IS_THIS = "card"
-    @classmethod
-    def bulk_save_metadata(cls, cards: typing.Iterable[data.BaseCard]):
-        saver = cls()
-        for t in cards:
-            t.pass_data_to_saver(saver)
-
     @classmethod
     def bulk_save_metadata(cls, cards: typing.Iterable[data.BaseCard]):
         with cls.get_saver() as saver:

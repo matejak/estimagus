@@ -1,3 +1,5 @@
+import collections
+
 from . import persistence
 
 
@@ -6,6 +8,9 @@ class PluginResolver:
 
     def __init__(self):
         self.class_dict = dict()
+        self.class_names = collections.defaultdict(tuple)
+        self.class_bases = collections.defaultdict(tuple)
+        self.subclass_dict = dict()
         self.global_symbol_prefix = ""
 
     @classmethod
@@ -17,10 +22,11 @@ class PluginResolver:
 
     def add_extendable_class(self, name, cls):
         self.class_dict[name] = cls
+        self.class_bases[name] = (cls,)
 
     def add_known_extendable_classes(self):
         for name, cls in self.EXTENDABLE_CLASSES.items():
-            self.class_dict[name] = cls
+            self.add_extendable_class(name, cls)
 
     def get_class(self, name):
         return self.class_dict[name]
@@ -48,35 +54,52 @@ class PluginResolver:
             raise ValueError(msg)
         self._update_class_with_extension(class_name, class_extension)
 
-    def _update_class_io_with_extension(self, new_class, original_class, extension):
-        for backend, loader in persistence.LOADERS[original_class].items():
-            fused_loader = loader
-            # TODO: Make nice, as it is an artifact of repeated plugin resolution
-            if extension_loader := persistence.LOADERS[extension].get(backend, None):
-                if extension_loader == loader:
-                    fused_loader = loader
-                else:
-                    fused_loader = type("loader", (extension_loader, loader), dict())
-            persistence.LOADERS[new_class][backend] = fused_loader
-            persistence.LOADERS[extension][backend] = fused_loader
+    # TODO: Refactor
+    # What this should do:
+    # given an extension class and an original (maybe extended) class, extend the loader of the original class by the loader of the extended class
+    # If the extension doesn't define a loader, give it the loader of the very base (or should it examine the mro and dynamically generate the loader?)
+    # Register newly determined loaders
+    def _update_class_saver_or_loader_with_extension(self, structure, class_name, new_class, original_class, extension):
+        know_extension = extension in structure
+        for backend, saver_or_loader in structure[original_class].items():
+            know_backend = backend in structure[extension]
+            extended_saver_or_loader = saver_or_loader
+            if know_extension and know_backend:
+                foo = structure[extension][backend]
+                extension_already_incorporated = issubclass(saver_or_loader, foo)
+                if not extension_already_incorporated:
+                    extended_saver_or_loader = type("saver_or_loader", (foo, saver_or_loader), dict())
+            else:
+                fallback_saver_or_loader = structure[self.EXTENDABLE_CLASSES[class_name]][backend]
+                structure[extension][backend] = fallback_saver_or_loader
+            structure[new_class][backend] = extended_saver_or_loader
 
-        for backend, saver in persistence.SAVERS[original_class].items():
-            fused_saver = saver
-            if extension_saver := persistence.SAVERS[extension].get(backend, None):
-                if extension_saver == saver:
-                    fused_saver = saver
-                else:
-                    fused_saver = type("saver", (extension_saver, saver), dict())
-            persistence.SAVERS[new_class][backend] = fused_saver
-            persistence.SAVERS[extension][backend] = fused_saver
+    def _update_class_io_with_extension(self, class_name, new_class, original_class, extension):
+        self._update_class_saver_or_loader_with_extension(persistence.LOADERS, class_name, new_class, original_class, extension)
+        self._update_class_saver_or_loader_with_extension(persistence.SAVERS, class_name, new_class, original_class, extension)
+
+    def _register_class_to_enable_caching(self, class_name, cls):
+        globals()[class_name] = cls
+
+    def _create_class(self, class_name):
+        new_class_name = self.global_symbol_prefix
+        base_and_extensions_string = "__".join(self.class_names[class_name])
+        new_class_name += f"__{base_and_extensions_string}"
+        new_class = type(new_class_name, self.class_bases[class_name], dict())
+        return new_class
+
+    def get_final_class(self, name):
+        return self.class_dict[name]
+
+    def _process_extension(self, class_name, extension):
+        extension_module_name = extension.__module__.split('.')[-1]
+        self.class_names[class_name] = (f"{extension_module_name}_{extension.__name__}",) + self.class_names[class_name]
+        self.class_bases[class_name] = (extension,) + self.class_bases[class_name]
 
     def _update_class_with_extension(self, class_name, extension):
-        our_value = self.class_dict[class_name]
-        extension_module_name = extension.__module__.split('.')[-1]
-        new_class_name = f"{our_value.__name__}_{extension_module_name}"
-        if self.global_symbol_prefix:
-            new_class_name = f"{self.global_symbol_prefix}__{new_class_name}"
-        new_class = type(new_class_name, (extension, our_value), dict())
-        globals()[new_class_name] = new_class
+        original_class = self.get_final_class(class_name)
+        self._process_extension(class_name, extension)
+        new_class = self._create_class(class_name)
+        self._register_class_to_enable_caching(class_name, new_class)
         self.class_dict[class_name] = new_class
-        self._update_class_io_with_extension(new_class, our_value, extension)
+        self._update_class_io_with_extension(class_name, new_class, original_class, extension)

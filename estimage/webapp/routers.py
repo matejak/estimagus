@@ -36,9 +36,11 @@ class IORouter(Router):
         super().__init__(** kwargs)
 
         self.card_class = flask.current_app.get_final_class("BaseCard")
-        self.event_io = simpledata.IOs["events"][self.IO_BACKEND]
+        # self.event_class = flask.current_app.get_final_class("Event")
+        self.event_class = data.Event
+        self.event_io = persistence.get_persistence(self.event_class, self.IO_BACKEND)
 
-    def get_card_io(self, mode):
+    def get_card_io_old(self, mode):
         try:
             io_class = simpledata.IOs[mode]
         except KeyError as exc:
@@ -58,6 +60,10 @@ class IORouter(Router):
         # in the special case of the ini backend, the registered loader doesn't call super()
         # when looking up CONFIG_FILENAME
         cards_io = type("cards_io", (flavor, saver_type, loader_type), dict())
+        return cards_io
+
+    def get_card_io(self, mode):
+        cards_io = persistence.get_persistence(self.card_class, self.IO_BACKEND)
         return cards_io
 
     def get_ios_by_target(self):

@@ -7,7 +7,8 @@ import datetime
 import pathlib
 import os
 
-from . import data
+from . import data, persistence
+from .persistence import ini
 
 
 class classproperty(property):
@@ -15,88 +16,8 @@ class classproperty(property):
         return self.fget(owner_cls)
 
 
-def get_canonical_status(name_or_index):
-    LEGACY_TABLE = [
-        "irrelevant",
-        "irrelevant",
-        "todo",
-        "in_progress",
-        "in_progress",
-        "done",
-        "irrelevant",
-    ]
-    try:
-        index = int(name_or_index)
-        return LEGACY_TABLE[index]
-    except IndexError:
-        return "irrelevant"
-    except ValueError:
-        return name_or_index
-
-
-class IniStorage:
-    pass
-
-
-class IniSaverBase(IniStorage):
-    WHAT_IS_THIS = "entity"
-
-    def __init__(self, ** kwargs):
-        super().__init__(** kwargs)
-        self._data_to_save = collections.defaultdict(dict)
-
-    def _write_items_attribute(self, item_id, attribute_id, value):
-        if not item_id:
-            msg = f"Coudln't save {self.WHAT_IS_THIS}, because its name is blank."
-            raise RuntimeError(msg)
-        self._data_to_save[item_id][attribute_id] = value
-
-    def save(self):
-        with self._manipulate_existing_config(self.CONFIG_FILENAME) as config:
-            self._save(config)
-
-    @classmethod
-    def erase(cls):
-        with cls._manipulate_existing_config(cls.CONFIG_FILENAME) as config:
-            config.clear()
-
-    def _save(self, all_data_to_save):
-        for name, data_to_save in self._data_to_save.items():
-            if name not in all_data_to_save:
-                all_data_to_save[name] = dict()
-            all_data_to_save[name].update(data_to_save)
-
-    @classmethod
-    @contextlib.contextmanager
-    def get_saver(cls):
-        saver = cls()
-        yield saver
-        saver.save()
-
-
-class IniLoaderBase(IniStorage):
-    WHAT_IS_THIS = "entity"
-
-    def __init__(self, * args, ** kwargs):
-        super().__init__(* args, ** kwargs)
-        self._loaded_data = dict()
-
-    def _read_items_attribute(self, item_id, attribute_id, fallback):
-        if item_id not in self._loaded_data:
-            msg = f"Couldn't load {self.WHAT_IS_THIS} '{item_id}' from '{self.CONFIG_FILENAME}'"
-            raise RuntimeError(msg)
-        return self._loaded_data.get(item_id, attribute_id, fallback=fallback)
-
-    @classmethod
-    @contextlib.contextmanager
-    def get_loader(cls):
-        loader = cls()
-        loader._loaded_data = cls._load_existing_config(cls.CONFIG_FILENAME)
-        yield loader
-
-
 @dataclasses.dataclass()
-class IniAppdata(IniStorage):
+class IniAppdata(persistence.ini.IniSaver, persistence.ini.IniLoader):
     RETROSPECTIVE_PERIOD: typing.Container[datetime.datetime] = (None, None)
     RETROSPECTIVE_QUARTER: str = ""
     PROJECTIVE_QUARTER: str = ""
@@ -142,7 +63,7 @@ class IniAppdata(IniStorage):
         self._save_quarters(to_save)
         self._save_metadata(to_save)
 
-        with self._manipulate_existing_config(self.CONFIG_FILENAME) as config:
+        with self._manipulate_existing_file(self.CONFIG_FILENAME) as config:
             config.update(to_save)
 
     def _load_retrospective_period(self, config):
@@ -172,7 +93,7 @@ class IniAppdata(IniStorage):
     @classmethod
     def load(cls):
         result = cls()
-        config = result._load_existing_config(cls.CONFIG_FILENAME)
+        config = result._load_existing_file(cls.CONFIG_FILENAME)
         result._load_retrospective_period(config)
         result._load_quarters(config)
         result._load_metadata(config)

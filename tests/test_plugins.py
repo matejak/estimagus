@@ -1,4 +1,5 @@
 import pytest
+import inspect
 
 import estimage.plugins as tm
 import estimage.plugins.null as null_plugin
@@ -146,7 +147,17 @@ class PluginTwo:
             return ret + " two"
 
 
-def test_two_plugin_composition(resolver):
+def test_composition_basic(resolver):
+    resolver.resolve_extension(PluginOne)
+    extended = resolver.get_final_class("Ext")
+    assert extended.mro()[1] == PluginOne.ExtendableOne
+    resolver.resolve_extension(PluginTwo)
+    extended = resolver.get_final_class("Ext")
+    assert extended.mro()[2] == PluginOne.ExtendableOne
+    assert extended.mro()[1] == PluginTwo.ExtendableTwo
+
+
+def test_composition_functional(resolver):
     resolver.resolve_extension(PluginOne)
     resolver.resolve_extension(PluginTwo)
     final_extendable = resolver.class_dict["Ext"]()

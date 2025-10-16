@@ -72,16 +72,13 @@ class EventManager:
 
     def save(self, io_cls):
         with io_cls.get_saver() as saver:
-            for subject_name, its_events in self._events.items():
-                saver.save_events(subject_name, its_events)
+            saver.save_events_by_subject(self._events)
 
     def load(self, io_cls):
         with io_cls.get_loader() as loader:
-            events_task_names = loader.load_event_names()
-            for name in events_task_names:
-                self._events[name] = loader.load_events_of(name)
+            self._events = loader.load_events_by_subject()
 
     def erase(self, io_cls):
         self._events.clear()
         with io_cls.get_saver() as saver:
-            saver.erase()
+            saver.forget_all()

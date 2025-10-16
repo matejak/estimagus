@@ -13,10 +13,26 @@ def register_saver_of(saved, backend, saver):
     SAVERS[saved][backend] = saver
 
 
+def multiloader_of(loaded, backends):
+    def decorator(loader):
+        for backend in backends:
+            register_loader_of(loaded, backend, loader)
+        return loader
+    return decorator
+
+
 def loader_of(loaded, backend):
     def decorator(loader):
         register_loader_of(loaded, backend, loader)
         return loader
+    return decorator
+
+
+def multisaver_of(saved, backends):
+    def decorator(saver):
+        for backend in backends:
+            register_saver_of(saved, backend, saver)
+        return saver
     return decorator
 
 
