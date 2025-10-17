@@ -7,9 +7,9 @@ from .task import TaskModel
 class Pollster:
     namespace: str
 
-    def __init__(self, io_cls):
+    def __init__(self, ** kwargs):
         self._namespace = ""
-        self._io_cls = io_cls
+        self._io_cls = kwargs["io_cls"]
 
     def set_namespace(self, ns: str):
         self._namespace = ns

@@ -54,21 +54,21 @@ def resolver():
 def test_class_resolution_sanity(resolver):
     assert "Ext" in resolver.class_dict
 
-    cls = resolver.get_class("Formatter")
+    cls = resolver.get_final_class("Formatter")
     assert cls.OVERRIDEN == "no"
 
     with pytest.raises(KeyError, match="Primer"):
-        resolver.get_class("Primer")
+        resolver.get_final_class("Primer")
 
 
 def test_class_resolution_plugin_load(resolver, print_plugin):
     resolver.resolve_extension(print_plugin)
 
-    cls = resolver.get_class("Formatter")
+    cls = resolver.get_final_class("Formatter")
     assert cls.OVERRIDEN == "yes"
 
     resolver.resolve_extension(MockPluginWithoutDecl)
-    cls = resolver.get_class("Formatter")
+    cls = resolver.get_final_class("Formatter")
     assert cls.OVERRIDEN == "yes"
 
     instance = cls()
@@ -77,7 +77,7 @@ def test_class_resolution_plugin_load(resolver, print_plugin):
 
 def test_class_resolution_mock_plugin_load(resolver):
     resolver.resolve_extension(MockPluginWithDecl)
-    cls = resolver.get_class("Formatter")
+    cls = resolver.get_final_class("Formatter")
     assert cls.OVERRIDEN == "maybe"
 
     instance = cls()
@@ -180,3 +180,7 @@ def test_two_plugin_loading(resolver):
     loaded = loader.load()
     assert "hello" in loaded.return_hello()
     assert hasattr(loaded, "is_one")
+
+
+def test_not_extended_is_final(resolver):
+    assert resolver.get_final_class("Formatter") is not None

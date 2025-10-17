@@ -1,4 +1,5 @@
 import collections
+import pathlib
 
 import flask
 import flask_login
@@ -30,45 +31,63 @@ class UserRouter(Router):
 
 
 class IORouter(Router):
-    IO_BACKEND = "ini"
-
     def __init__(self, ** kwargs):
         super().__init__(** kwargs)
 
+        self.io_backend = flask.current_app.config["BACKEND"]
         self.card_class = flask.current_app.get_final_class("BaseCard")
+        self.storage_class = flask.current_app.get_final_class("Storage")
         # self.event_class = flask.current_app.get_final_class("Event")
         self.event_class = data.Event
-        self.event_io = persistence.get_persistence(self.event_class, self.IO_BACKEND)
+        self.pollster_class = data.Pollster
 
-    def get_card_io_old(self, mode):
-        try:
-            io_class = simpledata.IOs[mode]
-        except KeyError as exc:
-            msg = f"Unknown specification of source: {mode}, has to be one of: {list(simpledata.IOs.keys())}"
-            raise KeyError(msg) from exc
+    @staticmethod
+    def _set_file_path(io, path):
+        io.LOAD_FILENAME = path
+        io.SAVE_FILENAME = path
 
-        try:
-            flavor = io_class[self.IO_BACKEND]
-        except KeyError as exc:
-            msg = f"No backend '{self.IO_BACKEND}' available, has to be one of: {list(io_class.IOs.keys())}"
-            raise KeyError(msg) from exc
+    def _get_io(self, of_what, stem, datadir=None):
+        ret = persistence.get_persistence(of_what, self.io_backend)
+        path = self._get_filepath(ret, stem, datadir)
+        self._set_file_path(ret, path)
+        return ret
 
-        saver_type = persistence.SAVERS[self.card_class][self.IO_BACKEND]
-        loader_type = persistence.LOADERS[self.card_class][self.IO_BACKEND]
+    def get_event_io(self):
+        event_io = self._get_io(self.event_class, "events")
+        return event_io
 
-        # Why flavor:
-        # in the special case of the ini backend, the registered loader doesn't call super()
-        # when looking up CONFIG_FILENAME
-        cards_io = type("cards_io", (flavor, saver_type, loader_type), dict())
-        return cards_io
+    def get_user_pollster_io(self):
+        pollster_io = self._get_io(self.pollster_class, "pollster-user")
+        return pollster_io
+
+    def get_global_pollster_io(self):
+        pollster_io = self._get_io(self.pollster_class, "pollster-global")
+        return pollster_io
+
+    def get_storage_io(self):
+        storage_io = self._get_io(self.storage_class, "storage")
+        return storage_io
+
+    @staticmethod
+    def _get_filepath(io, stem, datadir):
+        if not datadir:
+            datadir = pathlib.Path(".")
+        return datadir / io.stem_to_filename(stem)
 
     def get_card_io(self, mode):
-        cards_io = persistence.get_persistence(self.card_class, self.IO_BACKEND)
+        cards_io = persistence.get_persistence(self.card_class, self.io_backend)
+        if mode == "proj":
+            stem = "projective"
+        elif mode == "retro":
+            stem = "retrospective"
+        else:
+            raise ValueError(f"Unknown mode: {mode}")
+        cards_io = self._get_io(self.card_class, stem)
         return cards_io
 
     def get_ios_by_target(self):
         ret = dict()
-        ret["events"] = self.event_io
+        ret["events"] = self.get_event_io()
         ret["retro"] = self.get_card_io("retro")
         ret["proj"] = self.get_card_io("proj")
         return ret
@@ -114,12 +133,12 @@ class CardRouter(IORouter):
         return ret
 
 
-class PollsterRouter(UserRouter):
+class PollsterRouter(UserRouter, IORouter):
     def __init__(self, ** kwargs):
         super().__init__(** kwargs)
 
-        self.global_pollster = simpledata.AuthoritativePollster()
-        self.private_pollster = simpledata.UserPollster(self.user_id)
+        self.global_pollster = simpledata.AuthoritativePollster(io_cls=self.get_global_pollster_io())
+        self.private_pollster = simpledata.UserPollster(io_cls=self.get_user_pollster_io(), username=self.user_id)
         self.pollsters_as_dict = collections.OrderedDict()
         self.pollsters_as_dict["global"] = self.global_pollster
         self.pollsters_as_dict["private"] = self.private_pollster
@@ -170,7 +189,7 @@ class AggregationRouter(ModelRouter):
     @CACHE.cached(timeout=60, key_prefix=lambda: gen_cache_key(AggregationRouter.CACHE_STEM))
     def get_all_events(self):
         all_events = data.EventManager()
-        all_events.load(self.event_io)
+        all_events.load(self.get_event_io())
         return all_events
 
     @classmethod

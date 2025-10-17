@@ -28,9 +28,6 @@ class PluginResolver:
         for name, cls in self.EXTENDABLE_CLASSES.items():
             self.add_extendable_class(name, cls)
 
-    def get_class(self, name):
-        return self.class_dict[name]
-
     def resolve_extension(self, plugin, override=None):
         if override:
             exposed_exports = override

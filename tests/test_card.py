@@ -1,4 +1,5 @@
 import datetime
+import os
 
 import pytest
 
@@ -148,6 +149,12 @@ def test_tree_card_to_tree(leaf_card, standalone_leaf_card, subtree_card):
     result.add_composition(subtree_card.get_tree())
     result.add_element(standalone_leaf_card.get_tree().elements[0])
     assert result == tm.BaseCard.to_tree([leaf_card, standalone_leaf_card, subtree_card])
+
+
+def test_card_load_none(card_io):
+    card_io.LOAD_FILENAME = card_io.LOAD_FILENAME + "aaa"
+    all_cards_by_id = card_io.get_loaded_cards_by_id(tm.BaseCard)
+    assert not set(all_cards_by_id.keys())
 
 
 def test_card_load_all(card_io):

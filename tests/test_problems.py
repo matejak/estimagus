@@ -134,7 +134,7 @@ def test_model_finds_status_problem(cards_one_two):
 def test_model_finds_estimation_problem(cards_one_two):
     memory_pollster_io = estimage.persistence.get_persistence(data.Pollster, "memory")
     card_one, card_two = cards_one_two
-    pollster = data.Pollster(memory_pollster_io)
+    pollster = data.Pollster(io_cls=memory_pollster_io)
     pollster.tell_points(card_two.name, data.EstimInput(card_two.point_cost + 1))
     problems = get_problems_of_cards([card_two], collections.OrderedDict(low_prio=pollster))
     assert len(problems) == 1
@@ -146,7 +146,7 @@ def test_model_finds_estimation_problem(cards_one_two):
     assert len(problems) == 0
 
     # The wrong pollster gets picked up if another one is OK
-    pollster_two = data.Pollster(memory_pollster_io)
+    pollster_two = data.Pollster(io_cls=memory_pollster_io)
     pollster_two.set_namespace("p2")
     pollster_two.tell_points(card_two.name, data.EstimInput(card_two.point_cost + 1))
     problems = get_problems_of_cards([card_two], collections.OrderedDict(low_prio=pollster, high_prio=pollster_two))

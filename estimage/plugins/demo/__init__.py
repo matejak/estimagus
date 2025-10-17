@@ -23,9 +23,9 @@ class DemoData(local_storage.Storage):
 @persistence.multisaver_of(DemoData, ["toml", "memory", "ini"])
 class DemoSaver:
     def supply(self, obj):
-        super().supply(ret)
+        super().supply(obj)
         self._store_our(obj, "day_index", str(obj.day_index))
-        for name, progress in self.progress_by_id.items():
+        for name, progress in obj.progress_by_id.items():
             self._store_item_attribute(f"{obj.name}-progress", name, str(progress))
 
 
@@ -35,21 +35,12 @@ class DemoLoader:
         super().populate(ret)
         key = ret.name
         if key in self._loaded_data:
-            ret.one = int(self._get_our(ret, "day_index", ret.day_index))
+            ret.day_index = int(self._get_our(ret, "day_index", ret.day_index))
         key = f"{ret.name}-progress"
         if key not in self._loaded_data:
             return
         for name, progress in self._loaded_data[key].items():
-            self._get_item_attribute(key, name, float(progress))
-
-
-def load_data(io_cls):
-    ret = DemoData.load(io_cls)
-    return ret
-
-
-def write_data(io_cls, storage, main, progress):
-    storage.save(io_cls)
+            ret.progress_by_id[name] = float(progress)
 
 
 # TODO: Strategies
@@ -70,10 +61,11 @@ class Demo:
         self.statuses = statuses
 
     def start_if_on_start(self):
-        plugin_data = load_data(self.plugin_io)
+        plugin_data = DemoData.load(self.plugin_io)
         self.day_index = plugin_data.day_index
         if self.day_index == 0:
-            start(self.cards_by_id.values(), self.card_loader, self.event_io, self.start_date)
+            self.plugin_io.forget_all()
+            self.cards_by_id = start(self.card_loader, self.event_io, self.start_date)
 
     def get_sensible_choices(self):
         cards = self.get_ordered_wip_cards()
@@ -87,7 +79,7 @@ class Demo:
 
     def get_actual_choices(self):
         cards = self.get_ordered_wip_cards()
-        plugin_data = load_data(self.plugin_io)
+        plugin_data = DemoData.load(self.plugin_io)
         actual_choices = []
         for t in cards:
             label = f"{t.title} {plugin_data.progress_by_id.get(t.name, 0):.2g}/{t.point_cost}"
@@ -101,22 +93,22 @@ class Demo:
             card = self.cards_by_id[name]
 
             if progress_by_id[name] > card.point_cost:
-                conclude_card(card, self.card_loader, self.start_date, plugin_data["day_index"])
+                conclude_card(card, self.event_io, self.card_loader, self.start_date, plugin_data.day_index)
             else:
-                begin_card(card, self.card_loader, self.start_date, plugin_data["day_index"])
+                begin_card(card, self.event_io, self.card_loader, self.start_date, plugin_data.day_index)
 
     def apply_work(self, progress, names):
         if not names:
             return
-        plugin_data = load_data(self.plugin_io)
+        plugin_data = DemoData.load(self.plugin_io)
         self.day_index += 1
-        plugin_data["day_index"] = self.day_index
+        plugin_data.day_index = self.day_index
         if len(names) == 1 and names[0] == "noop":
             pass
         else:
             apply_velocities(names, progress, plugin_data.progress_by_id)
             self.evaluate_progress(plugin_data.progress_by_id, names, plugin_data)
-        save_data(plugin_data)
+        plugin_data.save(self.plugin_io)
 
     def get_not_finished_cards(self):
         cards = self.cards_by_id.values()
@@ -136,38 +128,37 @@ def apply_velocities(names, progress, progress_by_id):
         apply_velocity(name, proportion, progress_by_id)
 
 
-def save_data(what):
-    old = load_data(self.plugin_io)
-    old.update(what)
-
-    progress = old["progress_by_id"]
-    main = old
-    del main["progress_by_id"]
-    write_data(main, progress)
-
-
-def reset_data():
-    write_data(dict(), dict())
+def reset_data(storage_io, event_io):
+    nothing = DemoData()
+    nothing.save(storage_io)
+    event_io.forget_all()
 
 
 class NotToday:
+    def get_day_index(self):
+        data = DemoData.load(self.io_cls)
+        return data.day_index
+
     @property
     def DDAY_LABEL(self):
-        data = load_data()
-        day_index = data.get("day_index", 0)
-        return f"Day {day_index + 1}"
+        return f"Day {self.get_day_index() + 1}"
 
     def get_date_of_dday(self):
-        data = load_data()
-        day_index = data.get("day_index", 0)
-        return self.start + datetime.timedelta(days=day_index)
+        return self.start + datetime.timedelta(days=self.get_day_index())
 
 
-def start(cards, card_loader, event_io, start_date):
+def start(card_loader, event_io, start_date):
     date = start_date - datetime.timedelta(days=20)
+
+    cards_by_id = card_loader.get_loaded_cards_by_id()
+    if not cards_by_id:
+        predefined_cards_loader = persistence.get_persistence(data.BaseCard, "ini")
+        predefined_cards_loader.LOAD_FILENAME = pathlib.Path(__file__).parent / "projective.ini"
+        cards_by_id = existing_cards_loader.get_loaded_cards_by_id()
+
     mgr = data.EventManager()
     mgr.erase(event_io)
-    for t in cards:
+    for t in cards_by_id.values():
         evt = data.Event(t.name, "state", date)
         evt.value_before = "irrelevant"
         evt.value_after = "todo"
@@ -176,9 +167,10 @@ def start(cards, card_loader, event_io, start_date):
         t.status = "todo"
         t.save_metadata(card_loader)
     mgr.save(event_io)
+    return cards_by_id
 
 
-def begin_card(card, card_loader, start_date, day_index):
+def begin_card(card, event_io, card_loader, start_date, day_index):
     date = start_date + datetime.timedelta(days=day_index)
     mgr = data.EventManager()
     mgr.load(event_io)
@@ -193,7 +185,7 @@ def begin_card(card, card_loader, start_date, day_index):
     card.save_metadata(card_loader)
 
 
-def conclude_card(card, card_loader, start_date, day_index):
+def conclude_card(card, event_io, card_loader, start_date, day_index):
     date = start_date + datetime.timedelta(days=day_index)
     mgr = data.EventManager()
     mgr.load(event_io)

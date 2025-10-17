@@ -6,7 +6,7 @@ from estimage import plugins, data, PluginResolver, persistence
 import estimage.plugins.demo as tm
 
 from tests.test_card import base_card_load_save, fill_card_instance_with_stuff, assert_cards_are_equal
-from tests.test_inidata import temp_filename
+from tests.test_inidata import temp_filename, get_file_based_io
 
 
 @pytest.fixture
@@ -25,9 +25,9 @@ def event_io(resolver):
     ret.forget_all()
 
 
-@pytest.fixture
-def storage_io(resolver):
-    ret = persistence.get_persistence(resolver.get_final_class("Storage"), "memory")
+@pytest.fixture(params=("ini", "memory", "toml"))
+def storage_io(resolver, request, temp_filename):
+    ret = get_file_based_io(resolver.get_final_class("Storage"), request.param, temp_filename)
     ret.forget_all()
     yield ret
     ret.forget_all()

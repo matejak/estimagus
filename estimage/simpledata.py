@@ -13,78 +13,11 @@ from . import persistence
 from .persistence import card, pollster, event, local_storage
 
 
-class classproperty(property):
-    def __get__(self, owner_self, owner_cls):
-        return self.fget(owner_cls)
-
-
-class IniInDirMixin:
-    @classproperty
-    def CONFIG_FILENAME(cls):
-        try:
-            if "head" in flask.current_app.config:
-                datadir = flask.current_app.get_config_option("DATA_DIR")
-            else:
-                datadir = pathlib.Path(flask.current_app.config["DATA_DIR"])
-        except RuntimeError:
-            datadir = pathlib.Path(".")
-        ret = datadir / cls.CONFIG_BASENAME
-        return ret
-
-
-IOs = collections.defaultdict(dict)
-
-
-class CardIO:
-    def __init__(self, backend):
-        self.backend = backend
-
-    def _get_io(self, of_what, stem, datadir=None):
-        ret = persistence.get_persistence(of_what, self.backend)
-        path = self._get_filepath(stem, datadir)
-        self._set_file_path(ret, path)
-
-    def _get_filepath(self, stem, datadir):
-        if not datadir:
-            datadir = pathlib.Path(".")
-        return datadir / ret.stem_to_filename(stem)
-
-    @staticmethod
-    def _set_file_path(io, ):
-        io.LOAD_FILENAME = path
-        io.SAVE_FILENAME = path
-
-    def retrospective(self, of_what):
-        stem = "retrospective"
-        ret = self._get_io(of_what, stem)
-        return ret
-
-    def projective(self, of_what):
-        stem = "projective"
-        ret = self._get_io(of_what, stem)
-        return ret
-
-    def events(self):
-        stem = "events"
-        ret = self._get_io(data.Event, stem)
-        return ret
-
-    def user_pollster(self):
-        stem = "user_pollster"
-        ret = self._get_io(data.Pollster, stem)
-        return ret
-
-    def global_pollster(self):
-        stem = "global_pollster"
-        ret = self._get_io(data.Pollster, stem)
-        return ret
-
-
 class UserPollster(data.Pollster):
     def __init__(self, ** kwargs):
         super().__init__(** kwargs)
         self.username = kwargs["username"]
-        self.set_namespace(f"user-{username}-")
+        self.set_namespace(f"user-{self.username}-")
 
 
 class AuthoritativePollster(data.Pollster):

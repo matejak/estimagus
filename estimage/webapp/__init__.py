@@ -46,7 +46,10 @@ class PluginFriendlyFlask(flask.Flask):
                 overrides_map[overriden][plugin_name] = template_path
 
     def get_final_class(self, class_name):
-        return self.get_config_option("classes").get(class_name)
+        ret = self.get_config_option("classes").get(class_name)
+        if ret is None:
+            msg = f"Class {class_name} is not known to the extension mechanism. Either it is not marked as extendable, or it is unknown at extend-time."
+        return ret
 
     def get_config_option(self, option):
         raise NotImplementedError()
