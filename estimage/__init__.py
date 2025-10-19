@@ -86,6 +86,9 @@ class PluginResolver:
         return new_class
 
     def get_final_class(self, name):
+        if name not in self.class_dict:
+            msg = f"Class '{name}' not known at all, was it marked as extendable?"
+            raise RuntimeError(msg)
         return self.class_dict[name]
 
     def _process_extension(self, class_name, extension):

@@ -57,7 +57,7 @@ def test_class_resolution_sanity(resolver):
     cls = resolver.get_final_class("Formatter")
     assert cls.OVERRIDEN == "no"
 
-    with pytest.raises(KeyError, match="Primer"):
+    with pytest.raises(RuntimeError, match="Primer"):
         resolver.get_final_class("Primer")
 
 

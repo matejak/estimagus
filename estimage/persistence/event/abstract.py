@@ -32,9 +32,6 @@ class EventLoader(abstract.Loader):
         self._subject_to_events = self._eventize_raw_event_data(ret)
         return ret
 
-    def load_event_names(self):
-        return set(self._item_to_keys.keys())
-
     def load_events_of(self, name):
         return self._subject_to_events[name]
 
