@@ -2,31 +2,22 @@ import pytest
 
 from test_estimate import estiminput_1, estiminput_2
 from test_inidata import temp_filename
+from test_card import get_file_based_io
 
 import estimage.data as tm
 from estimage.persistence.pollster import ini, memory
 import estimage.simpledata as tm_simple
 
 
-@pytest.fixture
-def pollster_inifile_cls(temp_filename):
-    class TmpIniPollsterIO(ini.IniPollsterIO):
-        CONFIG_FILENAME = temp_filename
-
-    yield TmpIniPollsterIO
-
-
-@pytest.fixture(params=("ini", "memory"))
-def relevant_io(pollster_inifile_cls, request):
-    choices = dict(
-        ini=pollster_inifile_cls,
-        memory=memory.MemoryPollsterIO,
-    )
-    return choices[request.param]
+@pytest.fixture(params=("ini", "memory", "toml"))
+def relevant_io(request, temp_filename):
+    io = get_file_based_io(tm.Pollster, request.param, temp_filename)
+    yield io
+    io.forget_all()
 
 
 def test_poll(relevant_io):
-    pollster = tm.Pollster(relevant_io)
+    pollster = tm.Pollster(io_cls=relevant_io)
 
     point_input = pollster.ask_points("foo")
     assert point_input.most_likely == 0
@@ -42,7 +33,7 @@ def test_poll(relevant_io):
 
 
 def test_pollster_provides_known_data(relevant_io):
-    pollster = tm.Pollster(relevant_io)
+    pollster = tm.Pollster(io_cls=relevant_io)
     pollster.tell_points("esti", tm.EstimInput(2))
     assert pollster.provide_info_about([]) == dict()
     assert pollster.provide_info_about(["x"]) == dict()
@@ -53,7 +44,7 @@ def test_pollster_provides_known_data(relevant_io):
 
 def test_pollster_fills_in(relevant_io):
     result = tm.TaskModel("esti")
-    pollster = tm.Pollster(relevant_io)
+    pollster = tm.Pollster(io_cls=relevant_io)
     pollster.tell_points("esti", tm.EstimInput(2))
     pollster.supply_valid_estimations_to_tasks([result])
     assert result.nominal_point_estimate.expected == 2
@@ -119,12 +110,12 @@ def pollster_class(request, pollster_inifile, pollster_iniuser, pollster_iniauth
 
 
 def test_pollster_save_load(relevant_io):
-    pollster = tm.Pollster(relevant_io)
+    pollster = tm.Pollster(io_cls=relevant_io)
     points = tm.EstimInput()
     points.most_likely = 1
     pollster.tell_points("first", points)
 
-    pollster2 = tm.Pollster(relevant_io)
+    pollster2 = tm.Pollster(io_cls=relevant_io)
     points2 = pollster2.ask_points("first")
 
     assert points.most_likely == points2.most_likely
@@ -132,17 +123,25 @@ def test_pollster_save_load(relevant_io):
 
 def test_pollster_forgets(relevant_io, estiminput_1):
     name = ""
-    pollster = tm.Pollster(relevant_io)
+    pollster = tm.Pollster(io_cls=relevant_io)
     assert not pollster.knows_points(name)
+
     pollster.tell_points(name, estiminput_1)
     assert pollster.knows_points(name)
     pollster.forget_points(name)
     assert not pollster.knows_points(name)
     assert pollster.ask_points(name) == tm.EstimInput()
 
+    pollster.forget_points("nonexistent")
+
+    pollster.tell_points(name, estiminput_1)
+    assert pollster.knows_points(name)
+    relevant_io.forget_all()
+    assert not pollster.knows_points(name)
+
 
 def test_pollster_with_namespaces(relevant_io, estiminput_1, estiminput_2):
-    ns_pollster = tm.Pollster(relevant_io)
+    ns_pollster = tm.Pollster(io_cls=relevant_io)
     ns_pollster.set_namespace("")
     point_name = "one"
     ns_pollster.tell_points(point_name, estiminput_1)
@@ -161,7 +160,7 @@ def test_pollster_with_namespaces(relevant_io, estiminput_1, estiminput_2):
 
 
 def test_integrate(relevant_io):
-    pollster = tm.Pollster(relevant_io)
+    pollster = tm.Pollster(io_cls=relevant_io)
     est = tm.EstiModel()
 
     name1 = "foo"

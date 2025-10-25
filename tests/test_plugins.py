@@ -1,4 +1,5 @@
 import pytest
+import inspect
 
 import estimage.plugins as tm
 import estimage.plugins.null as null_plugin
@@ -53,21 +54,21 @@ def resolver():
 def test_class_resolution_sanity(resolver):
     assert "Ext" in resolver.class_dict
 
-    cls = resolver.get_class("Formatter")
+    cls = resolver.get_final_class("Formatter")
     assert cls.OVERRIDEN == "no"
 
-    with pytest.raises(KeyError, match="Primer"):
-        resolver.get_class("Primer")
+    with pytest.raises(RuntimeError, match="Primer"):
+        resolver.get_final_class("Primer")
 
 
 def test_class_resolution_plugin_load(resolver, print_plugin):
     resolver.resolve_extension(print_plugin)
 
-    cls = resolver.get_class("Formatter")
+    cls = resolver.get_final_class("Formatter")
     assert cls.OVERRIDEN == "yes"
 
     resolver.resolve_extension(MockPluginWithoutDecl)
-    cls = resolver.get_class("Formatter")
+    cls = resolver.get_final_class("Formatter")
     assert cls.OVERRIDEN == "yes"
 
     instance = cls()
@@ -76,7 +77,7 @@ def test_class_resolution_plugin_load(resolver, print_plugin):
 
 def test_class_resolution_mock_plugin_load(resolver):
     resolver.resolve_extension(MockPluginWithDecl)
-    cls = resolver.get_class("Formatter")
+    cls = resolver.get_final_class("Formatter")
     assert cls.OVERRIDEN == "maybe"
 
     instance = cls()
@@ -146,7 +147,17 @@ class PluginTwo:
             return ret + " two"
 
 
-def test_two_plugin_composition(resolver):
+def test_composition_basic(resolver):
+    resolver.resolve_extension(PluginOne)
+    extended = resolver.get_final_class("Ext")
+    assert extended.mro()[1] == PluginOne.ExtendableOne
+    resolver.resolve_extension(PluginTwo)
+    extended = resolver.get_final_class("Ext")
+    assert extended.mro()[2] == PluginOne.ExtendableOne
+    assert extended.mro()[1] == PluginTwo.ExtendableTwo
+
+
+def test_composition_functional(resolver):
     resolver.resolve_extension(PluginOne)
     resolver.resolve_extension(PluginTwo)
     final_extendable = resolver.class_dict["Ext"]()
@@ -169,3 +180,7 @@ def test_two_plugin_loading(resolver):
     loaded = loader.load()
     assert "hello" in loaded.return_hello()
     assert hasattr(loaded, "is_one")
+
+
+def test_not_extended_is_final(resolver):
+    assert resolver.get_final_class("Formatter") is not None

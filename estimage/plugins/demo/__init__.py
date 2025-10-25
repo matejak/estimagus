@@ -1,23 +1,46 @@
 import pathlib
-
 import datetime
 import json
+import typing
 
 import numpy as np
 
-from ... import simpledata, data, persistence
+from ... import data, persistence, PluginResolver
+from ...persistence import local_storage, event
 
 
 NULL_CHOICE = ("noop", "Do Nothing")
+STORAGE_NS = ("plugins", "demo")
 
 
-def load_data():
-    try:
-        with open("/tmp/estimage_demo.json") as f:
-            ret = json.loads(f.read())
-    except Exception:
-        ret = dict()
-    return ret
+class DemoData(local_storage.Storage):
+    def __init__(self, ** kwargs):
+        self.name = "demo"
+        self.day_index = 0
+        self.progress_by_id = dict()
+
+
+@persistence.multisaver_of(DemoData, ["toml", "memory", "ini"])
+class DemoSaver:
+    def supply(self, obj):
+        super().supply(obj)
+        self._store_our(obj, "day_index", str(obj.day_index))
+        for name, progress in obj.progress_by_id.items():
+            self._store_item_attribute(f"{obj.name}-progress", name, str(progress))
+
+
+@persistence.multiloader_of(DemoData, ["toml", "memory", "ini"])
+class DemoLoader:
+    def populate(self, ret):
+        super().populate(ret)
+        key = ret.name
+        if key in self._loaded_data:
+            ret.day_index = int(self._get_our(ret, "day_index", ret.day_index))
+        key = f"{ret.name}-progress"
+        if key not in self._loaded_data:
+            return
+        for name, progress in self._loaded_data[key].items():
+            ret.progress_by_id[name] = float(progress)
 
 
 # TODO: Strategies
@@ -26,19 +49,23 @@ def load_data():
 #  - auto-assignment of tasks (according to selection, all at once, sequential, n at a time)
 #  - jump a day, jump to the end
 class Demo:
-    def __init__(self, loader, start_date, statuses=None):
-        self.cards_by_id = loader.get_loaded_cards_by_id()
-        self.loader = loader
+    def __init__(self, start_date, card_io, plugin_io, event_io, statuses=None):
+        self.card_loader = card_io
+        self.plugin_io = plugin_io
+        self.event_io = event_io
+
+        self.cards_by_id = self.card_loader.get_loaded_cards_by_id()
         self.start_date = start_date
         if not statuses:
             statuses = data.Statuses()
         self.statuses = statuses
 
     def start_if_on_start(self):
-        plugin_data = load_data()
-        self.day_index = plugin_data.get("day_index", 0)
+        plugin_data = DemoData.load(self.plugin_io)
+        self.day_index = plugin_data.day_index
         if self.day_index == 0:
-            start(self.cards_by_id.values(), self.loader, self.start_date)
+            self.plugin_io.forget_all()
+            self.cards_by_id = start(self.card_loader, self.event_io, self.start_date)
 
     def get_sensible_choices(self):
         cards = self.get_ordered_wip_cards()
@@ -52,40 +79,36 @@ class Demo:
 
     def get_actual_choices(self):
         cards = self.get_ordered_wip_cards()
-        plugin_data = load_data()
-        velocity_in_stash = plugin_data.get("velocity_in_stash", dict())
+        plugin_data = DemoData.load(self.plugin_io)
         actual_choices = []
         for t in cards:
-            label = f"{t.title} {velocity_in_stash.get(t.name, 0):.2g}/{t.point_cost}"
+            label = f"{t.title} {plugin_data.progress_by_id.get(t.name, 0):.2g}/{t.point_cost}"
             actual_choices.append((t.name, label))
         if not actual_choices:
             actual_choices = [NULL_CHOICE]
         return actual_choices
 
-    def evaluate_progress(self, velocity_in_stash, names, plugin_data):
+    def evaluate_progress(self, progress_by_id, names, plugin_data):
         for name in names:
             card = self.cards_by_id[name]
 
-            if velocity_in_stash[name] > card.point_cost:
-                previously_finished = plugin_data.get("finished", [])
-                previously_finished.append(name)
-                plugin_data["finished"] = previously_finished
-                conclude_card(card, self.loader, self.start_date, plugin_data["day_index"])
+            if progress_by_id[name] > card.point_cost:
+                conclude_card(card, self.event_io, self.card_loader, self.start_date, plugin_data.day_index)
             else:
-                begin_card(card, self.loader, self.start_date, plugin_data["day_index"])
+                begin_card(card, self.event_io, self.card_loader, self.start_date, plugin_data.day_index)
 
     def apply_work(self, progress, names):
-        plugin_data = load_data()
+        if not names:
+            return
+        plugin_data = DemoData.load(self.plugin_io)
         self.day_index += 1
-        plugin_data["day_index"] = self.day_index
+        plugin_data.day_index = self.day_index
         if len(names) == 1 and names[0] == "noop":
             pass
         else:
-            velocity_in_stash = plugin_data.get("velocity_in_stash", dict())
-            apply_velocities(names, progress, velocity_in_stash)
-            plugin_data["velocity_in_stash"] = velocity_in_stash
-            self.evaluate_progress(velocity_in_stash, names, plugin_data)
-        save_data(plugin_data)
+            apply_velocities(names, progress, plugin_data.progress_by_id)
+            self.evaluate_progress(plugin_data.progress_by_id, names, plugin_data)
+        plugin_data.save(self.plugin_io)
 
     def get_not_finished_cards(self):
         cards = self.cards_by_id.values()
@@ -94,97 +117,94 @@ class Demo:
         return ret
 
 
-def apply_velocity(of_what, how_many, velocity_in_stash):
-    velocity_in_stash[of_what] = velocity_in_stash.get(of_what, 0) + float(how_many)
+def apply_velocity(of_what, how_many, progress_by_id):
+    progress_by_id[of_what] = progress_by_id.get(of_what, 0) + float(how_many)
 
 
-def apply_velocities(names, progress, velocity_in_stash):
+def apply_velocities(names, progress, progress_by_id):
     proportions = np.random.rand(len(names))
     proportions *= progress / sum(proportions)
     for name, proportion in zip(names, proportions):
-        apply_velocity(name, proportion, velocity_in_stash)
+        apply_velocity(name, proportion, progress_by_id)
 
 
-def save_data(what):
-    old = load_data()
-    old.update(what)
-    with open("/tmp/estimage_demo.json", "w") as f:
-        json.dump(old, f)
-
-
-def reset_data():
-    with open("/tmp/estimage_demo.json", "w") as f:
-        json.dump(dict(), f)
-    io_cls = simpledata.IOs["events"]["ini"]
-    pathlib.Path(io_cls.CONFIG_FILENAME).unlink(missing_ok=True)
+def reset_data(storage_io, event_io):
+    nothing = DemoData()
+    nothing.save(storage_io)
+    event_io.forget_all()
 
 
 class NotToday:
+    def get_day_index(self):
+        data = DemoData.load(self.io_cls)
+        return data.day_index
+
     @property
     def DDAY_LABEL(self):
-        data = load_data()
-        day_index = data.get("day_index", 0)
-        return f"Day {day_index + 1}"
+        return f"Day {self.get_day_index() + 1}"
 
     def get_date_of_dday(self):
-        data = load_data()
-        day_index = data.get("day_index", 0)
-        return self.start + datetime.timedelta(days=day_index)
+        return self.start + datetime.timedelta(days=self.get_day_index())
 
 
-def start(cards, loader, start_date):
+def start(card_loader, event_io, start_date):
     date = start_date - datetime.timedelta(days=20)
+
+    cards_by_id = card_loader.get_loaded_cards_by_id()
+    if not cards_by_id:
+        predefined_cards_loader = persistence.get_persistence(data.BaseCard, "ini")
+        predefined_cards_loader.LOAD_FILENAME = pathlib.Path(__file__).parent / "projective.ini"
+        cards_by_id = existing_cards_loader.get_loaded_cards_by_id()
+
     mgr = data.EventManager()
-    mgr.erase(simpledata.IOs["events"]["ini"])
-    for t in cards:
+    mgr.erase(event_io)
+    for t in cards_by_id.values():
         evt = data.Event(t.name, "state", date)
         evt.value_before = "irrelevant"
         evt.value_after = "todo"
         mgr.add_event(evt)
 
         t.status = "todo"
-        t.save_metadata(loader)
-    mgr.save(simpledata.IOs["events"]["ini"])
+        t.save_metadata(card_loader)
+    mgr.save(event_io)
+    return cards_by_id
 
 
-def begin_card(card, loader, start_date, day_index):
+def begin_card(card, event_io, card_loader, start_date, day_index):
     date = start_date + datetime.timedelta(days=day_index)
     mgr = data.EventManager()
-    mgr.load(simpledata.IOs["events"]["ini"])
+    mgr.load(event_io)
     if len(mgr.get_chronological_task_events_by_type(card.name)["state"]) < 2:
         evt = data.Event(card.name, "state", date)
         evt.value_before = "todo"
         evt.value_after = "in_progress"
         mgr.add_event(evt)
-        mgr.save(simpledata.IOs["events"]["ini"])
+        mgr.save(event_io)
 
     card.status = "in_progress"
-    card.save_metadata(loader)
+    card.save_metadata(card_loader)
 
 
-def conclude_card(card, loader, start_date, day_index):
+def conclude_card(card, event_io, card_loader, start_date, day_index):
     date = start_date + datetime.timedelta(days=day_index)
     mgr = data.EventManager()
-    mgr.load(simpledata.IOs["events"]["ini"])
+    mgr.load(event_io)
     evt = data.Event(card.name, "state", date)
     evt.value_before = "in_progress"
     evt.value_after = "done"
     mgr.add_event(evt)
-    mgr.save(simpledata.IOs["events"]["ini"])
+    mgr.save(event_io)
 
     card.status = "done"
-    card.save_metadata(loader)
+    card.save_metadata(card_loader)
 
 
 EXPORTS = dict(
-    MPLPointPlot="NotToday",
-    MPLVelocityPlot="NotToday",
-    MPLCompletionPlot="NotToday",
+    # MPLPointPlot="NotToday",
+    # MPLVelocityPlot="NotToday",
+    # MPLCompletionPlot="NotToday",
+    Storage="DemoData",
 )
-
-
-QUARTER_TO_MONTH_NUMBER = None
-PROJECT_NAME = "OPENSCAP"
 
 
 TEMPLATE_OVERRIDES = {

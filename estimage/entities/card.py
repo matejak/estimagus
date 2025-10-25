@@ -99,24 +99,14 @@ class BaseCard:
             self.pass_data_to_saver(saver)
 
     def pass_data_to_saver(self, saver):
-        saver.save_title_and_desc(self)
-        saver.save_costs(self)
+        saver.save_basic_metadata(self)
         saver.save_family_records(self)
-        saver.save_assignee_and_collab(self)
-        saver.save_priority_and_status(self)
-        saver.save_tier(self)
-        saver.save_tags(self)
         saver.save_work_span(self)
         saver.save_uri_and_plugin(self)
 
     def load_data_by_loader(self, loader):
-        loader.load_title_and_desc(self)
-        loader.load_costs(self)
+        loader.load_basic_metadata(self)
         loader.load_family_records(self)
-        loader.load_assignee_and_collab(self)
-        loader.load_priority_and_status(self)
-        loader.load_tier(self)
-        loader.load_tags(self)
         loader.load_work_span(self)
         loader.load_uri_and_plugin(self)
 

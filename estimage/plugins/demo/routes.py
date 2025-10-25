@@ -12,28 +12,24 @@ from .. import demo
 bp = flask.Blueprint("demo", __name__, template_folder="templates")
 
 
-def _get_card_loader(flavor, backend):
-    card_class = flask.current_app.get_final_class("BaseCard")
-    loader = type("loader", (flavor, persistence.SAVERS[card_class][backend], persistence.LOADERS[card_class][backend]), dict())
-    return card_class, loader
-
-
 def get_retro_loader():
-    return _get_card_loader(simpledata.RetroCardIO, "ini")
+    router = routers.CardRouter(mode="retro")
+    return router.cards_io
 
 
 def get_proj_loader():
-    return _get_card_loader(simpledata.ProjCardIO, "ini")
+    return router.cards_io
 
 
 @web_utils.is_primary_menu_of("demo", bp, "Estimagus Demo")
 @bp.route('/demo', methods=("GET", "POST"))
 @flask_login.login_required
 def next_day():
-    _, loader = get_retro_loader()
+    router = routers.IORouter()
+    retro_card_io = router.get_card_io("retro")
 
     start_date = flask.current_app.get_config_option("RETROSPECTIVE_PERIOD")[0]
-    doer = demo.Demo(loader, start_date)
+    doer = demo.Demo(start_date, retro_card_io, router.get_storage_io(), router.get_event_io())
     doer.start_if_on_start()
 
     form = forms.DemoForm()
@@ -51,7 +47,8 @@ def next_day():
 @bp.route('/reset', methods=("POST", ))
 @flask_login.login_required
 def reset():
+    router = routers.IORouter()
     reset_form = forms.ResetForm()
     if reset_form.validate_on_submit():
-        demo.reset_data()
+        demo.reset_data(router.get_storage_io(), router.get_event_io())
     return flask.redirect(web_utils.head_url_for("demo.next_day"))

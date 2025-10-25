@@ -15,7 +15,7 @@ from ... import history, utilities
 from ...statops import func
 from ...visualize import utils, pert
 # need to import those to ensure that they are discovered by the app
-from ...visualize import velocity, completion
+from ...visualize import velocity, completion, burndown
 
 
 WIDE_FIGURE_SIZE = (12.0, 4.4)

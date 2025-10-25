@@ -9,79 +9,21 @@ import flask
 
 from . import data
 from . import inidata
-from .persistence import card, pollster, event
-from .persistence.card import ini
+from . import persistence
+from .persistence import card, pollster, event, local_storage
 
 
-class classproperty(property):
-    def __get__(self, owner_self, owner_cls):
-        return self.fget(owner_cls)
+class UserPollster(data.Pollster):
+    def __init__(self, ** kwargs):
+        super().__init__(** kwargs)
+        self.username = kwargs["username"]
+        self.set_namespace(f"user-{self.username}-")
 
 
-class IniInDirMixin:
-    @classproperty
-    def CONFIG_FILENAME(cls):
-        try:
-            if "head" in flask.current_app.config:
-                datadir = flask.current_app.get_config_option("DATA_DIR")
-            else:
-                datadir = pathlib.Path(flask.current_app.config["DATA_DIR"])
-        except RuntimeError:
-            datadir = pathlib.Path(".")
-        ret = datadir / cls.CONFIG_BASENAME
-        return ret
-
-
-IOs = collections.defaultdict(dict)
-
-
-class RetroCardIO(IniInDirMixin, ini.IniCardIO):
-    CONFIG_BASENAME = "retrospective.ini"
-    WHAT_IS_THIS = "retrospective card"
-
-
-class ProjCardIO(IniInDirMixin, ini.IniCardIO):
-    CONFIG_BASENAME = "projective.ini"
-    WHAT_IS_THIS = "projective card"
-
-
-class EventsIO(IniInDirMixin, event.ini.IniEventsIO):
-    CONFIG_BASENAME = "events.ini"
-    WHAT_IS_THIS = "events manager"
-
-
-IOs["retro"]["ini"] = RetroCardIO
-IOs["proj"]["ini"] = ProjCardIO
-IOs["events"]["ini"] = EventsIO
-
-
-class UserPollsterBase(data.Pollster):
-    def __init__(self, username, * args, ** kwargs):
-        class pollster_io_class(IniInDirMixin, pollster.ini.IniPollsterIO):
-            CONFIG_BASENAME = self.CONFIG_BASENAME
-            WHAT_IS_THIS = "user pollster"
-
-        super().__init__(* args, io_cls=pollster_io_class, ** kwargs)
-        self.username = username
-        self.set_namespace(f"user-{username}-")
-
-
-class UserPollster(UserPollsterBase):
-    CONFIG_BASENAME = "pollsters.ini"
-
-
-class AuthoritativePollsterBase(data.Pollster):
-    def __init__(self, * args, ** kwargs):
-        class pollster_io_class(IniInDirMixin, pollster.ini.IniPollsterIO):
-            CONFIG_BASENAME = self.CONFIG_BASENAME
-            WHAT_IS_THIS = "authoritative pollster"
-
-        super().__init__(* args, io_cls=pollster_io_class, ** kwargs)
+class AuthoritativePollster(data.Pollster):
+    def __init__(self, ** kwargs):
+        super().__init__(** kwargs)
         self.set_namespace("***-")
-
-
-class AuthoritativePollster(AuthoritativePollsterBase):
-    CONFIG_BASENAME = "pollsters.ini"
 
 
 @dataclasses.dataclass

@@ -34,6 +34,7 @@ class CommonConfig(CacheConfig):
 class Config(CommonConfig):
     DATA_DIR = os.environ.get("DATA_DIR", "data")
     PLUGINS = parse_csv(os.environ.get("PLUGINS", ""))
+    BACKEND = os.environ.get("BACKEND", "toml")
 
 
 class MultiheadConfig(CommonConfig):

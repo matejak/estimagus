@@ -77,3 +77,24 @@ class Statuses:
         names = [s.name for s in statuses]
         ints = [self.int(n) for n in names]
         return ints
+
+
+def get_canonical_status(name_or_index):
+    LEGACY_TABLE = [
+        "irrelevant",
+        "irrelevant",
+        "todo",
+        "in_progress",
+        "in_progress",
+        "done",
+        "irrelevant",
+    ]
+    try:
+        index = int(name_or_index)
+        return LEGACY_TABLE[index]
+    except IndexError:
+        return "irrelevant"
+    except ValueError:
+        return name_or_index
+
+

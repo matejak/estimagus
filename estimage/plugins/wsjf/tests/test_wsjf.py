@@ -4,8 +4,8 @@ from estimage import data
 from estimage import plugins, PluginResolver
 import estimage.plugins.wsjf as tm
 
-from tests.test_card import base_card_load_save, fill_card_instance_with_stuff, assert_cards_are_equal, TesCardIO
-from tests.test_inidata import temp_filename, inifile_temploc, cardio_inifile_cls
+from tests.test_card import base_card_load_save, fill_card_instance_with_stuff, assert_cards_are_equal
+from tests.test_inidata import temp_filename, get_file_based_io
 
 
 @pytest.fixture()
@@ -18,16 +18,16 @@ def wsjf_cls():
     return cls
 
 
+@pytest.fixture(params=("ini", "memory", "toml"))
+def card_io(request, temp_filename, wsjf_cls):
+    io = get_file_based_io(wsjf_cls, request.param, temp_filename)
+    yield io
+    io.forget_all()
+
+
 @pytest.fixture()
 def wsjf_card(wsjf_cls):
     return wsjf_cls("card")
-
-
-@pytest.fixture(params=("ini",))
-def card_io(request, cardio_inifile_cls):
-    generator = TesCardIO(tm.WSJFCard, ini_base=cardio_inifile_cls)
-    backend = request.param
-    return generator(backend)
 
 
 def test_cod(wsjf_card):

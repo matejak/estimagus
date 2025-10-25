@@ -1,16 +1,18 @@
-import pytest
+import collections
 import datetime
+import pytest
 
 from estimage import simpledata as tm
 from estimage import data
-from estimage.persistence.pollster import memory
+import estimage.persistence
 
 from test_card import leaf_card, subtree_card
 
 
 def get_independent_memory_io():
-    class ret(memory.MemoryPollsterIO):
-        _memory = dict()
+    io_cls = estimage.persistence.get_persistence(data.Pollster, "memory")
+    class ret(io_cls):
+        GLOBAL_STORAGE = collections.defaultdict(dict)
     return ret
 
 
@@ -29,7 +31,7 @@ def test_empty_model():
 
 
 def test_obtaining_model_overriden_by_pollster(leaf_card):
-    pollster = data.Pollster(memory.MemoryPollsterIO)
+    pollster = data.Pollster(io_cls=get_independent_memory_io())
 
     model = tm.get_model([leaf_card])
     pollster.supply_valid_estimations_to_tasks(model.get_all_task_models())
@@ -84,15 +86,15 @@ def test_similarity_of_masked_tasks(bunch_of_tasks):
 
 
 def test_context():
-    empty_pollster = data.Pollster(get_independent_memory_io())
+    empty_pollster = data.Pollster(io_cls=get_independent_memory_io())
 
-    own_pollster = data.Pollster(get_independent_memory_io())
+    own_pollster = data.Pollster(io_cls=get_independent_memory_io())
     own_pollster.tell_points("task", data.EstimInput(1))
 
-    global_pollster = data.Pollster(get_independent_memory_io())
+    global_pollster = data.Pollster(io_cls=get_independent_memory_io())
     global_pollster.tell_points("t", data.EstimInput(1))
 
-    competing_pollster = data.Pollster(get_independent_memory_io())
+    competing_pollster = data.Pollster(io_cls=get_independent_memory_io())
     competing_pollster.tell_points("task", data.EstimInput(1))
     competing_pollster.tell_points("t", data.EstimInput(2))
 
@@ -162,10 +164,10 @@ def test_context():
 def test_context_deal_with_defective_estimate():
     defective_estimate = data.EstimInput(1)
     defective_estimate.optimistic = 2
-    poisoned_pollster = data.Pollster(get_independent_memory_io())
+    poisoned_pollster = data.Pollster(io_cls=get_independent_memory_io())
     poisoned_pollster.tell_points("task", defective_estimate)
 
-    normal_pollster = data.Pollster(get_independent_memory_io())
+    normal_pollster = data.Pollster(io_cls=get_independent_memory_io())
     normal_pollster.tell_points("task", data.EstimInput(1))
 
     task = data.BaseCard("task")
