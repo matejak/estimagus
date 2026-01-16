@@ -17,3 +17,7 @@ API Reference
 .. automodule:: estimage.persistence.abstract
     :members:
     :undoc-members:
+
+.. automodule:: estimage.plugins.jira
+    :members:
+    :undoc-members:

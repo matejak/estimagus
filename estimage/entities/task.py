@@ -64,12 +64,14 @@ class TaskModel:
         self._time_estimate = Estimate(0, 0)
         self._point_estimate = Estimate(0, 0)
 
+    """
     def save(self):
         raise NotImplementedError()
 
     @classmethod
     def load(cls, name) -> "TaskModel":
         raise NotImplementedError()
+    """
 
 
 class MemoryTaskModel(TaskModel):

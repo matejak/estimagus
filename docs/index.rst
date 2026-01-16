@@ -27,6 +27,9 @@ The project aims to use:
    :caption: Contents:
 
    persistence.rst
+   history.rst
    plugins.rst
    concepts.rst
    api.rst
+
+   plugins/jira.rst

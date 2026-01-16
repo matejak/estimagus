@@ -82,6 +82,7 @@ class Composition:
     def add_composition(self, composition):
         self.compositions.append(composition)
 
+    """
     def save(self):
         elements_names = list()
         compositions_names = list()
@@ -104,6 +105,7 @@ class Composition:
 
     def _load(self):
         raise NotImplementedError()
+    """
 
     def get_contained_elements(self):
         elements = list(self.elements)

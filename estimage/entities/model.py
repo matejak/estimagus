@@ -83,6 +83,7 @@ class EstiModel:
     def time_estimate_of(self, name: str):
         return self.name_result_map[name].time_estimate
 
+    """
     def estimate_points_of(self, name, est_input):
         self.name_result_map[name].set_point_estimate(
             est_input.most_likely, est_input.optimistic, est_input.pessimistic
@@ -96,6 +97,12 @@ class EstiModel:
     def complete_element(self, name):
         element = self.name_result_map[name]
         element.nullify()
+
+    def export_element(self, name: str) -> BaseCard:
+        card = BaseCard(name)
+        self._update_card(card)
+        return card
+    """
 
     def get_element(self, name):
         return self.name_result_map[name]
@@ -112,8 +119,3 @@ class EstiModel:
         element = self.name_result_map[card.name]
         card.point_cost = element.nominal_point_estimate.expected
         card.time_cost = element.nominal_time_estimate.expected
-
-    def export_element(self, name: str) -> BaseCard:
-        card = BaseCard(name)
-        self._update_card(card)
-        return card
