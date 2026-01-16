@@ -17,11 +17,11 @@ class IniCardLoader(abstract.CardLoader, persistence.ini.IniLoader):
 
     def load_basic_metadata(self, t):
         super().load_basic_metadata(t)
-        t.collaborators = self._unpack_list(self._get_our(t, "collaborators", ""))
-        t.tags = self._unpack_list(self._get_our(t, "tags", ""))
+        t.collaborators = self._unpack_list(self._get_our(t, "collaborators"))
+        t.tags = self._unpack_list(self._get_our(t, "tags"))
 
     def _load_list_of_cards_from_entry(self, t, entry_name):
-        entry_contents = self._get_our(t, entry_name, "")
+        entry_contents = self._get_our(t, entry_name)
         all_entries = self._load_list_of_cards(t, entry_contents)
         return all_entries
 
@@ -42,7 +42,7 @@ class IniCardLoader(abstract.CardLoader, persistence.ini.IniLoader):
         for c in all_direct_deps:
             t.register_direct_dependency(c)
 
-        parent_id = self._get_our(t, "parent", "")
+        parent_id = self._get_our(t, "parent")
         parent_known_notyet_fetched = parent_id and t.parent is None
         if parent_known_notyet_fetched:
             parent = self._get_loaded_or_load_card_named(t, parent_id)
@@ -50,8 +50,8 @@ class IniCardLoader(abstract.CardLoader, persistence.ini.IniLoader):
 
     def load_work_span(self, t):
         span = [
-            self._get_our(t, "work_start", None),
-            self._get_our(t, "work_end", None)]
+            self._get_our(t, "work_start"),
+            self._get_our(t, "work_end")]
         for index, date_str in enumerate(span):
             if date_str is not None:
                 span[index] = datetime.datetime.fromisoformat(date_str)

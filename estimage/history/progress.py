@@ -23,7 +23,6 @@ class Progress:
     points_timeline: timeline.Timeline
     status_timeline: timeline.Timeline
     remainder_timeline: timeline.Timeline
-    time_timeline: timeline.Timeline
     relevancy_timeline: timeline.Timeline
     task_name: str
 
@@ -37,7 +36,6 @@ class Progress:
         self.points_timeline = timeline.Timeline(start, end)
         self.status_timeline = timeline.Timeline(start, end)
         self.status_timeline.recreate_with_value(self.statuses.int("irrelevant"), int)
-        self.time_timeline = timeline.Timeline(start, end)
 
         self.remainder_timeline = timeline.Timeline(start, end)
         self.calculate_plan()
@@ -56,8 +54,6 @@ class Progress:
             self.points_timeline.set_value_at(when, points)
         if status is not None:
             self.status_timeline.set_value_at(when, self.statuses.int(status))
-        if time is not None:
-            self.time_timeline.set_value_at(when, status)
 
     def get_points_at(self, when):
         if not self.relevancy_timeline.value_at(when):
@@ -193,7 +189,6 @@ class Progress:
 
     def process_events_by_type(self, events_by_type: typing.Mapping[str, typing.List[data.Event]]):
         TYPES_TO_TIMELINE = {
-            "time": self.time_timeline,
             "points": self.points_timeline,
             "state": self.status_timeline,
             "project": self.relevancy_timeline,

@@ -33,8 +33,8 @@ def wsjf_card(wsjf_cls):
 def test_cod(wsjf_card):
     assert wsjf_card.cost_of_delay == 0
 
-    wsjf_card.business_value = 2
-    wsjf_card.risk_and_opportunity = 1
+    wsjf_card.wsjf_business_value = 2
+    wsjf_card.wsjf_risk_and_opportunity = 1
     assert wsjf_card.cost_of_delay == 3
 
 
@@ -69,21 +69,21 @@ def test_load_defaults(card_io, wsjf_cls):
 
 
 def plugin_defaults_test(lhs, rhs):
-    assert rhs.business_value == 0
-    assert rhs.risk_and_opportunity == 0
+    assert rhs.wsjf_business_value == 0
+    assert rhs.wsjf_risk_and_opportunity == 0
     assert rhs.cost_of_delay == 0
-    assert rhs.time_sensitivity == 0
+    assert rhs.wsjf_time_sensitivity == 0
     assert not rhs.inherited_priority
     assert type(rhs.inherited_priority) is dict
 
 
 def wsjf_fill(card):
-    card.business_value = 7
-    card.risk_and_opportunity = 3
-    card.time_sensitivity = 5
+    card.wsjf_business_value = 7
+    card.wsjf_risk_and_opportunity = 3
+    card.wsjf_time_sensitivity = 5
     dep = card.__class__("one")
     dep.point_cost = 1
-    dep.business_value = 2
+    dep.wsjf_business_value = 2
     card.add_element(dep)
 
 
@@ -94,10 +94,10 @@ def plugin_fill(card):
 
 def plugin_test(lhs, rhs):
     assert_cards_are_equal(lhs, rhs)
-    assert lhs.business_value == rhs.business_value
-    assert lhs.risk_and_opportunity == rhs.risk_and_opportunity
+    assert lhs.wsjf_business_value == rhs.wsjf_business_value
+    assert lhs.wsjf_risk_and_opportunity == rhs.wsjf_risk_and_opportunity
     assert lhs.cost_of_delay == rhs.cost_of_delay
-    assert lhs.time_sensitivity == rhs.time_sensitivity
+    assert lhs.wsjf_time_sensitivity == rhs.wsjf_time_sensitivity
     if "one" in lhs.inherited_priority:
         assert lhs.inherited_priority["one"] == rhs.inherited_priority["one"]
 
@@ -115,5 +115,5 @@ def test_children_propagation(wsjf_cls, wsjf_card):
     wsjf_card.point_cost = 1
     assert wsjf_card.cost_of_delay == granchild.cost_of_delay
     assert "child" not in wsjf_card.inherited_priority
-    child.business_value = 1
+    child.wsjf_business_value = 1
     assert wsjf_card.inherited_priority["child"] + granchild.wsjf_score == child.wsjf_score

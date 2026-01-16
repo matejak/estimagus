@@ -17,7 +17,7 @@ class TomlCardLoader(abstract.CardLoader, toml.TomlLoader):
 
     def _load_list_of_cards_from_entry(self, t, entry_name):
         ret = []
-        entries = self._get_our(t, entry_name, [])
+        entries = self._get_our(t, entry_name)
         for name in entries:
             if not name:
                 continue
@@ -31,10 +31,9 @@ class TomlCardLoader(abstract.CardLoader, toml.TomlLoader):
 
         all_direct_deps = self._load_list_of_cards_from_entry(t, "direct_depnames")
         for c in all_direct_deps:
-            print(c)
             t.register_direct_dependency(c)
 
-        parent_id = self._get_our(t, "parent", "")
+        parent_id = self._get_our(t, "parent")
         parent_known_notyet_fetched = parent_id and t.parent is None
         if parent_known_notyet_fetched:
             parent = self._get_loaded_or_load_card_named(t, parent_id)
@@ -42,8 +41,8 @@ class TomlCardLoader(abstract.CardLoader, toml.TomlLoader):
 
     def load_work_span(self, t):
         span = [
-            self._get_our(t, "work_start", None),
-            self._get_our(t, "work_end", None)]
+            self._get_our(t, "work_start"),
+            self._get_our(t, "work_end")]
         for index, date_str in enumerate(span):
             if date_str is not None:
                 span[index] = datetime.datetime.fromisoformat(date_str)

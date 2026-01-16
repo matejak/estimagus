@@ -5,24 +5,25 @@ from .. import PluginResolver
 
 @dataclasses.dataclass(frozen=True)
 class Status:
+    #: Identifiedr of the status
     name: str
+    #: Abandoned, in backlog, invalid, duplicate etc. are all not relevant
     relevant: bool
+    #: In progress, work is being worked on now
     wip: bool
+    #: Was at least once in progress, but now can be stalled, in review etc.
     started: bool
+    #: Done in the positive sense.
     done: bool
 
     @classmethod
     def create(cls, name, ** kwargs):
-        # Abandoned, in backlog, invalid, duplicate etc.
-        relevant = kwargs.get("relevant", True)
-        # In progress, work is being delivered
-        wip = kwargs.get("wip", False)
-        # In progress, but also stalled, in review etc.
-        started = kwargs.get("started", wip)
-        # not done
-        done = kwargs.get("done", False)
+        kwargs["relevant"] = kwargs.get("relevant", True)
+        kwargs["wip"] = kwargs.get("wip", False)
+        kwargs["started"] = kwargs.get("started", kwargs["wip"])
+        kwargs["done"] = kwargs.get("done", False)
 
-        return cls(name=name, relevant=relevant, wip=wip, started=started, done=done)
+        return cls(name=name, ** kwargs)
 
     @property
     def relevant_and_not_done_yet(self):

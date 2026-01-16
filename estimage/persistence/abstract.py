@@ -12,6 +12,9 @@ class Loader(abc.ABC):
     @classmethod
     @contextlib.contextmanager
     def get_loader(cls):
+        """
+        Return the loader with loaded data
+        """
         loader = cls()
         loader._loaded_data = loader.load()
         yield loader
@@ -23,15 +26,30 @@ class Loader(abc.ABC):
         """
         raise NotImplementedError()
 
-    def _get_our(self, item, attribute, fallback=None):
-        if fallback is None and hasattr(item, attribute):
+    def _get_our(self, item, attribute):
+        """
+        Given an item that has the name attribute, determine the fallback
+        """
+        fallback = None
+        if hasattr(item, attribute):
             fallback = getattr(item, attribute)
         if item.name not in self._loaded_data:
             msg = f"Couldn't find {self.WHAT_IS_THIS} '{item.name}'"
             raise RuntimeError(msg)
         return self._get_items_attribute(item.name, attribute, fallback)
 
+    def populate_attr(self, item, attribute, typefun=None):
+        storage_key = item.name
+        fallback = getattr(item, attribute)
+        value = self._get_items_attribute(storage_key, attribute, fallback)
+        if typefun:
+            value = typefun(value)
+        setattr(item, attribute, value)
+
     def _get_items_attribute(self, storage_key, attribute, fallback=None):
+        """
+        Not used very much
+        """
         if storage_key not in self._loaded_data:
             return fallback
         return self._loaded_data[storage_key].get(attribute, fallback)

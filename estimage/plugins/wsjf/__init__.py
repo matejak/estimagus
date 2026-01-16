@@ -24,21 +24,21 @@ class ProjectiveForms:
 
     def setup_forms_according_to_context(self, context, card):
         super().setup_forms_according_to_context(context, card)
-        self.forms["wsjf"].business_value.data = card.business_value
-        self.forms["wsjf"].time_sensitivity.data = card.time_sensitivity
-        self.forms["wsjf"].risk_and_opportunity.data = card.risk_and_opportunity
+        self.forms["wsjf"].wsjf_business_value.data = card.wsjf_business_value
+        self.forms["wsjf"].wsjf_time_sensitivity.data = card.wsjf_time_sensitivity
+        self.forms["wsjf"].wsjf_risk_and_opportunity.data = card.wsjf_risk_and_opportunity
 
 
 class WSJFCard:
-    business_value: float = 0
-    risk_and_opportunity: float = 0
-    time_sensitivity: float = 0
+    wsjf_business_value: float = 0
+    wsjf_risk_and_opportunity: float = 0
+    wsjf_time_sensitivity: float = 0
 
     def _get_inherent_cost_of_delay(self):
         return (
-            self.business_value
-            + self.risk_and_opportunity
-            + self.time_sensitivity)
+            self.wsjf_business_value
+            + self.wsjf_risk_and_opportunity
+            + self.wsjf_time_sensitivity)
 
     @property
     def cost_of_delay(self):
@@ -48,7 +48,7 @@ class WSJFCard:
 
     @property
     def intrinsic_cost_of_delay(self):
-        return self.business_value + self.risk_and_opportunity + self.time_sensitivity
+        return self.wsjf_business_value + self.wsjf_risk_and_opportunity + self.wsjf_time_sensitivity
 
     @property
     def inherited_priority(self):
@@ -88,14 +88,14 @@ class WSJFCard:
 @persistence.multiloader_of(WSJFCard, ("ini", "toml", "memory"))
 class IniCardStateLoader:
     def load_wsjf_fields(self, card):
-        card.business_value = float(self._get_our(card, "wsjf_business_value", 0))
-        card.risk_and_opportunity = float(self._get_our(card, "wsjf_risk_and_opportunity", 0))
-        card.time_sensitivity = float(self._get_our(card, "time_sensitivity", 0))
+        card.wsjf_business_value = float(self._get_our(card, "wsjf_business_value"))
+        card.wsjf_risk_and_opportunity = float(self._get_our(card, "wsjf_risk_and_opportunity"))
+        card.wsjf_time_sensitivity = float(self._get_our(card, "wsjf_time_sensitivity"))
 
 
 @persistence.multisaver_of(WSJFCard, ("ini", "toml", "memory"))
 class IniCardStateSaver:
     def save_wsjf_fields(self, card):
-        self._store_our(card, "wsjf_business_value", str(card.business_value))
-        self._store_our(card, "wsjf_risk_and_opportunity", str(card.risk_and_opportunity))
-        self._store_our(card, "time_sensitivity", str(card.time_sensitivity))
+        self._store_our(card, "wsjf_business_value", str(card.wsjf_business_value))
+        self._store_our(card, "wsjf_risk_and_opportunity", str(card.wsjf_risk_and_opportunity))
+        self._store_our(card, "wsjf_time_sensitivity", str(card.wsjf_time_sensitivity))

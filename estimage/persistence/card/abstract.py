@@ -53,14 +53,14 @@ class CardLoader(abstract.Loader):
         return ret
 
     def load_basic_metadata(self, t):
-        t.title = self._get_our(t, "title")
-        t.description = self._get_our(t, "description")
-        t.point_cost = float(self._get_our(t, "point_cost"))
-        t.assignee = self._get_our(t, "assignee")
-        t.priority = float(self._get_our(t, "priority"))
-        t.tier = int(self._get_our(t, "tier"))
+        self.populate_attr(t, "title")
+        self.populate_attr(t, "description")
+        self.populate_attr(t, "point_cost", float)
+        self.populate_attr(t, "assignee")
+        self.populate_attr(t, "priority", float)
+        self.populate_attr(t, "tier", int)
 
-        state_name = self._get_our(t, "state", 0)
+        state_name = self._get_our(t, "state")
         t.status = status.get_canonical_status(state_name)
 
 
