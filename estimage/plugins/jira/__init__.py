@@ -4,7 +4,7 @@ import collections
 import typing
 
 from . import importer
-from ... import data, simpledata
+from ... import data
 
 
 JIRA_PRIORITY_TO_VALUE = {
@@ -54,10 +54,10 @@ class CardSynchronizer:
 class InputSpec:
     token: str
     server_url: str
-    retrospective_query: str
-    projective_query: str
+    retrospective_query: str = ""
+    projective_query: str = ""
     cutoff_date: datetime.date
-    item_class: typing.Type
+    item_class: typing.Type = data.BaseCard
 
     @classmethod
     def from_form_and_app(cls, input_form, app) -> "InputSpec":
@@ -160,20 +160,18 @@ class Importer(importer.BareboneImporter):
         self.projective_query = spec.projective_query
         self.cutoff_date = spec.cutoff_date
 
-    def _execute_search_query(self, query):
-        items = self.jira.search_issues(query, expand="changelog,renderedFields", maxResults=0)
-        return items
+        self._cards_by_id = dict()
+        self._parent_name_to_children_names = dict()
 
-    def _perform_and_process_query(self, query) -> set:
-        results = self._execute_search_query(query)
-        results_by_name = {r.key: r for r in results}
-        self._all_issues_by_name.update(results_by_name)
-        got_names = set(results_by_name.keys())
-        return got_names
+        self._retro_cards = set()
+        self._projective_cards = set()
+
+        self._all_events = []
+        self.extractor_cls = EventExtractor
 
     def _find_children_by_querying_children(self, parent_name, children_attribute="Epic Link", query_template='{children_query}'):
         children_query = f'"{children_attribute}" = {parent_name}'
-        children_names = self._perform_and_process_query(query_template.format(children_query=children_query))
+        children_names = self.perform_and_process_query(query_template.format(children_query=children_query))
         self._parent_name_to_children_names[parent_name] = children_names
         return children_names
 
@@ -233,7 +231,7 @@ class Importer(importer.BareboneImporter):
         return exported_cards_by_id
 
     def _get_and_record_jira_tree(self, query):
-        core_results = self._perform_and_process_query(query)
+        core_results = self.perform_and_process_query(query)
         tree_results = self._expand_primary_query_to_tree(core_results)
         return tree_results
 
@@ -243,7 +241,11 @@ class Importer(importer.BareboneImporter):
         self.resolve_inheritance(new_cards)
         return set(new_cards.keys())
 
-    def import_data(self, extractor_cls=EventExtractor):
+    def extract_events(self, issue, cutoff_date=None):
+        extractor = self.extractor_cls(issue, cutoff_date)
+        return extractor.get_task_events(self)
+
+    def import_data(self):
         if self.retrospective_query:
             self._import_context = "retro"
             self.report("Gathering retro stuff")
@@ -263,8 +265,8 @@ class Importer(importer.BareboneImporter):
         for name in new_cards:
             if name not in self._all_issues_by_name:
                 continue
-            extractor = extractor_cls(self._all_issues_by_name[name], self.cutoff_date)
-            new_events = extractor.get_task_events(self)
+            self.extract_events(self._all_issues_by_name[name], self.cutoff_date)
+            new_events = self.extract_events(self._all_issues_by_name[name], self.cutoff_date)
             self._all_events.extend(new_events)
 
     def resolve_inheritance(self, root_names: typing.Iterable[str]):
