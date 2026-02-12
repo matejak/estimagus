@@ -68,11 +68,14 @@ class EventExtractor(jira.EventExtractor):
 
 
 class InputSpec(jira.InputSpec):
+    def __init__(self):
+        super().__init__()
+        self.server_url = "https://issues.redhat.com"
+
     @classmethod
     def from_form_and_app(cls, input_form, app) -> "InputSpec":
         ret = cls()
         ret.token = input_form.token.data
-        ret.server_url = "https://issues.redhat.com"
         ret.item_class = app.get_final_class("BaseCard")
         ret.set_cutoff_date(input_form)
         ret.set_queries(input_form)

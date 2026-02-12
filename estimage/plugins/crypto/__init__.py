@@ -48,7 +48,7 @@ class InputSpec(redhat_jira.InputSpec):
 
     def set_queries(self, input_form):
         sprint = "openSprints()"
-        query_tpl = "filter = 12350823 AND Sprint in {sprint} AND issuetype in (task, bug, Story) AND labels = Committed"
+        query_tpl = "filter = rhel-security-crypto-spades AND Sprint in {sprint} AND issuetype in (task, bug, Story) AND labels = Committed"
         # query_tpl = "key in (CRYPTO-7890, CRYPTO-9482, CRYPTO-6349) AND issuetype in (task, bug, Story)"
         self.retrospective_query = query_tpl.format(sprint=sprint)
         if input_form.project_next.data:
