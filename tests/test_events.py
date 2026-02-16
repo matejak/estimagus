@@ -5,7 +5,8 @@ import tempfile
 import pytest
 
 import estimage.entities.event as data
-from estimage.persistence.event import memory, ini
+from estimage.entities import status
+import estimage.persistence.event
 
 from tests.test_inidata import temp_filename, get_file_based_io
 
@@ -13,6 +14,7 @@ from tests.test_inidata import temp_filename, get_file_based_io
 ONE_DAY = datetime.timedelta(days=1)
 PERIOD_START = datetime.datetime(2022, 10, 1)
 LONG_PERIOD_END = datetime.datetime(2022, 10, 21)
+Statuses = status.Statuses()
 
 
 @pytest.fixture
@@ -180,3 +182,51 @@ def test_eventmgr_storage_state(event_io, early_event):
     assert mgr_two.get_chronological_task_events_by_type(early_event.task_name) == {"state": [early_event]}
 
 
+def test_cycle_time_noop():
+    assert data.cycle_time([]) == None
+
+
+def create_series_of_status_events(task_name, states, days_between):
+    ret = []
+    days_between = [0] + days_between
+    last_period = PERIOD_START
+    for before, after, days in zip(states[:-1], states[1:], days_between):
+        last_period += days * ONE_DAY
+        evt = data.Event(task_name, "state", last_period)
+        evt.value_before = Statuses.get(before)
+        evt.value_after = Statuses.get(after)
+        ret.append(evt)
+    return ret
+
+
+def test_cycle_time_instant():
+    events = create_series_of_status_events("x", ["todo", "done"], [])
+    assert data.cycle_time(events) == datetime.timedelta(0)
+
+    events = create_series_of_status_events("x", ["todo", "todo", "done"], [5])
+    assert data.cycle_time(events) == datetime.timedelta(0)
+
+
+def test_cycle_time_normal():
+    events = create_series_of_status_events("x", ["todo", "in_progress", "done"], [1])
+    assert data.cycle_time(events) == ONE_DAY
+
+
+def test_cycle_time_complicated():
+    events = create_series_of_status_events("x", ["todo", "in_progress", "todo", "in_progress", "done"], [1, 3, 1])
+    assert data.cycle_time(events) == 2 * ONE_DAY
+
+
+def test_cycle_time_resumed():
+    events = create_series_of_status_events("x", ["todo", "in_progress", "done", "in_progress", "done"], [1, 3, 1])
+    assert data.cycle_time(events) == 2 * ONE_DAY
+
+
+def test_cycle_time_repeated():
+    events = create_series_of_status_events("x", ["todo", "in_progress", "in_progress", "in_progress", "done"], [1, 3, 1])
+    assert data.cycle_time(events) == 5 * ONE_DAY
+
+
+def test_cycle_time_double_finished():
+    events = create_series_of_status_events("x", ["todo", "in_progress", "done", "done"], [1, 3])
+    assert data.cycle_time(events) == 1 * ONE_DAY
