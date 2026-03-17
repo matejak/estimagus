@@ -96,5 +96,3 @@ def get_canonical_status(name_or_index):
         return "irrelevant"
     except ValueError:
         return name_or_index
-
-

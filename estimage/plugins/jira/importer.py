@@ -40,6 +40,7 @@ class JiraWithRetry(JIRA):
         now = datetime.datetime.now()
         time_since_last_request = now - self.last_request_time
         difference_in_seconds = time_since_last_request.total_seconds()
+        wait_for = max(0, self.subsequent_request_time_off - difference_in_seconds)
         time.sleep(difference_in_seconds)
 
     def search_issues(self, * args, ** kwargs):
@@ -55,13 +56,7 @@ class JiraWithRetry(JIRA):
 
 class BareboneImporter:
     def __init__(self, spec):
-        self._cards_by_id = dict()
         self._all_issues_by_name = dict()
-        self._parent_name_to_children_names = dict()
-
-        self._retro_cards = set()
-        self._projective_cards = set()
-        self._all_events = []
 
         try:
             self.jira = JiraWithRetry(spec.server_url, token_auth=spec.token, validate=True)
@@ -70,9 +65,22 @@ class BareboneImporter:
             raise RuntimeError(msg) from exc
 
         self.item_class = spec.item_class
+        self.expand = []
+        self.fields = ["summary"]
 
     def report(self, msg):
         print(msg)
+
+    def _execute_search_query(self, query):
+        items = self.jira.search_issues(query, expand=self.expand, maxResults=0)
+        return items
+
+    def perform_and_process_query(self, query) -> set:
+        results = self._execute_search_query(query)
+        results_by_name = {r.key: r for r in results}
+        self._all_issues_by_name.update(results_by_name)
+        got_names = set(results_by_name.keys())
+        return got_names
 
     def find_card(self, name: str, expand=""):
         card = self.jira.issue(name, expand=expand)
@@ -94,6 +102,16 @@ class BareboneImporter:
             jira_string = item.get_field("status").name
         ret = cls._status_to_state(item, jira_string)
         return ret
+
+    @classmethod
+    def _item_is_closed_done(cls, item, jira_string):
+        resolution = item.get_field("resolution")
+        resolution_text = ""
+        if resolution:
+            resolution_text = resolution.name
+        if jira_string == "Closed" and resolution_text == "Done":
+            return True
+        return False
 
     @classmethod
     def _status_to_state(cls, item, jira_string):

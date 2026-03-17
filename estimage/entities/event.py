@@ -82,3 +82,34 @@ class EventManager:
         self._events.clear()
         with io_cls.get_saver() as saver:
             saver.forget_all()
+
+
+def cycle_time(ordered_events):
+    ret = None
+    if not ordered_events:
+        return ret
+    ret = datetime.timedelta(0)
+    work_started_at = None
+    for evt in ordered_events:
+        work_just_started = work_started_at is None and evt.value_after.wip
+        work_in_progress_stopped = work_started_at is not None and not evt.value_after.wip
+
+        if work_just_started:
+            work_started_at = evt.time
+        elif work_in_progress_stopped:
+            ret += evt.time - work_started_at
+            work_started_at = None
+    return ret
+
+
+def wip_time(ordered_events, time_bound):
+    if not ordered_events:
+        return None
+    ret = cycle_time(ordered_events)
+    last_event = ordered_events[-1]
+    last_event_to_bound = time_bound - last_event.time
+    if last_event.value_after.wip:
+        ret += last_event_to_bound
+        if last_event.value_before.wip:
+            return wip_time(ordered_events[:-1], time_bound)
+    return ret
