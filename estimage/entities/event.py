@@ -100,3 +100,16 @@ def cycle_time(ordered_events):
             ret += evt.time - work_started_at
             work_started_at = None
     return ret
+
+
+def wip_time(ordered_events, time_bound):
+    if not ordered_events:
+        return None
+    ret = cycle_time(ordered_events)
+    last_event = ordered_events[-1]
+    last_event_to_bound = time_bound - last_event.time
+    if last_event.value_after.wip:
+        ret += last_event_to_bound
+        if last_event.value_before.wip:
+            return wip_time(ordered_events[:-1], time_bound)
+    return ret

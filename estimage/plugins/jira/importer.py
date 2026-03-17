@@ -40,6 +40,7 @@ class JiraWithRetry(JIRA):
         now = datetime.datetime.now()
         time_since_last_request = now - self.last_request_time
         difference_in_seconds = time_since_last_request.total_seconds()
+        wait_for = max(0, self.subsequent_request_time_off - difference_in_seconds)
         time.sleep(difference_in_seconds)
 
     def search_issues(self, * args, ** kwargs):
@@ -101,6 +102,16 @@ class BareboneImporter:
             jira_string = item.get_field("status").name
         ret = cls._status_to_state(item, jira_string)
         return ret
+
+    @classmethod
+    def _item_is_closed_done(cls, item, jira_string):
+        resolution = item.get_field("resolution")
+        resolution_text = ""
+        if resolution:
+            resolution_text = resolution.name
+        if jira_string == "Closed" and resolution_text == "Done":
+            return True
+        return False
 
     @classmethod
     def _status_to_state(cls, item, jira_string):

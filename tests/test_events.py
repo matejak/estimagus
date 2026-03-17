@@ -12,6 +12,7 @@ from tests.test_inidata import temp_filename, get_file_based_io
 
 
 ONE_DAY = datetime.timedelta(days=1)
+INSTANT = datetime.timedelta(0)
 PERIOD_START = datetime.datetime(2022, 10, 1)
 LONG_PERIOD_END = datetime.datetime(2022, 10, 21)
 Statuses = status.Statuses()
@@ -186,6 +187,10 @@ def test_cycle_time_noop():
     assert data.cycle_time([]) == None
 
 
+def test_wip_time_noop():
+    assert data.wip_time([], PERIOD_START) == None
+
+
 def create_series_of_status_events(task_name, states, days_between):
     ret = []
     days_between = [0] + days_between
@@ -201,10 +206,10 @@ def create_series_of_status_events(task_name, states, days_between):
 
 def test_cycle_time_instant():
     events = create_series_of_status_events("x", ["todo", "done"], [])
-    assert data.cycle_time(events) == datetime.timedelta(0)
+    assert data.cycle_time(events) == INSTANT
 
     events = create_series_of_status_events("x", ["todo", "todo", "done"], [5])
-    assert data.cycle_time(events) == datetime.timedelta(0)
+    assert data.cycle_time(events) == INSTANT
 
 
 def test_cycle_time_normal():
@@ -230,3 +235,25 @@ def test_cycle_time_repeated():
 def test_cycle_time_double_finished():
     events = create_series_of_status_events("x", ["todo", "in_progress", "done", "done"], [1, 3])
     assert data.cycle_time(events) == 1 * ONE_DAY
+
+
+def test_wip_time_instant():
+    events = create_series_of_status_events("x", ["todo", "done"], [])
+    assert data.wip_time(events, PERIOD_START + ONE_DAY) == INSTANT
+
+
+def test_wip_time_resumed():
+    events = create_series_of_status_events("x", ["todo", "in_progress", "done", "in_progress", "done"], [1, 3, 1])
+    assert data.wip_time(events, PERIOD_START + 10 * ONE_DAY) == 2 * ONE_DAY
+
+
+def test_wip_time_normal():
+    events = create_series_of_status_events("x", ["todo", "in_progress"], [])
+    assert data.wip_time(events, PERIOD_START + ONE_DAY) == ONE_DAY
+
+
+def test_wip_time_normal():
+    events = create_series_of_status_events("x", ["todo", "in_progress", "in_progress"], [1])
+    assert data.wip_time(events, PERIOD_START + 2 * ONE_DAY) == 2 * ONE_DAY
+
+

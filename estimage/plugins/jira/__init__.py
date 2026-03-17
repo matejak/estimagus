@@ -105,10 +105,14 @@ class EventExtractor:
         self.importer = importer.BareboneImporter
 
     def get_histories(self):
-        return [
+        if not hasattr(self.task, "changelog"):
+            self.task = self.importer.jira.issue(self.task.key, expand='changelog', fields='issuekey,summary')
+        histories = [
             history for history in self.task.changelog.histories
-            if jira_datetime_to_datetime(history.created) >= self.cutoff_datetime
         ]
+        if self.cutoff_datetime is not None:
+            histories = [h for h in histories if jira_datetime_to_datetime(h.created) >= self.cutoff_datetime]
+        return histories
 
     def _field_to_event(self, date, field_name, former_value, new_value):
         evt = None
@@ -284,16 +288,6 @@ class Importer(importer.BareboneImporter):
             child = self._cards_by_id[child_name]
             self.inherit_attributes(item, child)
             self.resolve_inheritance_of_attributes(child_name)
-
-    @classmethod
-    def _item_is_closed_done(cls, item, jira_string):
-        resolution = item.get_field("resolution")
-        resolution_text = ""
-        if resolution:
-            resolution_text = resolution.name
-        if jira_string == "Closed" and resolution_text == "Done":
-            return True
-        return False
 
     def merge_jira_item_without_children(self, item):
         result = self.item_class(item.key)
