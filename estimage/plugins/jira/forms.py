@@ -4,6 +4,7 @@ import textwrap
 
 import cryptography.fernet
 import flask
+import flask_login
 import wtforms
 
 from ..base.forms import BaseForm
@@ -31,6 +32,7 @@ def encrypt_stuff(what):
 
 
 class EncryptedTokenForm(BaseForm):
+    email = wtforms.EmailField('email')
     token = wtforms.PasswordField('Token')
     store_token = wtforms.BooleanField('Store token locally for later', default=True)
     encrypted_token = wtforms.HiddenField('Encrypted Token')
@@ -39,6 +41,16 @@ class EncryptedTokenForm(BaseForm):
         super().__init__(** kwargs)
         self.extending_fields.append(self.token)
         self.extending_fields.append(self.store_token)
+        self._record_email()
+
+    def _record_email(self):
+        user = flask_login.current_user
+        if not user:
+            return
+        if user.domain:
+            self.email.data = "@".join((user.uid, user.domain))
+        elif "@" in user.uid:
+            self.email.data = user.uid
 
     def validate_on_submit(self):
         ret = super().validate_on_submit()

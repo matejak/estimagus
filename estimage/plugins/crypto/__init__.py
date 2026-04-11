@@ -12,6 +12,8 @@ from ...webapp import web_utils
 from .forms import CryptoForm
 from ..jira.forms import AuthoritativeForm, ProblemForm
 
+from ... import utilities
+
 
 Statuses = redhat_jira.Statuses
 MPLPointPlot = redhat_jira.MPLPointPlot
@@ -48,7 +50,7 @@ class InputSpec(redhat_jira.InputSpec):
 
     def set_queries(self, input_form):
         sprint = "openSprints()"
-        query_tpl = "filter = rhel-security-crypto AND Sprint in {sprint} AND issuetype in (task, bug, Story) AND labels = Committed"
+        query_tpl = "filter = rhel-security-crypto AND Sprint in {sprint} AND issuetype in (task, bug, Story)"
         # query_tpl = "key in (CRYPTO-7890, CRYPTO-9482, CRYPTO-6349) AND issuetype in (task, bug, Story)"
         self.retrospective_query = query_tpl.format(sprint=sprint)
         if input_form.project_next.data:
@@ -56,7 +58,11 @@ class InputSpec(redhat_jira.InputSpec):
         self.projective_query = query_tpl.format(sprint=sprint)
 
 
-class CryptoImporter(redhat_jira.Importer):
+class CryptoImporter(redhat_jira.Importer, jira.importer.RuntimeFieldMapper):
+    def __init__(self, spec):
+        super().__init__(spec)
+        self.fields.extend(["issuetype"])
+
     def _parent_has_only_unestimated_children(self, pname):
         children = self._cards_by_id[pname].children
         rolling_sum = 0
@@ -86,6 +92,7 @@ class CryptoImporter(redhat_jira.Importer):
     def _query_children_to_get_children(self, parent_name, query_order):
         return False
 
+    @utilities.profile
     def import_data(self):
         super().import_data()
         self.distribute_subtasks_points_to_tasks()
@@ -97,16 +104,15 @@ class CryptoImporter(redhat_jira.Importer):
         result.point_cost = self._get_points_of(item)
         return result
 
-    @classmethod
-    def _accepted(cls, jira_string, item):
-        resolution = item.get_field("resolution")
+    def _accepted(self, jira_string, item):
+        resolution = self._get_contents_of_field(item, "resolution")
         resolution_text = ""
         if resolution:
             resolution_text = resolution.name
         if jira_string == "Closed":
-            if "Accepted" in item.get_field("labels"):
+            if "Accepted" in self._get_contents_of_field(item, "labels", frozenset()):
                 return "Done"
-            elif resolution_text == "Done" and item.get_field("issuetype").name == "Sub-task":
+            elif resolution_text == "Done" and self._get_contents_of_field(item, "issuetype").name == "Sub-task":
                 return "Done"
             elif resolution_text == "Done":
                 return "Review"
@@ -114,15 +120,14 @@ class CryptoImporter(redhat_jira.Importer):
                 jira_string = "not_done_therefore_irrelevant"
         return jira_string
 
-    @classmethod
-    def _status_to_state(cls, item, jira_string):
+    def _status_to_state(self, item, jira_string):
         item_name = item.key
 
         if item_name.startswith(PROJECT_NAME + "-"):
-            jira_string = cls._accepted(jira_string, item)
+            jira_string = self._accepted(jira_string, item)
             return super()._status_to_state(item, jira_string)
         else:
-            jira_string = cls._accepted(jira_string, item)
+            jira_string = self._accepted(jira_string, item)
             return super()._status_to_state(item, jira_string)
 
 
@@ -168,8 +173,8 @@ class ArtificialCryptoImporter(CryptoImporter):
 
 
 class FeatureCryptoImporter(CryptoImporter):
-    EPIC_LINK = "customfield_12311140"
-    PARENT_LINK = "customfield_12313140"
+    EPIC_LINK = "Parent"
+    PARENT_LINK = "Parent"
     OTHER_FEATURE_NAME = "RHELBU-others"
     OTHER_EPIC_NAME = "CRYPTO-others"
 

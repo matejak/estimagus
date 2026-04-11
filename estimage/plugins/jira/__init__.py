@@ -53,6 +53,7 @@ class CardSynchronizer:
 @dataclasses.dataclass(init=False)
 class InputSpec:
     token: str
+    email: str = ""
     server_url: str
     retrospective_query: str = ""
     projective_query: str = ""
@@ -63,10 +64,12 @@ class InputSpec:
     def from_form_and_app(cls, input_form, app) -> "InputSpec":
         ret = cls()
         ret.token = input_form.token.data
-        ret.server_url = input_form.server.data
+        if not ret.server_url:
+            ret.server_url = input_form.server.data
         ret.item_class = app.get_final_class("BaseCard")
-        cls.set_cutoff_date(input_form)
-        cls.set_queries(input_form)
+        ret.email = input_form.email.data
+        ret.set_cutoff_date(input_form)
+        ret.set_queries(input_form)
         return ret
 
     def set_cutoff_date(self, input_form):
@@ -173,7 +176,11 @@ class Importer(importer.BareboneImporter):
         self._all_events = []
         self.extractor_cls = EventExtractor
 
-    def _find_children_by_querying_children(self, parent_name, children_attribute="Epic Link", query_template='{children_query}'):
+        self.fields.extend([
+            "description", "subtasks", "priority", "labels", "assignee",
+        ])
+
+    def _find_children_by_querying_children(self, parent_name, children_attribute="Parent", query_template='{children_query}'):
         children_query = f'"{children_attribute}" = {parent_name}'
         children_names = self.perform_and_process_query(query_template.format(children_query=children_query))
         self._parent_name_to_children_names[parent_name] = children_names
@@ -181,10 +188,10 @@ class Importer(importer.BareboneImporter):
 
     def _find_children_by_examining_parent(self, parent_name, children_field_name="subtasks"):
         parent = self._all_issues_by_name[parent_name]
-        children = parent.get_field(children_field_name)
+        children = self._get_contents_of_field(parent, children_field_name, frozenset())
         child_names = set()
         for c in children:
-            c = self.jira.issue(c.key, expand="changelog,renderedFields")
+            c = self.jira.issue(c.key, fields=self.fields, expand="changelog,renderedFields")
             child_names.add(c.key)
             self._all_issues_by_name[c.key] = c
         self._parent_name_to_children_names[parent.key] = child_names
@@ -236,6 +243,7 @@ class Importer(importer.BareboneImporter):
 
     def _get_and_record_jira_tree(self, query):
         core_results = self.perform_and_process_query(query)
+        self.report(f"Query '{query}': {core_results}")
         tree_results = self._expand_primary_query_to_tree(core_results)
         return tree_results
 
@@ -249,7 +257,9 @@ class Importer(importer.BareboneImporter):
         extractor = self.extractor_cls(issue, cutoff_date)
         return extractor.get_task_events(self)
 
-    def import_data(self):
+    def import_data(self, extractor_cls=None):
+        if extractor_cls:
+            self.extractor_cls = extractor_cls
         if self.retrospective_query:
             self._import_context = "retro"
             self.report("Gathering retro stuff")
@@ -293,10 +303,10 @@ class Importer(importer.BareboneImporter):
         result = self.item_class(item.key)
         result.uri = item.permalink()
         result.loading_plugin = "jira"
-        result.title = item.get_field("summary") or ""
+        result.title = self._get_contents_of_field(item, "summary") or ""
         result.description = self._get_contents_of_rendered_field(item, "description")
         result.status = self.status_to_state(item)
-        priority = item.get_field("priority")
+        priority = self._get_contents_of_field(item, "priority")
         if not priority:
             result.priority = 0
         else:

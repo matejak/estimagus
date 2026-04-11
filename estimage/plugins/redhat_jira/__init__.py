@@ -68,25 +68,26 @@ class EventExtractor(jira.EventExtractor):
 
 
 class InputSpec(jira.InputSpec):
+    REDHAT_JIRA_URL = "https://redhat.atlassian.net"
+
     def __init__(self):
         super().__init__()
-        self.server_url = "https://issues.redhat.com"
+        self.server_url = self.REDHAT_JIRA_URL
 
     @classmethod
     def from_form_and_app(cls, input_form, app) -> "InputSpec":
-        ret = cls()
-        ret.token = input_form.token.data
-        ret.item_class = app.get_final_class("BaseCard")
-        ret.set_cutoff_date(input_form)
-        ret.set_queries(input_form)
+        ret = super().from_form_and_app(input_form, app)
         return ret
 
 
 class SyncImporter(jira.importer.BareboneImporter):
-    STORY_POINTS = "customfield_12310243"
+    STORY_POINTS = "Story Points"
     def __init__(self, * args, ** kwargs):
         super().__init__(* args, ** kwargs)
-        self.subsequent_request_time_off = 2
+        self.subsequent_request_time_off = 0
+        self.fields.extend([
+            self.look_up_field_id("Story Points"),
+        ])
 
     def _get_points_of(self, item):
         ret = self._get_contents_of_field(item, self.STORY_POINTS, 0)
@@ -108,14 +109,18 @@ class SyncImporter(jira.importer.BareboneImporter):
 
 
 class Importer(jira.Importer, SyncImporter):
-    EPIC_LINK = "customfield_12311140"
-    CONTRIBUTORS = "customfield_12315950"
-    WORK_START = "customfield_12313941"
-    WORK_END = "customfield_12313942"
+    CONTRIBUTORS = "Contributors"
+    WORK_START = "Target start"
+    WORK_END = "Target end"
 
-    @classmethod
-    def _status_to_state(cls, item, jira_string):
-        if cls._item_is_closed_done(item, jira_string):
+    def __init__(self, spec):
+        super().__init__(spec)
+        self.fields.extend([
+            self.look_up_field_id(self.WORK_START), self.look_up_field_id(self.WORK_END),
+        ])
+
+    def _status_to_state(self, item, jira_string):
+        if self._item_is_closed_done(item, jira_string):
             return "done"
 
         item_name = item.key
@@ -144,16 +149,16 @@ class Importer(jira.Importer, SyncImporter):
         result.collaborators = []
         try:
             result.collaborators += [
-                jira.get_name_from_person_field(c) for c in item.get_field(self.CONTRIBUTORS) or []]
+                jira.get_name_from_person_field(c) for c in self._get_contents_of_field(item, self.CONTRIBUTORS) or []]
         except AttributeError:
             pass
 
     def _record_work_span(self, result, item):
         work_span = [None, None]
-        if work_end := item.get_field(self.WORK_END):
+        if work_end := self._get_contents_of_field(item, self.WORK_END):
             work_span[-1] = jira.jira_date_to_datetime(work_end)
 
-        if work_start := item.get_field(self.WORK_START):
+        if work_start := self._get_contents_of_field(item, self.WORK_START):
             work_span[0] = jira.jira_date_to_datetime(work_start)
 
         if work_span[0] or work_span[-1]:
@@ -188,8 +193,7 @@ def apply_some_events_into_issues(issues_by_name, all_events):
 
 
 class ImporterWithStatus(Importer):
-    STATUS_SUMMARY_OLD = "customfield_12317299"
-    STATUS_SUMMARY_NEW = "customfield_12320841"
+    STATUS_SUMMARY_NEW = "Status Summary"
 
     def save(self, ios_by_target):
         apply_some_events_into_issues(self._cards_by_id, self._all_events)
@@ -250,7 +254,7 @@ class CardSynchronizer(jira.CardSynchronizer):
     @classmethod
     def from_form(cls, form):
         kwargs = dict()
-        kwargs["server_url"] = "https://issues.redhat.com"
+        kwargs["server_url"] = InputSpec.REDHAT_JIRA_URL
         kwargs["token"] = form.token.data
         kwargs["importer_cls"] = SyncImporter
         return cls(** kwargs)

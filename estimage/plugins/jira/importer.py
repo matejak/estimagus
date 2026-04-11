@@ -1,5 +1,7 @@
-import time
+import collections
 import datetime
+import re
+import time
 
 from jira import JIRA, exceptions
 
@@ -54,12 +56,16 @@ class JiraWithRetry(JIRA):
         return jira_retry(super().issue, * args, ** kwargs)
 
 
-class BareboneImporter:
+class JiraWrapper:
     def __init__(self, spec):
+        self.field_ids_map = dict()
         self._all_issues_by_name = dict()
+        auth_kwargs = dict(token_auth=spec.token)
+        if self._instance_is_cloud_hosted(spec.server_url) and spec.email:
+            auth_kwargs = dict(basic_auth=(spec.email, spec.token))
 
         try:
-            self.jira = JiraWithRetry(spec.server_url, token_auth=spec.token, validate=True)
+            self.jira = JiraWithRetry(spec.server_url, ** auth_kwargs, validate=True)
         except exceptions.JIRAError as exc:
             msg = f"Error establishing a Jira session: {exc.text}"
             raise RuntimeError(msg) from exc
@@ -67,12 +73,51 @@ class BareboneImporter:
         self.item_class = spec.item_class
         self.expand = []
         self.fields = ["summary"]
+        self.construct_field_mapping()
+
+    @staticmethod
+    def _instance_is_cloud_hosted(url):
+        slashless_url = url.rstrip("/")
+        return slashless_url.endswith(".atlassian.net")
+
+    def construct_field_mapping(self):
+        pass
+
+
+class RuntimeFieldMapper(JiraWrapper):
+    def construct_field_mapping(self):
+        super().construct_field_mapping()
+        field_map = collections.defaultdict(list)
+
+        all_fields = self.jira.fields()
+        for field in all_fields:
+            field_map[field["name"]].append(field["id"])
+
+        self.field_ids_map.update(field_map)
+
+
+class BareboneImporter(JiraWrapper):
+    def __init__(self, spec):
+        super().__init__(spec)
+        self.fields.extend([
+            "status", "resolution",
+        ])
+
+    def look_up_field_id(self, name):
+        entries = self.field_ids_map.get(name)
+        if entries is None:
+            msg = f"Unknown field '{name}' in Jira"
+            raise ValueError(msg)
+        if len(entries) > 1:
+            msg = f"Ambiguous field {name} in Jira - Resolves to: {entries}"
+            RuntimeWarning(msg)
+        return self.field_ids_map.get(name)[0]
 
     def report(self, msg):
         print(msg)
 
     def _execute_search_query(self, query):
-        items = self.jira.search_issues(query, expand=self.expand, maxResults=0)
+        items = self.jira.search_issues(query, fields=self.fields, expand=self.expand, maxResults=0)
         return items
 
     def perform_and_process_query(self, query) -> set:
@@ -96,16 +141,16 @@ class BareboneImporter:
         self._all_issues_by_name[name] = issue
         return issue
 
-    @classmethod
-    def status_to_state(cls, item, jira_string=""):
+    def status_to_state(self, item, jira_string=""):
         if not jira_string:
-            jira_string = item.get_field("status").name
-        ret = cls._status_to_state(item, jira_string)
+            jira_string = self._get_contents_of_field(item, "status").name
+        ret = self._status_to_state(item, jira_string)
         return ret
 
-    @classmethod
-    def _item_is_closed_done(cls, item, jira_string):
-        resolution = item.get_field("resolution")
+    def _item_is_closed_done(self, item, jira_string):
+        resolution = None
+        if hasattr(item.fields, "resolution"):
+            resolution = self._get_contents_of_field(item, "resolution", "")
         resolution_text = ""
         if resolution:
             resolution_text = resolution.name
@@ -113,27 +158,37 @@ class BareboneImporter:
             return True
         return False
 
-    @classmethod
-    def _status_to_state(cls, item, jira_string):
-        if cls._item_is_closed_done(item, jira_string):
+    def _status_to_state(self, item, jira_string):
+        if self._item_is_closed_done(item, jira_string):
             jira_string = "Done"
         return JIRA_STATUS_TO_STATE.get(jira_string, "irrelevant")
 
-    @classmethod
-    def _get_contents_of_rendered_field(cls, item, field_name):
-        ret = cls._get_contents_of_field(item, field_name, "")
+    def _get_contents_of_rendered_field(self, item, field_name):
+        ret = self._get_field_attribute(item.fields, field_name, "")
         try:
-            ret = getattr(item.renderedFields, field_name)
+            ret_rendered = self._get_field_attribute(item.renderedFields, field_name, "")
+            if ret_rendered:
+                ret = ret_rendered
         except AttributeError:
             pass
         ret = ret.replace("\r", "")
         return ret
 
-    @classmethod
-    def _get_contents_of_field(cls, item, field_name, default_value=None):
+    def _get_field_attribute(self, fields, field_name, default_value):
+        field_name_is_id = field_name in self.fields
+        field_name_is_id |= hasattr(fields, field_name)
+        if field_name_is_id:
+            field_id = field_name
+        else:
+            field_id = self.look_up_field_id(field_name)
         ret = default_value
         try:
-            ret = item.get_field(field_name) or default_value
+            ret = getattr(fields, field_id)
+            if ret is None:
+                ret = default_value
         except AttributeError:
             pass
         return ret
+
+    def _get_contents_of_field(self, item, field_name, default_value=None):
+        return self._get_field_attribute(item.fields, field_name, default_value)

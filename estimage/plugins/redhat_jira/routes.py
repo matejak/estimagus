@@ -4,6 +4,7 @@ import flask_login
 from ...webapp import web_utils
 from . import forms
 from .. import redhat_jira, jira
+from ..jira import routes
 
 
 bp = flask.Blueprint("redhat_jira", __name__, template_folder="templates")
